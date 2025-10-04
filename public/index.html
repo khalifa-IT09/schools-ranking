@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classement des Écoles - Mauritanie</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="flag-container left">
+                    <img src="drapo_RIM.jpg" alt="Logo Mauritanie" class="mauritania-flag">
+                </div>
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h1>Classement des Écoles - Mauritanie</h1>
+                </div>
+                <div class="flag-container right">
+                    <img src="drapo_RIM.jpg" alt="Logo Mauritanie" class="mauritania-flag">
+                </div>
+            </div>
+            <p class="subtitle">Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-level="primary">
+                <i class="fas fa-child"></i>
+                Écoles Primaires (CAS)
+            </button>
+            <button class="nav-tab" data-level="middle">
+                <i class="fas fa-user-graduate"></i>
+                Collèges (Brevet)
+            </button>
+            <button class="nav-tab" data-level="secondary">
+                <i class="fas fa-university"></i>
+                Lycées (Baccalauréat)
+            </button>
+        </nav>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Rechercher une école...">
+                </div>
+            </div>
+            <div class="filter-container">
+                <select id="regionFilter">
+                    <option value="all">Toutes les régions</option>
+                </select>
+                <button id="refreshBtn" class="btn-refresh">
+                    <i class="fas fa-sync-alt"></i>
+                    Actualiser
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-container" id="statsContainer">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-school"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalSchools">-</div>
+                    <div class="stat-label">Écoles</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalStudents">-</div>
+                    <div class="stat-label">Élèves</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="successRate">-</div>
+                    <div class="stat-label">Taux de Réussite</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="averageScore">-</div>
+                    <div class="stat-label">Moyenne Générale</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Chargement des données...</p>
+        </div>
+
+        <!-- Results -->
+        <div class="results-container" id="resultsContainer">
+            <div class="results-header">
+                <h2 id="resultsTitle">Classement des Écoles</h2>
+                <div class="results-count" id="resultsCount"></div>
+            </div>
+            <div class="schools-grid" id="schoolsGrid">
+                <!-- Schools will be populated here -->
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <!-- Pagination will be populated here -->
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2025 Classement des Écoles - République Islamique de Mauritanie 🇲🇷</p>
+                <p class="footer-subtitle">Données officielles du Ministère de l'Éducation Nationale et de la Formation Professionnelle</p>
+                <div class="footer-links">
+                    <a href="#" onclick="showAbout()">À propos</a>
+                    <a href="#" onclick="showHelp()">Aide</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- School Detail Modal -->
+    <div class="modal" id="schoolModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Détails de l'École</h3>
+                <button class="close" onclick="closeModal(); return false;" title="Fermer" type="button">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- School details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal" id="aboutModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>À propos de cette application</h3>
+                <button class="close" onclick="closeAboutModal(); return false;" title="Fermer" type="button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.</p>
+                <h4>Niveaux d'éducation couverts :</h4>
+                <ul>
+                    <li><strong>Écoles Primaires (CAS)</strong> : Résultats du Certificat d'Aptitude Scolaire</li>
+                    <li><strong>Collèges (Brevet)</strong> : Résultats du Brevet d'Études du Premier Cycle</li>
+                    <li><strong>Lycées (Baccalauréat)</strong> : Résultats du Baccalauréat</li>
+                </ul>
+                <h4>Critères de classement :</h4>
+                <ul>
+                    <li>Taux de réussite (40%)</li>
+                    <li>Moyenne générale des scores (60%)</li>
+                </ul>
+                <p><em>Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
