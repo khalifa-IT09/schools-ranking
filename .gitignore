@@ -118,3 +118,6 @@ temp/
 !RESU_CAS_2025.csv
 !RESU_BREVET_2025.csv
 !RESU_BAC_2025.csv
+
+# Exclude nested git repositories
+Shools-Ranking/
