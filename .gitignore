@@ -121,3 +121,7 @@ temp/
 
 # Exclude nested git repositories
 Shools-Ranking/
+
+# Render Pro specific
+.env.local
+.env.production

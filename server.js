@@ -6,10 +6,17 @@ const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
 const csv = require('csv-parser');
+const analytics = require('./analytics');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Render Pro configuration
+if (process.env.NODE_ENV === 'production') {
+  console.log('🚀 Running in production mode on Render Pro');
+  console.log('✅ No sleep mode - Always available 24/7');
+}
 
 // Middleware
 app.use(helmet({
@@ -27,6 +34,12 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Analytics middleware
+app.use((req, res, next) => {
+  analytics.trackVisit(req);
+  next();
+});
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -36,6 +49,16 @@ let schoolData = {
   middle: [],
   secondary: []
 };
+
+// Cache for pre-calculated rankings
+let rankingsCache = {
+  primary: null,
+  middle: null,
+  secondary: null
+};
+
+let lastDataUpdate = null;
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Data processing functions
 async function processExcelFile(filePath, level) {
@@ -67,48 +90,107 @@ function processCSVFile(filePath, level) {
   return new Promise((resolve, reject) => {
     console.log(`Processing CSV file: ${filePath} for ${level} level`);
     const results = [];
-    fs.createReadStream(filePath, { encoding: 'utf8' })
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
+    
+    try {
+      fs.createReadStream(filePath, { 
+        encoding: 'utf8',
+        highWaterMark: 64 * 1024 // 64KB buffer
+      })
+      .pipe(csv({
+        separator: ',',
+        quote: '"',
+        escape: '"',
+        headers: true,
+        skipEmptyLines: true
+      }))
+      .on('data', (data) => {
+        // Clean the data
+        const cleanData = {};
+        for (const [key, value] of Object.entries(data)) {
+          if (value !== null && value !== undefined && value !== '') {
+            cleanData[key.trim()] = value.toString().trim();
+          }
+        }
+        if (Object.keys(cleanData).length > 0) {
+          results.push(cleanData);
+        }
+      })
       .on('end', () => {
-        console.log(`Processed ${results.length} records for ${level} level`);
+        console.log(`✅ Processed ${results.length} records for ${level} level`);
         if (results.length > 0) {
           console.log(`Sample record keys:`, Object.keys(results[0]));
-          console.log(`Sample record:`, results[0]);
         }
         resolve(results);
       })
-      .on('error', reject);
+      .on('error', (error) => {
+        console.error(`❌ Error processing CSV file ${filePath}:`, error);
+        reject(error);
+      });
+    } catch (error) {
+      console.error(`❌ Error creating read stream for ${filePath}:`, error);
+      reject(error);
+    }
   });
 }
 
-// Load data on startup
+// Load data on startup with simplified logic
 async function loadData() {
   try {
-    console.log('Loading school data...');
-    
+    console.log('📊 Loading school data...');
+
+    // Check if cache is still valid
+    if (lastDataUpdate && (Date.now() - lastDataUpdate) < CACHE_DURATION) {
+      console.log('✅ Using cached data...');
+      return { success: true, fromCache: true };
+    }
+
     // Load primary schools (CAS)
     if (fs.existsSync('RESU_CAS_2025.csv')) {
+      console.log('📊 Loading primary schools data...');
       schoolData.primary = await processCSVFile('RESU_CAS_2025.csv', 'primary');
+      console.log(`✅ Primary schools loaded: ${schoolData.primary.length} records`);
+    } else {
+      console.warn('⚠️ RESU_CAS_2025.csv not found');
+      schoolData.primary = [];
     }
-    
+
     // Load middle schools (BREVET)
     if (fs.existsSync('RESU_BREVET_2025.csv')) {
+      console.log('📊 Loading middle schools data...');
       schoolData.middle = await processCSVFile('RESU_BREVET_2025.csv', 'middle');
+      console.log(`✅ Middle schools loaded: ${schoolData.middle.length} records`);
+    } else {
+      console.warn('⚠️ RESU_BREVET_2025.csv not found');
+      schoolData.middle = [];
     }
-    
+
     // Load secondary schools (BAC)
     if (fs.existsSync('RESU_BAC_2025.csv')) {
+      console.log('📊 Loading secondary schools data...');
       schoolData.secondary = await processCSVFile('RESU_BAC_2025.csv', 'secondary');
+      console.log(`✅ Secondary schools loaded: ${schoolData.secondary.length} records`);
+    } else {
+      console.warn('⚠️ RESU_BAC_2025.csv not found');
+      schoolData.secondary = [];
     }
-    
-    console.log('Data loading completed');
-    console.log(`Primary schools: ${schoolData.primary.length}`);
-    console.log(`Middle schools: ${schoolData.middle.length}`);
-    console.log(`Secondary schools: ${schoolData.secondary.length}`);
-    
+
+    // Pre-calculate rankings for all levels
+    console.log('🏆 Pre-calculating rankings...');
+    rankingsCache.primary = calculateSchoolRanking(schoolData.primary, 'primary');
+    rankingsCache.middle = calculateSchoolRanking(schoolData.middle, 'middle');
+    rankingsCache.secondary = calculateSchoolRanking(schoolData.secondary, 'secondary');
+
+    lastDataUpdate = Date.now();
+    console.log('✅ Data loading completed successfully');
+    console.log(`📊 Primary schools: ${schoolData.primary.length}`);
+    console.log(`📊 Middle schools: ${schoolData.middle.length}`);
+    console.log(`📊 Secondary schools: ${schoolData.secondary.length}`);
+
+    return { success: true, fromCache: false };
+
   } catch (error) {
-    console.error('Error loading data:', error);
+    console.error('❌ Error loading data:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -354,15 +436,68 @@ function getPassedStatus(record, level) {
 
 // API Routes
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  const healthStatus = {
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    dataLoaded: {
-      primary: schoolData.primary.length,
-      middle: schoolData.middle.length,
-      secondary: schoolData.secondary.length
+    uptime: process.uptime(),
+    dataLoaded: lastDataUpdate ? true : false,
+    dataStatus: {
+      primary: {
+        loaded: schoolData.primary.length > 0,
+        count: schoolData.primary.length,
+        rankings: rankingsCache.primary ? rankingsCache.primary.length : 0
+      },
+      middle: {
+        loaded: schoolData.middle.length > 0,
+        count: schoolData.middle.length,
+        rankings: rankingsCache.middle ? rankingsCache.middle.length : 0
+      },
+      secondary: {
+        loaded: schoolData.secondary.length > 0,
+        count: schoolData.secondary.length,
+        rankings: rankingsCache.secondary ? rankingsCache.secondary.length : 0
+      }
+    },
+    cacheStatus: {
+      lastUpdate: lastDataUpdate ? new Date(lastDataUpdate).toISOString() : null,
+      cacheAge: lastDataUpdate ? Date.now() - lastDataUpdate : null,
+      cacheValid: lastDataUpdate && (Date.now() - lastDataUpdate) < CACHE_DURATION
     }
-  });
+  };
+
+  // Determine overall health
+  const allDataLoaded = healthStatus.dataStatus.primary.loaded && 
+                       healthStatus.dataStatus.middle.loaded && 
+                       healthStatus.dataStatus.secondary.loaded;
+  
+  healthStatus.overallHealth = allDataLoaded ? 'HEALTHY' : 'DEGRADED';
+  
+  if (!allDataLoaded) {
+    healthStatus.status = 'DEGRADED';
+    healthStatus.message = 'Some data is not loaded';
+  }
+
+  res.json(healthStatus);
+});
+
+// Data loading status endpoint
+app.get('/api/status', (req, res) => {
+  const status = {
+    dataLoading: {
+      primary: schoolData.primary.length > 0,
+      middle: schoolData.middle.length > 0,
+      secondary: schoolData.secondary.length > 0
+    },
+    rankingsReady: {
+      primary: rankingsCache.primary && rankingsCache.primary.length > 0,
+      middle: rankingsCache.middle && rankingsCache.middle.length > 0,
+      secondary: rankingsCache.secondary && rankingsCache.secondary.length > 0
+    },
+    lastUpdate: lastDataUpdate ? new Date(lastDataUpdate).toISOString() : null,
+    ready: lastDataUpdate && rankingsCache.primary && rankingsCache.middle && rankingsCache.secondary
+  };
+  
+  res.json(status);
 });
 
 app.get('/api/schools/:level', (req, res) => {
@@ -370,60 +505,75 @@ app.get('/api/schools/:level', (req, res) => {
   const { region, limit = 50, offset = 0 } = req.query;
   
   console.log(`API Request: /api/schools/${level} - region: ${region}, limit: ${limit}, offset: ${offset}`);
-  
+
   if (!['primary', 'middle', 'secondary'].includes(level)) {
     return res.status(400).json({ error: 'Invalid level. Must be primary, middle, or secondary' });
   }
-  
-  const data = schoolData[level];
-  console.log(`Data for ${level}: ${data ? data.length : 0} records`);
-  
-  if (!data || data.length === 0) {
-    return res.json({ 
-      schools: [], 
-      total: 0, 
-      message: `No data available for ${level} level`,
-      debug: {
-        level,
-        dataLength: data ? data.length : 0,
-        availableLevels: Object.keys(schoolData)
+
+  try {
+    // Track level selection
+    const country = req.get('CF-IPCountry') || req.get('X-Country-Code') || 'Unknown';
+    analytics.trackLevelSelection(level, country);
+
+    // Check if data is available
+    const data = schoolData[level];
+    if (!data || data.length === 0) {
+      console.log(`No data available for ${level} level`);
+      return res.json({
+        schools: [],
+        total: 0,
+        message: `No data available for ${level} level`,
+        loading: true
+      });
+    }
+
+    // Use cached rankings if available, otherwise calculate
+    let rankings = rankingsCache[level];
+    if (!rankings || rankings.length === 0) {
+      console.log(`Calculating rankings for ${level}...`);
+      rankings = calculateSchoolRanking(data, level);
+      rankingsCache[level] = rankings;
+    }
+
+    let filteredRankings = rankings;
+
+    // Filter by region if specified
+    if (region && region !== 'all') {
+      const beforeFilter = filteredRankings.length;
+      filteredRankings = filteredRankings.filter(school =>
+        school.region.toLowerCase().includes(region.toLowerCase())
+      );
+      console.log(`Filtered by region '${region}': ${beforeFilter} -> ${filteredRankings.length} schools`);
+
+      // Track region selection
+      analytics.trackRegionSelection(region, country);
+    }
+
+    // Apply pagination
+    const total = filteredRankings.length;
+    const paginatedRankings = filteredRankings.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
+    console.log(`Returning ${paginatedRankings.length} schools (${offset}-${parseInt(offset) + parseInt(limit)})`);
+
+    res.json({
+      schools: paginatedRankings,
+      total,
+      level,
+      region: region || 'all',
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: parseInt(offset) + parseInt(limit) < total
       }
     });
+
+  } catch (error) {
+    console.error(`Error fetching schools for ${level}:`, error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement des données'
+    });
   }
-  
-  let rankings = calculateSchoolRanking(data, level);
-  console.log(`Generated ${rankings.length} rankings for ${level}`);
-  
-  // Filter by region if specified
-  if (region && region !== 'all') {
-    const beforeFilter = rankings.length;
-    rankings = rankings.filter(school => 
-      school.region.toLowerCase().includes(region.toLowerCase())
-    );
-    console.log(`Filtered by region '${region}': ${beforeFilter} -> ${rankings.length} schools`);
-  }
-  
-  // Apply pagination
-  const total = rankings.length;
-  const paginatedRankings = rankings.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
-  
-  console.log(`Returning ${paginatedRankings.length} schools (${offset}-${parseInt(offset) + parseInt(limit)})`);
-  
-  res.json({
-    schools: paginatedRankings,
-    total,
-    level,
-    region: region || 'all',
-    pagination: {
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      hasMore: parseInt(offset) + parseInt(limit) < total
-    },
-    debug: {
-      totalRankings: rankings.length,
-      dataRecords: data.length
-    }
-  });
 });
 
 app.get('/api/schools/:level/search', (req, res) => {
@@ -432,6 +582,12 @@ app.get('/api/schools/:level/search', (req, res) => {
   
   if (!['primary', 'middle', 'secondary'].includes(level)) {
     return res.status(400).json({ error: 'Invalid level' });
+  }
+  
+  // Track search query
+  if (q) {
+    const country = req.get('CF-IPCountry') || req.get('X-Country-Code') || 'Unknown';
+    analytics.trackSearchQuery(q, country);
   }
   
   const data = schoolData[level];
@@ -525,9 +681,109 @@ app.get('/api/stats/:level', (req, res) => {
   });
 });
 
+// Analytics endpoint for admin
+app.get('/api/analytics', (req, res) => {
+  try {
+    const analyticsSummary = analytics.getAnalyticsSummary();
+    res.json({
+      success: true,
+      analytics: analyticsSummary,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics data' });
+  }
+});
+
+// Comprehensive analytics endpoint
+app.get('/api/analytics/comprehensive', (req, res) => {
+  try {
+    const stats = analytics.getComprehensiveStats();
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching comprehensive analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch comprehensive analytics' });
+  }
+});
+
+// Country statistics endpoint
+app.get('/api/analytics/countries', (req, res) => {
+  try {
+    const countryStats = analytics.getCountryStats();
+    res.json({
+      success: true,
+      countries: countryStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching country stats:', error);
+    res.status(500).json({ error: 'Failed to fetch country statistics' });
+  }
+});
+
+// Device statistics endpoint
+app.get('/api/analytics/devices', (req, res) => {
+  try {
+    const deviceStats = analytics.getDeviceStats();
+    res.json({
+      success: true,
+      devices: deviceStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching device stats:', error);
+    res.status(500).json({ error: 'Failed to fetch device statistics' });
+  }
+});
+
+// Daily statistics endpoint
+app.get('/api/analytics/daily', (req, res) => {
+  try {
+    const dailyStats = analytics.getDailyStats();
+    res.json({
+      success: true,
+      daily: dailyStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching daily stats:', error);
+    res.status(500).json({ error: 'Failed to fetch daily statistics' });
+  }
+});
+
+// Hourly statistics endpoint
+app.get('/api/analytics/hourly', (req, res) => {
+  try {
+    const hourlyStats = analytics.getHourlyStats();
+    res.json({
+      success: true,
+      hourly: hourlyStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching hourly stats:', error);
+    res.status(500).json({ error: 'Failed to fetch hourly statistics' });
+  }
+});
+
 // Serve the main application
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Serve analytics dashboard
+app.get('/analytics', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'analytics-dashboard.html'));
+});
+
+// Serve admin dashboard (admin only)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
 });
 
 // Error handling middleware
@@ -541,12 +797,26 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, async () => {
+// Start server immediately
+app.listen(PORT, () => {
   console.log(`🚀 School Ranking App running on http://localhost:${PORT}`);
-  console.log(`📊 Loading educational data...`);
-  await loadData();
-  console.log(`✅ Server ready!`);
+  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🌐 Application: http://localhost:${PORT}`);
+  console.log(`🔒 Admin dashboard: http://localhost:${PORT}/admin`);
+  console.log(`📈 Analytics: http://localhost:${PORT}/analytics`);
+  console.log(`✅ Server started!`);
+  
+  // Load data in background
+  console.log('📊 Loading data in background...');
+  loadData().then((dataResult) => {
+    if (dataResult.success) {
+      console.log('✅ Data loaded successfully');
+    } else {
+      console.warn('⚠️ Data loading had issues:', dataResult.error);
+    }
+  }).catch((error) => {
+    console.error('❌ Data loading failed:', error);
+  });
 });
 
 module.exports = app;

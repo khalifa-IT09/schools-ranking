@@ -1,5 +1,0 @@
-# Redirections pour l'application SPA
-/*    /index.html   200
-
-# Redirections spécifiques pour l'API (si nécessaire)
-/api/*    /index.html   200

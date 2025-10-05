@@ -3,12 +3,17 @@
   "version": "1.0.0",
   "description": "A comprehensive school ranking web application for Mauritanian families to choose the best educational options",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "node build.js",
+    "build": "echo 'No build step required for Render Pro'",
     "build:netlify": "node build.js",
-    "preview": "cd dist && python -m http.server 8000"
+    "preview": "cd dist && python -m http.server 8000",
+    "render-build": "echo 'No build step required for Render Pro'",
+    "test": "node test-render.js"
   },
   "keywords": [
     "education",

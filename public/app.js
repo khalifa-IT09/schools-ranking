@@ -10,6 +10,13 @@ class SchoolRankingApp {
         this.totalSchools = 0;
         this.regions = [];
         
+        // Cache for better performance
+        this.cache = {
+            schools: {},
+            regions: {},
+            stats: {}
+        };
+        
         this.init();
     }
 
@@ -78,10 +85,27 @@ class SchoolRankingApp {
     }
 
     async loadInitialData() {
-        this.showLoading(true);
-        await this.loadRegions();
-        await this.loadStats();
-        await this.loadSchools();
+        try {
+            console.log('🚀 Loading initial data...');
+            
+            // Load data with timeout
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 10000)
+            );
+            
+            const loadData = Promise.all([
+                this.loadRegions(),
+                this.loadStats(),
+                this.loadSchools()
+            ]);
+            
+            await Promise.race([loadData, timeout]);
+            
+            console.log('✅ Initial data loaded successfully');
+        } catch (error) {
+            console.error('❌ Error loading initial data:', error);
+            this.showError('Erreur lors du chargement des données. Veuillez actualiser la page.');
+        }
     }
 
     async switchLevel(level) {
@@ -105,27 +129,47 @@ class SchoolRankingApp {
     }
 
     async loadRegions() {
+        // Check cache first
+        if (this.cache.regions[this.currentLevel]) {
+            this.regions = this.cache.regions[this.currentLevel];
+            this.updateRegionFilter();
+            return;
+        }
+
         try {
             const response = await fetch(`/api/regions/${this.currentLevel}`);
             const data = await response.json();
             this.regions = data.regions || [];
             
-            const regionFilter = document.getElementById('regionFilter');
-            regionFilter.innerHTML = '<option value="all">Toutes les régions</option>';
+            // Cache the result
+            this.cache.regions[this.currentLevel] = this.regions;
             
-            this.regions.forEach(region => {
-                const option = document.createElement('option');
-                option.value = region;
-                option.textContent = region;
-                regionFilter.appendChild(option);
-            });
+            this.updateRegionFilter();
         } catch (error) {
             console.error('Error loading regions:', error);
             this.showError('Erreur lors du chargement des régions');
         }
     }
 
+    updateRegionFilter() {
+        const regionFilter = document.getElementById('regionFilter');
+        regionFilter.innerHTML = '<option value="all">Toutes les régions</option>';
+        
+        this.regions.forEach(region => {
+            const option = document.createElement('option');
+            option.value = region;
+            option.textContent = region;
+            regionFilter.appendChild(option);
+        });
+    }
+
     async loadStats() {
+        // Check cache first
+        if (this.cache.stats[this.currentLevel]) {
+            this.updateStatsDisplay(this.cache.stats[this.currentLevel]);
+            return;
+        }
+
         try {
             console.log(`Loading stats for ${this.currentLevel}`);
             const response = await fetch(`/api/stats/${this.currentLevel}`);
@@ -133,19 +177,10 @@ class SchoolRankingApp {
             
             console.log('Stats response:', data);
             
-            if (data.stats) {
-                document.getElementById('totalSchools').textContent = data.stats.totalSchools.toLocaleString();
-                document.getElementById('totalStudents').textContent = data.stats.totalStudents.toLocaleString();
-                document.getElementById('successRate').textContent = `${data.stats.overallSuccessRate}%`;
-                document.getElementById('averageScore').textContent = data.stats.averageScore.toFixed(2);
-            } else if (data.message) {
-                console.log('Stats message:', data.message);
-                // Show placeholder values
-                document.getElementById('totalSchools').textContent = '0';
-                document.getElementById('totalStudents').textContent = '0';
-                document.getElementById('successRate').textContent = '0%';
-                document.getElementById('averageScore').textContent = '0.00';
-            }
+            // Cache the result
+            this.cache.stats[this.currentLevel] = data;
+            
+            this.updateStatsDisplay(data);
         } catch (error) {
             console.error('Error loading stats:', error);
             // Show placeholder values on error
@@ -156,10 +191,24 @@ class SchoolRankingApp {
         }
     }
 
+    updateStatsDisplay(data) {
+        if (data.stats) {
+            document.getElementById('totalSchools').textContent = data.stats.totalSchools.toLocaleString();
+            document.getElementById('totalStudents').textContent = data.stats.totalStudents.toLocaleString();
+            document.getElementById('successRate').textContent = `${data.stats.overallSuccessRate}%`;
+            document.getElementById('averageScore').textContent = data.stats.averageScore.toFixed(2);
+        } else if (data.message) {
+            console.log('Stats message:', data.message);
+            // Show placeholder values
+            document.getElementById('totalSchools').textContent = '0';
+            document.getElementById('totalStudents').textContent = '0';
+            document.getElementById('successRate').textContent = '0%';
+            document.getElementById('averageScore').textContent = '0.00';
+        }
+    }
+
     async loadSchools() {
         try {
-            this.showLoading(true);
-            
             let url;
             if (this.currentSearch) {
                 url = `/api/schools/${this.currentLevel}/search?q=${encodeURIComponent(this.currentSearch)}&region=${this.currentRegion}`;
@@ -171,22 +220,15 @@ class SchoolRankingApp {
             console.log(`Loading schools from: ${url}`);
             
             const response = await fetch(url);
-            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             
+            const data = await response.json();
             console.log('API Response:', data);
             
             this.schools = data.schools || [];
             this.totalSchools = data.total || 0;
-            
-            // Show debug info in console
-            if (data.debug) {
-                console.log('Debug info:', data.debug);
-            }
-            
-            // Show message if no data
-            if (data.message) {
-                console.log('API Message:', data.message);
-            }
             
             this.renderSchools();
             this.renderPagination(data.pagination);
@@ -195,8 +237,6 @@ class SchoolRankingApp {
         } catch (error) {
             console.error('Error loading schools:', error);
             this.showError(`Erreur lors du chargement des écoles: ${error.message}`);
-        } finally {
-            this.showLoading(false);
         }
     }
 
@@ -622,6 +662,18 @@ class SchoolRankingApp {
         } else {
             loading.style.display = 'none';
             results.style.display = 'block';
+        }
+    }
+
+    showLoadingMessage(message) {
+        const loadingElement = document.getElementById('loading');
+        if (loadingElement) {
+            loadingElement.innerHTML = `
+                <div class="loading-content">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>${message}</p>
+                </div>
+            `;
         }
     }
 

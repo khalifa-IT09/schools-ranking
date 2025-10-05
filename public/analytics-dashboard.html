@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord Analytics - Classement des Écoles</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f0f2f5 0%, #e0e5ec 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 5px solid #4CAF50;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .stat-card .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2E7D32;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .chart-container h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+        }
+
+        .country-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .country-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+
+        .country-item:hover {
+            background: #e9ecef;
+        }
+
+        .country-name {
+            font-weight: 500;
+        }
+
+        .country-visits {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+
+        .device-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .device-item {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .device-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .device-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .device-count {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2E7D32;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .back-btn {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: #0056b3;
+        }
+
+        .last-updated {
+            text-align: right;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> Tableau de Bord Analytics</h1>
+            <p>Statistiques détaillées des utilisateurs de l'application de classement des écoles</p>
+        </div>
+
+        <a href="/" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Retour à l'application
+        </a>
+
+        <button class="refresh-btn" onclick="loadAnalytics()">
+            <i class="fas fa-sync-alt"></i> Actualiser les données
+        </button>
+
+        <div id="loading" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Chargement des statistiques...
+        </div>
+
+        <div id="error" class="error" style="display: none;">
+            Erreur lors du chargement des données. Veuillez réessayer.
+        </div>
+
+        <div id="analytics-content" style="display: none;">
+            <!-- Overview Stats -->
+            <div class="stats-grid" id="overview-stats">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="chart-grid">
+                <!-- Countries Chart -->
+                <div class="chart-container">
+                    <h3><i class="fas fa-globe"></i> Visites par Pays</h3>
+                    <canvas id="countriesChart"></canvas>
+                </div>
+
+                <!-- Devices Chart -->
+                <div class="chart-container">
+                    <h3><i class="fas fa-mobile-alt"></i> Types d'Appareils</h3>
+                    <canvas id="devicesChart"></canvas>
+                </div>
+
+                <!-- Daily Activity Chart -->
+                <div class="chart-container">
+                    <h3><i class="fas fa-calendar-day"></i> Activité Quotidienne</h3>
+                    <canvas id="dailyChart"></canvas>
+                </div>
+
+                <!-- Hourly Activity Chart -->
+                <div class="chart-container">
+                    <h3><i class="fas fa-clock"></i> Activité par Heure</h3>
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Countries List -->
+            <div class="chart-container">
+                <h3><i class="fas fa-trophy"></i> Top 10 Pays</h3>
+                <div class="country-list" id="top-countries">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Device Statistics -->
+            <div class="chart-container">
+                <h3><i class="fas fa-laptop"></i> Statistiques des Appareils</h3>
+                <div class="device-stats" id="device-stats">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <p class="last-updated">
+                Dernière mise à jour : <span id="last-updated"></span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        async function loadAnalytics() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('analytics-content').style.display = 'none';
+
+                const response = await fetch('/api/analytics/comprehensive');
+                const data = await response.json();
+
+                if (data.success) {
+                    displayAnalytics(data.stats);
+                } else {
+                    throw new Error('Failed to load analytics');
+                }
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function displayAnalytics(stats) {
+            // Display overview stats
+            displayOverviewStats(stats.overview);
+            
+            // Display charts
+            createCountriesChart(stats.countries);
+            createDevicesChart(stats.devices);
+            createDailyChart(stats.daily);
+            createHourlyChart(stats.hourly);
+            
+            // Display lists
+            displayTopCountries(stats.countries);
+            displayDeviceStats(stats.devices);
+            
+            // Update last updated time
+            document.getElementById('last-updated').textContent = new Date(stats.overview.lastUpdated).toLocaleString();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('analytics-content').style.display = 'block';
+        }
+
+        function displayOverviewStats(overview) {
+            const container = document.getElementById('overview-stats');
+            container.innerHTML = `
+                <div class="stat-card">
+                    <h3>Visites Totales</h3>
+                    <div class="stat-value">${overview.totalVisits.toLocaleString()}</div>
+                    <div class="stat-label">Depuis le ${new Date(overview.startDate).toLocaleDateString()}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Utilisateurs Uniques</h3>
+                    <div class="stat-value">${overview.uniqueUsers.toLocaleString()}</div>
+                    <div class="stat-label">Utilisateurs distincts</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Visites par Utilisateur</h3>
+                    <div class="stat-value">${overview.averageVisitsPerUser}</div>
+                    <div class="stat-label">Moyenne par utilisateur</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Pays Uniques</h3>
+                    <div class="stat-value">${overview.countries?.totalCountries || 0}</div>
+                    <div class="stat-label">Pays différents</div>
+                </div>
+            `;
+        }
+
+        function createCountriesChart(countries) {
+            const ctx = document.getElementById('countriesChart').getContext('2d');
+            
+            if (charts.countries) {
+                charts.countries.destroy();
+            }
+
+            const topCountries = countries.topCountries || [];
+            charts.countries = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topCountries.map(c => c.country),
+                    datasets: [{
+                        label: 'Visites',
+                        data: topCountries.map(c => c.visits),
+                        backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                        borderColor: 'rgba(76, 175, 80, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createDevicesChart(devices) {
+            const ctx = document.getElementById('devicesChart').getContext('2d');
+            
+            if (charts.devices) {
+                charts.devices.destroy();
+            }
+
+            charts.devices = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(devices.devices || {}),
+                    datasets: [{
+                        data: Object.values(devices.devices || {}),
+                        backgroundColor: [
+                            '#4CAF50',
+                            '#2196F3',
+                            '#FF9800'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        function createDailyChart(daily) {
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            
+            if (charts.daily) {
+                charts.daily.destroy();
+            }
+
+            const days = daily.days || [];
+            charts.daily = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days.map(d => new Date(d.date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Visites',
+                        data: days.map(d => d.visits),
+                        borderColor: 'rgba(76, 175, 80, 1)',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createHourlyChart(hourly) {
+            const ctx = document.getElementById('hourlyChart').getContext('2d');
+            
+            if (charts.hourly) {
+                charts.hourly.destroy();
+            }
+
+            const hours = hourly.hours || [];
+            charts.hourly = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: hours.map(h => `${h.hour}:00`),
+                    datasets: [{
+                        label: 'Visites',
+                        data: hours.map(h => h.visits),
+                        backgroundColor: 'rgba(33, 150, 243, 0.8)',
+                        borderColor: 'rgba(33, 150, 243, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayTopCountries(countries) {
+            const container = document.getElementById('top-countries');
+            const topCountries = countries.topCountries || [];
+            
+            container.innerHTML = topCountries.map((country, index) => `
+                <div class="country-item">
+                    <div class="country-name">
+                        <strong>#${index + 1}</strong> ${country.country}
+                    </div>
+                    <div class="country-visits">${country.visits} visites</div>
+                </div>
+            `).join('');
+        }
+
+        function displayDeviceStats(devices) {
+            const container = document.getElementById('device-stats');
+            const deviceTypes = devices.devices || {};
+            
+            const deviceIcons = {
+                desktop: 'fas fa-desktop',
+                mobile: 'fas fa-mobile-alt',
+                tablet: 'fas fa-tablet-alt'
+            };
+            
+            container.innerHTML = Object.entries(deviceTypes).map(([type, count]) => `
+                <div class="device-item">
+                    <div class="device-icon">
+                        <i class="${deviceIcons[type] || 'fas fa-question'}"></i>
+                    </div>
+                    <div class="device-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                    <div class="device-count">${count}</div>
+                </div>
+            `).join('');
+        }
+
+        // Load analytics on page load
+        document.addEventListener('DOMContentLoaded', loadAnalytics);
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadAnalytics, 300000);
+    </script>
+</body>
+</html>
