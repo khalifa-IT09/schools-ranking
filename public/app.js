@@ -87,10 +87,11 @@ class SchoolRankingApp {
     async loadInitialData() {
         try {
             console.log('🚀 Loading initial data...');
+            this.showLoadingMessage('Chargement des données...');
             
             // Load data with timeout
             const timeout = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 10000)
+                setTimeout(() => reject(new Error('Timeout')), 15000)
             );
             
             const loadData = Promise.all([
@@ -102,6 +103,7 @@ class SchoolRankingApp {
             await Promise.race([loadData, timeout]);
             
             console.log('✅ Initial data loaded successfully');
+            this.showLoading(false);
         } catch (error) {
             console.error('❌ Error loading initial data:', error);
             this.showError('Erreur lors du chargement des données. Veuillez actualiser la page.');
@@ -226,6 +228,13 @@ class SchoolRankingApp {
             
             const data = await response.json();
             console.log('API Response:', data);
+            
+            // Check if data is still loading
+            if (data.loading) {
+                this.showLoadingMessage('Données en cours de chargement...');
+                setTimeout(() => this.loadSchools(), 2000);
+                return;
+            }
             
             this.schools = data.schools || [];
             this.totalSchools = data.total || 0;

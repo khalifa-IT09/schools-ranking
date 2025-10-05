@@ -89,45 +89,55 @@ async function processExcelFile(filePath, level) {
 function processCSVFile(filePath, level) {
   return new Promise((resolve, reject) => {
     console.log(`Processing CSV file: ${filePath} for ${level} level`);
-    const results = [];
     
     try {
-      fs.createReadStream(filePath, { 
-        encoding: 'utf8',
-        highWaterMark: 64 * 1024 // 64KB buffer
-      })
-      .pipe(csv({
-        separator: ',',
-        quote: '"',
-        escape: '"',
-        headers: true,
-        skipEmptyLines: true
-      }))
-      .on('data', (data) => {
-        // Clean the data
-        const cleanData = {};
-        for (const [key, value] of Object.entries(data)) {
-          if (value !== null && value !== undefined && value !== '') {
-            cleanData[key.trim()] = value.toString().trim();
+      // Read the entire file
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(line => line.trim() !== '');
+      
+      if (lines.length === 0) {
+        resolve([]);
+        return;
+      }
+      
+      // Parse headers from first line
+      const headers = lines[0].split(',').map(h => h.trim());
+      console.log(`Headers: ${headers.length} columns`);
+      
+      const results = [];
+      
+      // Process data rows
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        
+        // Create record object
+        const record = {};
+        headers.forEach((header, index) => {
+          const value = values[index] ? values[index].trim() : '';
+          if (value !== '') {
+            record[header] = value;
           }
+        });
+        
+        if (Object.keys(record).length > 0) {
+          results.push(record);
         }
-        if (Object.keys(cleanData).length > 0) {
-          results.push(cleanData);
+        
+        // Log progress every 10000 records
+        if (i % 10000 === 0) {
+          console.log(`Processed ${i}/${lines.length - 1} records for ${level}`);
         }
-      })
-      .on('end', () => {
-        console.log(`✅ Processed ${results.length} records for ${level} level`);
-        if (results.length > 0) {
-          console.log(`Sample record keys:`, Object.keys(results[0]));
-        }
-        resolve(results);
-      })
-      .on('error', (error) => {
-        console.error(`❌ Error processing CSV file ${filePath}:`, error);
-        reject(error);
-      });
+      }
+      
+      console.log(`✅ Processed ${results.length} records for ${level} level`);
+      if (results.length > 0) {
+        console.log(`Sample record keys:`, Object.keys(results[0]));
+        console.log(`Sample record:`, results[0]);
+      }
+      resolve(results);
+      
     } catch (error) {
-      console.error(`❌ Error creating read stream for ${filePath}:`, error);
+      console.error(`❌ Error processing CSV file ${filePath}:`, error);
       reject(error);
     }
   });
@@ -200,10 +210,12 @@ function calculateSchoolRanking(data, level) {
   const schoolStats = {};
   let processedRecords = 0;
   let validSchools = 0;
+  let unidentifiedSchools = 0;
   
   data.forEach((record, index) => {
     const schoolName = getSchoolName(record, level);
     if (!schoolName || schoolName === 'École non identifiée') {
+      unidentifiedSchools++;
       return;
     }
     
@@ -248,6 +260,7 @@ function calculateSchoolRanking(data, level) {
   });
   
   console.log(`Found ${validSchools} unique schools for ${level} level`);
+  console.log(`Unidentified schools: ${unidentifiedSchools}`);
   
   // Calculate averages and success rates
   Object.values(schoolStats).forEach(school => {
@@ -316,12 +329,11 @@ function calculateSchoolRanking(data, level) {
 
 // Helper functions to extract data based on level
 function getSchoolName(record, level) {
-  // Try multiple possible column names for school names
+  // Try multiple possible column names for school names based on actual CSV structure
   const possibleNames = [
-    'Etablissement_FR', 'Etablissement_AR', 'School', 'École', 'Collège', 'Lycée',
+    'Ecole_AR', 'Etablissement_FR', 'Etablissement_AR', 'Ecole', 'School', 'École', 'Collège', 'Lycée',
     'Etablissement', 'Établissement', 'Nom_Ecole', 'Nom_Etablissement',
-    'School_Name', 'Institution', 'Établissement scolaire', 'Etablissement_FR',
-    'Etablissement_AR', 'Nom_Etablissement_FR', 'Nom_Etablissement_AR', 'Ecole_AR'
+    'School_Name', 'Institution', 'Établissement scolaire'
   ];
   
   for (const name of possibleNames) {
@@ -333,13 +345,15 @@ function getSchoolName(record, level) {
   // If no school name found, try to construct one from other fields
   if (record['Centre Examen_FR']) return record['Centre Examen_FR'].toString().trim();
   if (record['Centre Examen_AR']) return record['Centre Examen_AR'].toString().trim();
+  if (record['Centre']) return record['Centre'].toString().trim();
   
   // Try to find any field that might contain school name
   for (const [key, value] of Object.entries(record)) {
     if (key.toLowerCase().includes('etablissement') || 
         key.toLowerCase().includes('ecole') || 
         key.toLowerCase().includes('lycee') ||
-        key.toLowerCase().includes('college')) {
+        key.toLowerCase().includes('college') ||
+        key.toLowerCase().includes('centre')) {
       if (value && value.toString().trim() !== '') {
         return value.toString().trim();
       }
@@ -351,8 +365,8 @@ function getSchoolName(record, level) {
 
 function getRegion(record, level) {
   const possibleRegions = [
-    'Wilaya_FR', 'Wilaya_AR', 'Region', 'Wilaya', 'Région', 'WILAYA', 'WILAYA_AR',
-    'Province', 'Département', 'Zone', 'Area', 'Wilaya_FR', 'Wilaya_AR'
+    'WILAYA_AR', 'Wilaya_FR', 'Wilaya_AR', 'WILAYA', 'Region', 'Wilaya', 'Région',
+    'Province', 'Département', 'Zone', 'Area'
   ];
   
   for (const region of possibleRegions) {
@@ -374,10 +388,28 @@ function getScore(record, level) {
     }
   }
   
+  // For middle level (Brevet), check Moyenne_Bepc
+  if (level === 'middle' && record['Moyenne_Bepc']) {
+    let scoreStr = record['Moyenne_Bepc'].toString().replace(',', '.');
+    const score = parseFloat(scoreStr);
+    if (!isNaN(score) && score >= 0 && score <= 20) {
+      return score;
+    }
+  }
+  
+  // For secondary level (Bac), check Moy Bac
+  if (level === 'secondary' && record['Moy Bac']) {
+    let scoreStr = record['Moy Bac'].toString().replace(',', '.');
+    const score = parseFloat(scoreStr);
+    if (!isNaN(score) && score >= 0 && score <= 20) {
+      return score;
+    }
+  }
+  
   const scoreFields = [
-    'Moy Bac', 'Moyenne', 'Score', 'Note', 'Moyenne Générale', 'Moyenne_Bac',
+    'Moy Bac', 'Moyenne_Bepc', 'Moyenne', 'Score', 'Note', 'Moyenne Générale', 'Moyenne_Bac',
     'Moyenne_Generale', 'Note_Finale', 'Score_Final', 'Total', 'Points',
-    'Moyenne_Examen', 'Note_Examen', 'Moyenne_Bepc', 'Moyenne_BEPC'
+    'Moyenne_Examen', 'Note_Examen', 'Moyenne_BEPC'
   ];
   
   for (const field of scoreFields) {
@@ -419,16 +451,15 @@ function getPassedStatus(record, level) {
              decision.includes('passe') ||
              decision.includes('admission') ||
              decision.includes('succès') ||
-             decision.includes('succes');
+             decision.includes('succes') ||
+             decision.includes('sessionnaire');
     }
   }
   
   // If no decision field, check if score is above passing threshold
   const score = getScore(record, level);
   if (level === 'primary') {
-    const passed = score >= 90; // Primary level: 90/200 is passing grade
-    console.log(`Primary student score: ${score}, passed: ${passed}`);
-    return passed;
+    return score >= 90; // Primary level: 90/200 is passing grade
   } else {
     return score >= 10; // Secondary and middle levels: 10/20 is passing grade
   }
