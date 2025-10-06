@@ -100,27 +100,51 @@ function processCSVFile(filePath, level) {
         return;
       }
       
-      // Parse headers from first line
-      const headers = lines[0].split(',').map(h => h.trim());
+      // Parse CSV with proper handling of commas in quoted fields
+      function parseCSVLine(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim());
+        
+        return values;
+      }
+      
+      // Parse header
+      const headers = parseCSVLine(lines[0]);
       console.log(`Headers: ${headers.length} columns`);
       
       const results = [];
       
       // Process data rows
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
+        const values = parseCSVLine(lines[i]);
         
-        // Create record object
-        const record = {};
-        headers.forEach((header, index) => {
-          const value = values[index] ? values[index].trim() : '';
-          if (value !== '') {
-            record[header] = value;
+        if (values.length === headers.length) {
+          // Create record object
+          const record = {};
+          headers.forEach((header, index) => {
+            const value = values[index] ? values[index].trim() : '';
+            if (value !== '') {
+              record[header] = value;
+            }
+          });
+          
+          if (Object.keys(record).length > 0) {
+            results.push(record);
           }
-        });
-        
-        if (Object.keys(record).length > 0) {
-          results.push(record);
         }
         
         // Log progress every 10000 records
