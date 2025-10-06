@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Language Switching</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .language-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+        .lang-btn {
+            background: #667eea;
+            border: 2px solid #5a6fd8;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        .lang-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .rtl {
+            direction: rtl;
+            text-align: right;
+        }
+        .rtl .language-toggle {
+            right: auto;
+            left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="language-toggle">
+            <button id="languageToggle" class="lang-btn">
+                <i>🌐</i>
+                <span id="currentLang">FR</span>
+            </button>
+        </div>
+        
+        <h1 data-translate="app_title">Classement des Écoles - Mauritanie</h1>
+        <p data-translate="app_subtitle">Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie</p>
+        
+        <div class="test-section">
+            <h2 data-translate="nav_primary">Écoles Primaires (CAS)</h2>
+            <p data-translate="stat_schools">Écoles</p>
+            <p data-translate="stat_students">Élèves</p>
+            <p data-translate="stat_success_rate">Taux de Réussite</p>
+        </div>
+        
+        <div class="test-section">
+            <h2 data-translate="about_title">À propos de cette application</h2>
+            <p data-translate="about_description">Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants.</p>
+        </div>
+        
+        <div class="test-section">
+            <input type="text" data-translate-placeholder="search_placeholder" placeholder="Rechercher une école...">
+            <button data-translate="refresh">Actualiser</button>
+        </div>
+    </div>
+
+    <script>
+        // Simple translation system for testing
+        const translations = {
+            fr: {
+                app_title: "Classement des Écoles - Mauritanie",
+                app_subtitle: "Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie",
+                nav_primary: "Écoles Primaires (CAS)",
+                stat_schools: "Écoles",
+                stat_students: "Élèves",
+                stat_success_rate: "Taux de Réussite",
+                about_title: "À propos de cette application",
+                about_description: "Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants.",
+                search_placeholder: "Rechercher une école...",
+                refresh: "Actualiser"
+            },
+            ar: {
+                app_title: "تصنيف المدارس - موريتانيا",
+                app_subtitle: "اعثر على أفضل مدرسة لأطفالك في الجمهورية الإسلامية الموريتانية",
+                nav_primary: "المدارس الابتدائية (CAS)",
+                stat_schools: "المدارس",
+                stat_students: "الطلاب",
+                stat_success_rate: "معدل النجاح",
+                about_title: "حول هذا التطبيق",
+                about_description: "يسمح هذا التطبيق للعائلات الموريتانية بالعثور على أفضل المدارس لأطفالها.",
+                search_placeholder: "البحث عن مدرسة...",
+                refresh: "تحديث"
+            }
+        };
+
+        let currentLanguage = 'fr';
+
+        function setLanguage(language) {
+            currentLanguage = language;
+            
+            // Update HTML attributes
+            const html = document.documentElement;
+            html.setAttribute('lang', language);
+            html.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+            
+            // Add/remove RTL class
+            document.body.classList.toggle('rtl', language === 'ar');
+            
+            // Update language toggle button
+            document.getElementById('currentLang').textContent = language.toUpperCase();
+            
+            // Translate all elements
+            translatePage();
+        }
+
+        function translatePage() {
+            // Translate elements with data-translate attribute
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const translation = translations[currentLanguage][key];
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+            
+            // Translate placeholders
+            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-translate-placeholder');
+                const translation = translations[currentLanguage][key];
+                if (translation) {
+                    element.placeholder = translation;
+                }
+            });
+        }
+
+        // Language toggle event listener
+        document.getElementById('languageToggle').addEventListener('click', () => {
+            const newLanguage = currentLanguage === 'fr' ? 'ar' : 'fr';
+            setLanguage(newLanguage);
+        });
+
+        // Initialize with French
+        setLanguage('fr');
+    </script>
+</body>
+</html>
