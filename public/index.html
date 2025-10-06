@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,26 +16,33 @@
                     <img src="drapo_RIM.jpg" alt="Drapeau Mauritanie" class="mauritania-flag">
                     <div class="logo-text">
                         <i class="fas fa-graduation-cap"></i>
-                        <h1>Classement des Écoles - Mauritanie</h1>
+                        <h1 data-translate="app_title">Classement des Écoles - Mauritanie</h1>
                     </div>
                 </div>
+                <!-- Language Toggle -->
+                <div class="language-toggle">
+                    <button id="languageToggle" class="lang-btn" title="Changer la langue">
+                        <i class="fas fa-globe"></i>
+                        <span id="currentLang">FR</span>
+                    </button>
+                </div>
             </div>
-            <p class="subtitle">Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie</p>
+            <p class="subtitle" data-translate="app_subtitle">Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie</p>
         </header>
 
         <!-- Navigation -->
         <nav class="nav-tabs">
             <button class="nav-tab active" data-level="primary">
                 <i class="fas fa-child"></i>
-                Écoles Primaires (CAS)
+                <span data-translate="nav_primary">Écoles Primaires (CAS)</span>
             </button>
             <button class="nav-tab" data-level="middle">
                 <i class="fas fa-user-graduate"></i>
-                Collèges (Brevet)
+                <span data-translate="nav_middle">Collèges (Brevet)</span>
             </button>
             <button class="nav-tab" data-level="secondary">
                 <i class="fas fa-university"></i>
-                Lycées (Baccalauréat)
+                <span data-translate="nav_secondary">Lycées (Baccalauréat)</span>
             </button>
         </nav>
 
@@ -44,16 +51,16 @@
             <div class="search-container">
                 <div class="search-box">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Rechercher une école...">
+                    <input type="text" id="searchInput" data-translate-placeholder="search_placeholder" placeholder="Rechercher une école...">
                 </div>
             </div>
             <div class="filter-container">
                 <select id="regionFilter">
-                    <option value="all">Toutes les régions</option>
+                    <option value="all" data-translate="all_regions">Toutes les régions</option>
                 </select>
                 <button id="refreshBtn" class="btn-refresh">
                     <i class="fas fa-sync-alt"></i>
-                    Actualiser
+                    <span data-translate="refresh">Actualiser</span>
                 </button>
             </div>
         </div>
@@ -66,7 +73,7 @@
                 </div>
                 <div class="stat-content">
                     <div class="stat-number" id="totalSchools">-</div>
-                    <div class="stat-label">Écoles</div>
+                    <div class="stat-label" data-translate="stat_schools">Écoles</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -75,7 +82,7 @@
                 </div>
                 <div class="stat-content">
                     <div class="stat-number" id="totalStudents">-</div>
-                    <div class="stat-label">Élèves</div>
+                    <div class="stat-label" data-translate="stat_students">Élèves</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -84,7 +91,7 @@
                 </div>
                 <div class="stat-content">
                     <div class="stat-number" id="successRate">-</div>
-                    <div class="stat-label">Taux de Réussite</div>
+                    <div class="stat-label" data-translate="stat_success_rate">Taux de Réussite</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -93,7 +100,7 @@
                 </div>
                 <div class="stat-content">
                     <div class="stat-number" id="averageScore">-</div>
-                    <div class="stat-label">Moyenne Générale</div>
+                    <div class="stat-label" data-translate="stat_average">Moyenne Générale</div>
                 </div>
             </div>
         </div>
@@ -101,13 +108,13 @@
         <!-- Loading -->
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Chargement des données...</p>
+            <p data-translate="loading_data">Chargement des données...</p>
         </div>
 
         <!-- Results -->
         <div class="results-container" id="resultsContainer">
             <div class="results-header">
-                <h2 id="resultsTitle">Classement des Écoles</h2>
+                <h2 id="resultsTitle" data-translate="results_title">Classement des Écoles</h2>
                 <div class="results-count" id="resultsCount"></div>
             </div>
             <div class="schools-grid" id="schoolsGrid">
@@ -123,11 +130,11 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
-                <p>&copy; 2025 Classement des Écoles - République Islamique de Mauritanie 🇲🇷</p>
-                <p class="footer-subtitle">Données officielles du Ministère de l'Éducation Nationale</p>
+                <p data-translate="footer_copyright">&copy; 2025 Classement des Écoles - République Islamique de Mauritanie 🇲🇷</p>
+                <p class="footer-subtitle" data-translate="footer_data_source">Données officielles du Ministère de l'Éducation Nationale</p>
                 <div class="footer-links">
-                    <a href="#" onclick="showAbout(); return false;">À propos</a>
-                    <a href="#" onclick="showHelp(); return false;">Aide</a>
+                    <a href="#" onclick="showAbout(); return false;" data-translate="footer_about">À propos</a>
+                    <a href="#" onclick="showHelp(); return false;" data-translate="footer_help">Aide</a>
                 </div>
             </div>
         </footer>
@@ -137,8 +144,8 @@
     <div class="modal" id="schoolModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Détails de l'École</h3>
-                <button class="close" onclick="closeModal(); return false;" title="Fermer" type="button">&times;</button>
+                <h3 id="modalTitle" data-translate="modal_school_details">Détails de l'École</h3>
+                <button class="close" onclick="closeModal(); return false;" data-translate-title="modal_close" title="Fermer" type="button">&times;</button>
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- School details will be populated here -->
@@ -150,26 +157,26 @@
     <div id="aboutModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8);">
         <div style="background: white; margin: 5% auto; padding: 0; border-radius: 15px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
             <div style="background: #667eea; color: white; padding: 20px 30px; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1.5rem;">À propos de cette application</h3>
-                <button onclick="closeAboutModal(); return false;" style="background: none; border: none; color: white; font-size: 2rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" title="Fermer" type="button">&times;</button>
+                <h3 style="margin: 0; font-size: 1.5rem;" data-translate="about_title">À propos de cette application</h3>
+                <button onclick="closeAboutModal(); return false;" style="background: none; border: none; color: white; font-size: 2rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" data-translate-title="modal_close" title="Fermer" type="button">&times;</button>
             </div>
             <div style="padding: 30px;">
-                <p>Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.</p>
-                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;">Niveaux d'éducation couverts :</h4>
+                <p data-translate="about_description">Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.</p>
+                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;" data-translate="about_levels_title">Niveaux d'éducation couverts :</h4>
                 <ul style="margin-left: 20px; margin-bottom: 20px;">
-                    <li style="margin-bottom: 8px; color: #666;"><strong>Écoles Primaires (CAS)</strong> : Résultats du Certificat d'Aptitude Scolaire</li>
-                    <li style="margin-bottom: 8px; color: #666;"><strong>Collèges (Brevet)</strong> : Résultats du Brevet d'Études du Premier Cycle</li>
-                    <li style="margin-bottom: 8px; color: #666;"><strong>Lycées (Baccalauréat)</strong> : Résultats du Baccalauréat</li>
+                    <li style="margin-bottom: 8px; color: #666;"><strong data-translate="about_primary">Écoles Primaires (CAS)</strong> : <span data-translate="about_primary_desc">Résultats du Certificat d'Aptitude Scolaire</span></li>
+                    <li style="margin-bottom: 8px; color: #666;"><strong data-translate="about_middle">Collèges (Brevet)</strong> : <span data-translate="about_middle_desc">Résultats du Brevet d'Études du Premier Cycle</span></li>
+                    <li style="margin-bottom: 8px; color: #666;"><strong data-translate="about_secondary">Lycées (Baccalauréat)</strong> : <span data-translate="about_secondary_desc">Résultats du Baccalauréat</span></li>
                 </ul>
-                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;">Critères de classement :</h4>
+                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;" data-translate="about_criteria_title">Critères de classement :</h4>
                 <ul style="margin-left: 20px; margin-bottom: 20px;">
-                    <li style="margin-bottom: 8px; color: #666;">Taux de réussite (40%)</li>
-                    <li style="margin-bottom: 8px; color: #666;">Moyenne générale des scores (60%)</li>
+                    <li style="margin-bottom: 8px; color: #666;" data-translate="about_criteria_success">Taux de réussite (40%)</li>
+                    <li style="margin-bottom: 8px; color: #666;" data-translate="about_criteria_average">Moyenne générale des scores (60%)</li>
                 </ul>
-                <p><em>Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.</em></p>
+                <p><em data-translate="about_data_source">Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.</em></p>
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
                 <p style="font-size: 0.9em; color: #666; margin-top: 20px;">
-                    <strong>Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932</strong>
+                    <strong data-translate="about_developer">Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932</strong>
                 </p>
             </div>
         </div>

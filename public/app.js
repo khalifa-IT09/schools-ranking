@@ -9,6 +9,160 @@ class SchoolRankingApp {
         this.schools = [];
         this.totalSchools = 0;
         this.regions = [];
+        this.currentLanguage = 'fr'; // Default to French
+        
+        // Translation system
+        this.translations = {
+            fr: {
+                // App titles and navigation
+                app_title: "Classement des Écoles - Mauritanie",
+                app_subtitle: "Trouvez la meilleure école pour vos enfants en République Islamique de Mauritanie",
+                nav_primary: "Écoles Primaires (CAS)",
+                nav_middle: "Collèges (Brevet)",
+                nav_secondary: "Lycées (Baccalauréat)",
+                
+                // Controls
+                search_placeholder: "Rechercher une école...",
+                all_regions: "Toutes les régions",
+                refresh: "Actualiser",
+                
+                // Stats
+                stat_schools: "Écoles",
+                stat_students: "Élèves",
+                stat_success_rate: "Taux de Réussite",
+                stat_average: "Moyenne Générale",
+                
+                // Results
+                loading_data: "Chargement des données...",
+                results_title: "Classement des Écoles",
+                
+                // Footer
+                footer_copyright: "© 2025 Classement des Écoles - République Islamique de Mauritanie 🇲🇷",
+                footer_data_source: "Données officielles du Ministère de l'Éducation Nationale",
+                footer_about: "À propos",
+                footer_help: "Aide",
+                
+                // Modal
+                modal_school_details: "Détails de l'École",
+                modal_close: "Fermer",
+                
+                // About modal
+                about_title: "À propos de cette application",
+                about_description: "Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.",
+                about_levels_title: "Niveaux d'éducation couverts :",
+                about_primary: "Écoles Primaires (CAS)",
+                about_primary_desc: "Résultats du Certificat d'Aptitude Scolaire",
+                about_middle: "Collèges (Brevet)",
+                about_middle_desc: "Résultats du Brevet d'Études du Premier Cycle",
+                about_secondary: "Lycées (Baccalauréat)",
+                about_secondary_desc: "Résultats du Baccalauréat",
+                about_criteria_title: "Critères de classement :",
+                about_criteria_success: "Taux de réussite (40%)",
+                about_criteria_average: "Moyenne générale des scores (60%)",
+                about_data_source: "Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.",
+                about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932",
+                
+                // School details
+                candidates: "Candidats",
+                admitted: "Admis",
+                success_rate: "Taux de Réussite",
+                max_average: "Moyenne Max",
+                min_average: "Moyenne Min",
+                general_average: "Moyenne Générale",
+                ranking_score: "Score de classement",
+                national_ranking: "Classement national",
+                regional_ranking: "Classement régional",
+                performance_chart: "Courbe de Performance",
+                performance_stats: "Statistiques de performance",
+                general_info: "Informations générales",
+                evaluation: "Évaluation",
+                excellent: "Excellent",
+                good: "Bon",
+                average: "Moyen",
+                poor: "Faible",
+                no_results: "Aucune école trouvée",
+                no_results_desc: "Essayez de modifier vos critères de recherche ou vérifiez que les données sont disponibles",
+                error: "Erreur",
+                retry: "Réessayer",
+                help_text: "Utilisez les onglets pour naviguer entre les niveaux d'éducation. Recherchez les écoles par nom ou filtrez par région. Cliquez sur une école pour voir ses détails."
+            },
+            ar: {
+                // App titles and navigation
+                app_title: "تصنيف المدارس - موريتانيا",
+                app_subtitle: "اعثر على أفضل مدرسة لأطفالك في الجمهورية الإسلامية الموريتانية",
+                nav_primary: "المدارس الابتدائية (مسابقة ختم الدروس)",
+                nav_middle: "المدارس المتوسطة (شهادة الإعدادية)",
+                nav_secondary: "المدارس الثانوية (البكالوريا)",
+                
+                // Controls
+                search_placeholder: "البحث عن مدرسة...",
+                all_regions: "جميع المناطق",
+                refresh: "تحديث",
+                
+                // Stats
+                stat_schools: "المدارس",
+                stat_students: "الطلاب",
+                stat_success_rate: "معدل النجاح",
+                stat_average: "المتوسط العام",
+                
+                // Results
+                loading_data: "جاري تحميل البيانات...",
+                results_title: "تصنيف المدارس",
+                
+                // Footer
+                footer_copyright: "© 2025 تصنيف المدارس - الجمهورية الإسلامية الموريتانية 🇲🇷",
+                footer_data_source: "بيانات رسمية من وزارة التربية الوطنية",
+                footer_about: "حول",
+                footer_help: "مساعدة",
+                
+                // Modal
+                modal_school_details: "تفاصيل المدرسة",
+                modal_close: "إغلاق",
+                
+                // About modal
+                about_title: "حول هذا التطبيق",
+                about_description: "يسمح هذا التطبيق للعائلات الموريتانية بالعثور على أفضل المدارس لأطفالها بناءً على النتائج الرسمية للامتحانات.",
+                about_levels_title: "مستويات التعليم المشمولة:",
+                about_primary: "المدارس الابتدائية (مسابقة ختم الدروس)",
+                about_primary_desc: "نتائج مسابقة ختم الدروس",
+                about_middle: "المدارس المتوسطة (شهادة الإعدادية)",
+                about_middle_desc: "نتائج شهادة الإعدادية",
+                about_secondary: "المدارس الثانوية (البكالوريا)",
+                about_secondary_desc: "نتائج البكالوريا",
+                about_criteria_title: "معايير التصنيف:",
+                about_criteria_success: "معدل النجاح (40%)",
+                about_criteria_average: "المتوسط العام للدرجات (60%)",
+                about_data_source: "البيانات مقدمة من وزارة التربية في الجمهورية الإسلامية الموريتانية.",
+                about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932",
+                
+                // School details
+                candidates: "المرشحون",
+                admitted: "الناجحون",
+                success_rate: "معدل النجاح",
+                max_average: "الدرجة العليا",
+                min_average: "الدرجة الدنيا",
+                general_average: "المتوسط العام",
+                ranking_score: "نقاط التصنيف",
+                national_ranking: "التصنيف الوطني",
+                regional_ranking: "التصنيف الإقليمي",
+                performance_chart: "منحنى الأداء",
+                performance_stats: "إحصائيات الأداء",
+                general_info: "المعلومات العامة",
+                evaluation: "التقييم",
+                region: "المنطقة",
+                level: "المستوى",
+                ranking: "التصنيف",
+                excellent: "ممتاز",
+                good: "جيد",
+                average: "متوسط",
+                poor: "ضعيف",
+                no_results: "لم يتم العثور على مدارس",
+                no_results_desc: "حاول تعديل معايير البحث أو تحقق من توفر البيانات",
+                error: "خطأ",
+                retry: "إعادة المحاولة",
+                help_text: "استخدم التبويبات للتنقل بين مستويات التعليم. ابحث عن المدارس بالاسم أو فلتر حسب المنطقة. انقر على مدرسة لرؤية تفاصيلها."
+            }
+        };
         
         // Cache for better performance
         this.cache = {
@@ -22,11 +176,91 @@ class SchoolRankingApp {
 
     async init() {
         this.setupEventListeners();
+        this.initializeLanguage();
         await this.loadInitialData();
         this.showLoading(false);
     }
 
+    initializeLanguage() {
+        // Load saved language preference or default to French
+        const savedLanguage = localStorage.getItem('schoolRankingLanguage') || 'fr';
+        this.setLanguage(savedLanguage);
+    }
+
+    setLanguage(language) {
+        if (!this.translations[language]) {
+            console.warn(`Language ${language} not supported, falling back to French`);
+            language = 'fr';
+        }
+        
+        this.currentLanguage = language;
+        localStorage.setItem('schoolRankingLanguage', language);
+        
+        // Update HTML attributes
+        const html = document.documentElement;
+        html.setAttribute('lang', language);
+        html.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+        
+        // Add/remove RTL class
+        document.body.classList.toggle('rtl', language === 'ar');
+        
+        // Update language toggle button
+        const currentLangSpan = document.getElementById('currentLang');
+        if (currentLangSpan) {
+            currentLangSpan.textContent = language.toUpperCase();
+        }
+        
+        // Translate all elements
+        this.translatePage();
+    }
+
+    translatePage() {
+        // Translate elements with data-translate attribute
+        document.querySelectorAll('[data-translate]').forEach(element => {
+            const key = element.getAttribute('data-translate');
+            const translation = this.translations[this.currentLanguage][key];
+            if (translation) {
+                element.textContent = translation;
+            }
+        });
+        
+        // Translate placeholders
+        document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-translate-placeholder');
+            const translation = this.translations[this.currentLanguage][key];
+            if (translation) {
+                element.placeholder = translation;
+            }
+        });
+        
+        // Translate titles
+        document.querySelectorAll('[data-translate-title]').forEach(element => {
+            const key = element.getAttribute('data-translate-title');
+            const translation = this.translations[this.currentLanguage][key];
+            if (translation) {
+                element.title = translation;
+            }
+        });
+        
+        // Update dynamic content
+        this.updateResultsHeader();
+        this.updateRegionFilter();
+    }
+
+    translate(key) {
+        return this.translations[this.currentLanguage][key] || key;
+    }
+
     setupEventListeners() {
+        // Language toggle
+        const languageToggle = document.getElementById('languageToggle');
+        if (languageToggle) {
+            languageToggle.addEventListener('click', () => {
+                const newLanguage = this.currentLanguage === 'fr' ? 'ar' : 'fr';
+                this.setLanguage(newLanguage);
+            });
+        }
+
         // Navigation tabs
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -155,7 +389,7 @@ class SchoolRankingApp {
 
     updateRegionFilter() {
         const regionFilter = document.getElementById('regionFilter');
-        regionFilter.innerHTML = '<option value="all">Toutes les régions</option>';
+        regionFilter.innerHTML = `<option value="all">${this.translate('all_regions')}</option>`;
         
         this.regions.forEach(region => {
             const option = document.createElement('option');
@@ -257,16 +491,16 @@ class SchoolRankingApp {
         
         if (this.schools.length === 0) {
             const levelNames = {
-                primary: 'écoles primaires',
-                middle: 'collèges',
-                secondary: 'lycées'
+                primary: this.translate('nav_primary').toLowerCase(),
+                middle: this.translate('nav_middle').toLowerCase(),
+                secondary: this.translate('nav_secondary').toLowerCase()
             };
             
             schoolsGrid.innerHTML = `
                 <div class="no-results">
                     <i class="fas fa-search" style="font-size: 3rem; color: #ccc; margin-bottom: 20px;"></i>
-                    <h3>Aucune ${levelNames[this.currentLevel] || 'école'} trouvée</h3>
-                    <p>Essayez de modifier vos critères de recherche ou vérifiez que les données sont disponibles</p>
+                    <h3>${this.translate('no_results')}</h3>
+                    <p>${this.translate('no_results_desc')}</p>
                     <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px; text-align: left;">
                         <strong>Informations de débogage :</strong><br>
                         Niveau sélectionné: ${this.currentLevel}<br>
@@ -298,8 +532,8 @@ class SchoolRankingApp {
         let statsHTML = '';
         if (school.maxScore !== undefined && school.minScore !== undefined) {
             // 5 parameters for all levels: Candidats, Admis, Taux de réussite, Moyenne max, Moyenne min
-            const levelLabel = 'Candidats';
-            const admittedLabel = 'Admis';
+            const levelLabel = this.translate('candidates');
+            const admittedLabel = this.translate('admitted');
             
             statsHTML = `
                 <div class="school-stats secondary-stats">
@@ -313,15 +547,15 @@ class SchoolRankingApp {
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value ${successRateClass}">${school.successRate.toFixed(1)}%</div>
-                        <div class="school-stat-label">Taux de Réussite</div>
+                        <div class="school-stat-label">${this.translate('success_rate')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value">${school.maxScore.toFixed(2)}</div>
-                        <div class="school-stat-label">Moyenne Max</div>
+                        <div class="school-stat-label">${this.translate('max_average')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value">${school.minScore.toFixed(2)}</div>
-                        <div class="school-stat-label">Moyenne Min</div>
+                        <div class="school-stat-label">${this.translate('min_average')}</div>
                     </div>
                 </div>
             `;
@@ -331,19 +565,19 @@ class SchoolRankingApp {
                 <div class="school-stats">
                     <div class="school-stat">
                         <div class="school-stat-value">${school.totalStudents}</div>
-                        <div class="school-stat-label">Élèves</div>
+                        <div class="school-stat-label">${this.translate('stat_students')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value ${successRateClass}">${school.successRate.toFixed(1)}%</div>
-                        <div class="school-stat-label">Réussite</div>
+                        <div class="school-stat-label">${this.translate('success_rate')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value">${school.averageScore.toFixed(2)}</div>
-                        <div class="school-stat-label">Moyenne</div>
+                        <div class="school-stat-label">${this.translate('general_average')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value">${school.passedStudents}</div>
-                        <div class="school-stat-label">Admis</div>
+                        <div class="school-stat-label">${this.translate('admitted')}</div>
                     </div>
                 </div>
             `;
@@ -444,13 +678,13 @@ class SchoolRankingApp {
 
     updateResultsHeader() {
         const levelNames = {
-            primary: 'Écoles Primaires (CAS)',
-            middle: 'Collèges (Brevet)',
-            secondary: 'Lycées (Baccalauréat)'
+            primary: this.translate('nav_primary'),
+            middle: this.translate('nav_middle'),
+            secondary: this.translate('nav_secondary')
         };
         
-        document.getElementById('resultsTitle').textContent = `Classement des ${levelNames[this.currentLevel]}`;
-        document.getElementById('resultsCount').textContent = `${this.totalSchools} écoles`;
+        document.getElementById('resultsTitle').textContent = `${this.translate('results_title')} - ${levelNames[this.currentLevel]}`;
+        document.getElementById('resultsCount').textContent = `${this.totalSchools} ${this.translate('stat_schools')}`;
     }
 
     showSchoolDetails(school) {
@@ -467,73 +701,73 @@ class SchoolRankingApp {
         if (school.maxScore !== undefined && school.minScore !== undefined) {
             performanceDetails = `
                 <div class="detail-section">
-                    <h4><i class="fas fa-chart-bar"></i> Statistiques de performance (${this.currentLevel === 'secondary' ? 'Baccalauréat' : this.currentLevel === 'middle' ? 'Brevet' : 'CAS'})</h4>
+                    <h4><i class="fas fa-chart-bar"></i> ${this.translate('performance_stats')} (${this.currentLevel === 'secondary' ? this.translate('nav_secondary') : this.currentLevel === 'middle' ? this.translate('nav_middle') : this.translate('nav_primary')})</h4>
                     <div class="detail-grid">
                         <div class="detail-item">
-                            <span class="detail-label">Nombre de candidats:</span>
+                            <span class="detail-label">${this.translate('candidates')}:</span>
                             <span class="detail-value">${school.totalStudents}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Candidats admis:</span>
+                            <span class="detail-label">${this.translate('admitted')}:</span>
                             <span class="detail-value">${school.passedStudents}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Taux de réussite:</span>
+                            <span class="detail-label">${this.translate('success_rate')}:</span>
                             <span class="detail-value ${successRateClass}">${school.successRate.toFixed(2)}%</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Moyenne générale:</span>
+                            <span class="detail-label">${this.translate('general_average')}:</span>
                             <span class="detail-value">${school.averageScore.toFixed(2)}/20</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Moyenne maximale:</span>
+                            <span class="detail-label">${this.translate('max_average')}:</span>
                             <span class="detail-value">${school.maxScore.toFixed(2)}/20</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Moyenne minimale:</span>
+                            <span class="detail-label">${this.translate('min_average')}:</span>
                             <span class="detail-value">${school.minScore.toFixed(2)}/20</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Score de classement:</span>
+                            <span class="detail-label">${this.translate('ranking_score')}:</span>
                             <span class="detail-value">${school.rankingScore.toFixed(2)}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Classement national:</span>
+                            <span class="detail-label">${this.translate('national_ranking')}:</span>
                             <span class="detail-value ranking-national">#${school.rank}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Classement régional:</span>
+                            <span class="detail-label">${this.translate('regional_ranking')}:</span>
                             <span class="detail-value ranking-regional">#${school.regionalRank || 'N/A'}</span>
                         </div>
                     </div>
                 </div>
                 
                 <div class="detail-section">
-                    <h4><i class="fas fa-chart-line"></i> Courbe de Performance</h4>
+                    <h4><i class="fas fa-chart-line"></i> ${this.translate('performance_chart')}</h4>
                     <div class="performance-chart">
                         <div class="chart-container">
                             <div class="chart-bars">
-                                <div class="chart-bar" data-label="Candidats" data-value="${school.totalStudents}" data-max="200" style="--bar-color: #3498db;">
+                                <div class="chart-bar" data-label="${this.translate('candidates')}" data-value="${school.totalStudents}" data-max="200" style="--bar-color: #3498db;">
                                     <div class="bar-fill" style="height: ${Math.min((school.totalStudents / 200) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.totalStudents}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Admis" data-value="${school.passedStudents}" data-max="200" style="--bar-color: #2ecc71;">
+                                <div class="chart-bar" data-label="${this.translate('admitted')}" data-value="${school.passedStudents}" data-max="200" style="--bar-color: #2ecc71;">
                                     <div class="bar-fill" style="height: ${Math.min((school.passedStudents / 200) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.passedStudents}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Réussite" data-value="${school.successRate}" data-max="100" style="--bar-color: #e74c3c;">
+                                <div class="chart-bar" data-label="${this.translate('success_rate')}" data-value="${school.successRate}" data-max="100" style="--bar-color: #e74c3c;">
                                     <div class="bar-fill" style="height: ${Math.min(school.successRate, 100)}%"></div>
                                     <div class="bar-label">${school.successRate.toFixed(1)}%</div>
                                 </div>
-                                <div class="chart-bar" data-label="Moyenne" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
+                                <div class="chart-bar" data-label="${this.translate('general_average')}" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
                                     <div class="bar-fill" style="height: ${Math.min((school.averageScore / 20) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.averageScore.toFixed(1)}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Max" data-value="${school.maxScore}" data-max="20" style="--bar-color: #9b59b6;">
+                                <div class="chart-bar" data-label="${this.translate('max_average')}" data-value="${school.maxScore}" data-max="20" style="--bar-color: #9b59b6;">
                                     <div class="bar-fill" style="height: ${Math.min((school.maxScore / 20) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.maxScore.toFixed(1)}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Min" data-value="${school.minScore}" data-max="20" style="--bar-color: #1abc9c;">
+                                <div class="chart-bar" data-label="${this.translate('min_average')}" data-value="${school.minScore}" data-max="20" style="--bar-color: #1abc9c;">
                                     <div class="bar-fill" style="height: ${Math.min((school.minScore / 20) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.minScore.toFixed(1)}</div>
                                 </div>
@@ -545,57 +779,57 @@ class SchoolRankingApp {
         } else {
             performanceDetails = `
                 <div class="detail-section">
-                    <h4><i class="fas fa-chart-bar"></i> Statistiques de performance</h4>
+                    <h4><i class="fas fa-chart-bar"></i> ${this.translate('performance_stats')}</h4>
                     <div class="detail-grid">
                         <div class="detail-item">
-                            <span class="detail-label">Nombre total d'élèves:</span>
+                            <span class="detail-label">${this.translate('candidates')}:</span>
                             <span class="detail-value">${school.totalStudents}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Élèves admis:</span>
+                            <span class="detail-label">${this.translate('admitted')}:</span>
                             <span class="detail-value">${school.passedStudents}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Taux de réussite:</span>
+                            <span class="detail-label">${this.translate('success_rate')}:</span>
                             <span class="detail-value ${successRateClass}">${school.successRate.toFixed(2)}%</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Moyenne générale:</span>
+                            <span class="detail-label">${this.translate('general_average')}:</span>
                             <span class="detail-value">${school.averageScore.toFixed(2)}/20</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Score de classement:</span>
+                            <span class="detail-label">${this.translate('ranking_score')}:</span>
                             <span class="detail-value">${school.rankingScore.toFixed(2)}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Classement national:</span>
+                            <span class="detail-label">${this.translate('national_ranking')}:</span>
                             <span class="detail-value ranking-national">#${school.rank}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Classement régional:</span>
+                            <span class="detail-label">${this.translate('regional_ranking')}:</span>
                             <span class="detail-value ranking-regional">#${school.regionalRank || 'N/A'}</span>
                         </div>
                     </div>
                 </div>
                 
                 <div class="detail-section">
-                    <h4><i class="fas fa-chart-line"></i> Courbe de Performance</h4>
+                    <h4><i class="fas fa-chart-line"></i> ${this.translate('performance_chart')}</h4>
                     <div class="performance-chart">
                         <div class="chart-container">
                             <div class="chart-bars">
-                                <div class="chart-bar" data-label="Élèves" data-value="${school.totalStudents}" data-max="200" style="--bar-color: #3498db;">
+                                <div class="chart-bar" data-label="${this.translate('candidates')}" data-value="${school.totalStudents}" data-max="200" style="--bar-color: #3498db;">
                                     <div class="bar-fill" style="height: ${Math.min((school.totalStudents / 200) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.totalStudents}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Admis" data-value="${school.passedStudents}" data-max="200" style="--bar-color: #2ecc71;">
+                                <div class="chart-bar" data-label="${this.translate('admitted')}" data-value="${school.passedStudents}" data-max="200" style="--bar-color: #2ecc71;">
                                     <div class="bar-fill" style="height: ${Math.min((school.passedStudents / 200) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.passedStudents}</div>
                                 </div>
-                                <div class="chart-bar" data-label="Réussite" data-value="${school.successRate}" data-max="100" style="--bar-color: #e74c3c;">
+                                <div class="chart-bar" data-label="${this.translate('success_rate')}" data-value="${school.successRate}" data-max="100" style="--bar-color: #e74c3c;">
                                     <div class="bar-fill" style="height: ${Math.min(school.successRate, 100)}%"></div>
                                     <div class="bar-label">${school.successRate.toFixed(1)}%</div>
                                 </div>
-                                <div class="chart-bar" data-label="Moyenne" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
+                                <div class="chart-bar" data-label="${this.translate('general_average')}" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
                                     <div class="bar-fill" style="height: ${Math.min((school.averageScore / 20) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.averageScore.toFixed(1)}</div>
                                 </div>
@@ -609,18 +843,18 @@ class SchoolRankingApp {
         modalBody.innerHTML = `
             <div class="school-details">
                 <div class="detail-section">
-                    <h4><i class="fas fa-info-circle"></i> Informations générales</h4>
+                    <h4><i class="fas fa-info-circle"></i> ${this.translate('general_info')}</h4>
                     <div class="detail-grid">
                         <div class="detail-item">
-                            <span class="detail-label">Région:</span>
+                            <span class="detail-label">${this.translate('region')}:</span>
                             <span class="detail-value">${school.region}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Niveau:</span>
+                            <span class="detail-label">${this.translate('level')}:</span>
                             <span class="detail-value">${this.getLevelName(school.level)}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Classement:</span>
+                            <span class="detail-label">${this.translate('ranking')}:</span>
                             <span class="detail-value">#${school.rank}</span>
                         </div>
                     </div>
@@ -629,7 +863,7 @@ class SchoolRankingApp {
                 ${performanceDetails}
                 
                 <div class="detail-section">
-                    <h4><i class="fas fa-trophy"></i> Évaluation</h4>
+                    <h4><i class="fas fa-trophy"></i> ${this.translate('evaluation')}</h4>
                     <div class="performance-indicator">
                         <div class="performance-bar">
                             <div class="performance-fill" style="width: ${Math.min(school.successRate, 100)}%"></div>
@@ -655,10 +889,10 @@ class SchoolRankingApp {
     }
 
     getPerformanceText(successRate) {
-        if (successRate >= 80) return 'Excellente performance';
-        if (successRate >= 60) return 'Bonne performance';
-        if (successRate >= 40) return 'Performance moyenne';
-        return 'Performance à améliorer';
+        if (successRate >= 80) return this.translate('excellent');
+        if (successRate >= 60) return this.translate('good');
+        if (successRate >= 40) return this.translate('average');
+        return this.translate('poor');
     }
 
     showLoading(show) {
@@ -680,7 +914,7 @@ class SchoolRankingApp {
             loadingElement.innerHTML = `
                 <div class="loading-content">
                     <i class="fas fa-spinner fa-spin"></i>
-                    <p>${message}</p>
+                    <p>${message || this.translate('loading_data')}</p>
                 </div>
             `;
         }
@@ -691,11 +925,11 @@ class SchoolRankingApp {
         schoolsGrid.innerHTML = `
             <div class="error-message">
                 <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #dc3545; margin-bottom: 20px;"></i>
-                <h3>Erreur</h3>
+                <h3>${this.translate('error')}</h3>
                 <p>${message}</p>
                 <button onclick="app.refreshData()" class="btn-refresh">
                     <i class="fas fa-sync-alt"></i>
-                    Réessayer
+                    ${this.translate('retry')}
                 </button>
             </div>
         `;
@@ -703,6 +937,14 @@ class SchoolRankingApp {
 
     async refreshData() {
         await this.loadInitialData();
+    }
+
+    updateLanguage(language) {
+        this.currentLanguage = language;
+        // Re-render the current view with new language
+        this.updateResultsHeader();
+        this.renderSchools();
+        this.updateRegionFilter();
     }
 
     closeModal() {
@@ -758,7 +1000,10 @@ function closeAboutModal() {
 }
 
 function showHelp() {
-    alert('Aide: Utilisez les onglets pour naviguer entre les niveaux d\'éducation. Recherchez des écoles par nom ou filtrez par région. Cliquez sur une école pour voir ses détails.');
+    const helpText = app ? 
+        `${app.translate('footer_help')}: ${app.translate('help_text')}` : 
+        'Aide: Utilisez les onglets pour naviguer entre les niveaux d\'éducation. Recherchez les écoles par nom ou filtrez par région. Cliquez sur une école pour voir ses détails.';
+    alert(helpText);
 }
 
 // Initialize the application
