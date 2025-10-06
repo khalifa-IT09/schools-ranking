@@ -33,59 +33,56 @@ body {
 .header-content {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 20px;
     flex-wrap: wrap;
     width: 100%;
 }
 
-.flag-container {
+.logo {
     display: flex;
     align-items: center;
-    flex: 0 0 auto;
+    justify-content: center;
+    gap: 15px;
+    flex: 1;
+    min-width: 300px;
 }
 
-.flag-container.left {
-    order: 1;
-}
-
-.flag-container.right {
-    order: 3;
+.logo-text {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .mauritania-flag {
-    width: 80px;
-    height: 60px;
+    width: 60px;
+    height: 45px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     border: 2px solid #fff;
     transition: transform 0.3s ease;
+    flex-shrink: 0;
 }
 
 .mauritania-flag:hover {
     transform: scale(1.05);
 }
 
-.header-content .logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    flex: 1;
-    order: 2;
-    min-width: 300px;
-}
-
-.header-content .logo i {
+.logo i {
     font-size: 2.5rem;
     color: #2E7D32;
+    flex-shrink: 0;
 }
 
-.header-content h1 {
+.logo h1 {
     font-size: 2.5rem;
     color: #2E7D32;
     font-weight: 700;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 0;
+    line-height: 1.2;
 }
 
 .subtitle {
@@ -969,6 +966,253 @@ body {
 }
 
 @media (max-width: 480px) {
+    .chart-bars {
+        gap: 5px;
+    }
+    
+    .chart-bar {
+        max-width: 45px;
+    }
+    
+    .bar-label {
+        font-size: 0.6rem;
+        padding: 2px 4px;
+        min-width: 30px;
+    }
+    
+    .chart-bar::after {
+        font-size: 0.5rem;
+        bottom: -20px;
+    }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .header {
+        padding: 20px 15px;
+        margin-bottom: 20px;
+    }
+    
+    .logo {
+        flex-direction: column;
+        gap: 10px;
+        min-width: auto;
+    }
+    
+    .logo-text {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .mauritania-flag {
+        width: 50px;
+        height: 37px;
+    }
+    
+    .logo i {
+        font-size: 2rem;
+    }
+    
+    .logo h1 {
+        font-size: 1.8rem;
+        line-height: 1.1;
+    }
+    
+    .subtitle {
+        font-size: 1rem;
+        margin-top: 15px;
+        line-height: 1.4;
+    }
+    
+    .nav-tabs {
+        flex-direction: column;
+        gap: 10px;
+        padding: 15px;
+    }
+    
+    .nav-tab {
+        padding: 15px 20px;
+        font-size: 1rem;
+        width: 100%;
+    }
+    
+    .controls {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-box {
+        width: 100%;
+    }
+    
+    .search-box input {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .filter-container {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .filter-container select {
+        width: 100%;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .btn-refresh {
+        width: 100%;
+        padding: 12px;
+    }
+    
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 15px;
+    }
+    
+    .stat-card {
+        padding: 15px;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .stat-icon i {
+        font-size: 1.2rem;
+    }
+    
+    .stat-number {
+        font-size: 1.2rem;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+    }
+    
+    .schools-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .school-card {
+        padding: 15px;
+    }
+    
+    .school-header h3 {
+        font-size: 1.1rem;
+    }
+    
+    .school-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-item {
+        padding: 8px;
+    }
+    
+    .stat-value {
+        font-size: 1rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+    }
+    
+    .pagination {
+        padding: 15px;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .pagination-info {
+        order: 2;
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        order: 1;
+        justify-content: center;
+    }
+    
+    .pagination button {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+    
+    .footer {
+        padding: 20px 15px;
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .footer-links {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .footer-links a {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 5px;
+    }
+    
+    .header {
+        padding: 15px 10px;
+        margin-bottom: 15px;
+    }
+    
+    .logo h1 {
+        font-size: 1.5rem;
+    }
+    
+    .subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .nav-tab {
+        padding: 12px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .stats-container {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .school-card {
+        padding: 12px;
+    }
+    
+    .school-stats {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
     .chart-bars {
         gap: 5px;
     }
