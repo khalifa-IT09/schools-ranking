@@ -737,9 +737,16 @@ function closeModal() {
 }
 
 function showAbout() {
+    console.log('showAbout function called');
     const aboutModal = document.getElementById('aboutModal');
+    console.log('aboutModal element:', aboutModal);
     if (aboutModal) {
         aboutModal.style.display = 'block';
+        aboutModal.style.visibility = 'visible';
+        aboutModal.style.opacity = '1';
+        console.log('Modal should be visible now');
+    } else {
+        console.error('aboutModal element not found');
     }
 }
 
