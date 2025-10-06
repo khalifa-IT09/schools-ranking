@@ -313,6 +313,21 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Fallback for Chart.js loading
+        if (typeof Chart === 'undefined') {
+            console.log('Chart.js not loaded from primary CDN, trying fallback...');
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+            script.onload = function() {
+                console.log('Chart.js loaded from fallback CDN');
+            };
+            script.onerror = function() {
+                console.error('Failed to load Chart.js from both CDNs');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
 </head>
 <body>
     <!-- Login Form -->
@@ -559,6 +574,11 @@
         }
 
         function createCountriesChart(countries) {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded');
+                return;
+            }
+            
             const ctx = document.getElementById('countriesChart').getContext('2d');
             
             if (charts.countries) {
@@ -590,6 +610,11 @@
         }
 
         function createDevicesChart(devices) {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded');
+                return;
+            }
+            
             const ctx = document.getElementById('devicesChart').getContext('2d');
             
             if (charts.devices) {
@@ -616,6 +641,11 @@
         }
 
         function createDailyChart(daily) {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded');
+                return;
+            }
+            
             const ctx = document.getElementById('dailyChart').getContext('2d');
             
             if (charts.daily) {
@@ -647,6 +677,11 @@
         }
 
         function createHourlyChart(hourly) {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded');
+                return;
+            }
+            
             const ctx = document.getElementById('hourlyChart').getContext('2d');
             
             if (charts.hourly) {
