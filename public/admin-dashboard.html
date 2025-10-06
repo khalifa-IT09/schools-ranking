@@ -459,36 +459,58 @@
         }
 
         function logout() {
+            console.log('Logging out...');
             isAuthenticated = false;
             localStorage.removeItem('admin_authenticated');
             document.getElementById('login-container').style.display = 'flex';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('login-form').reset();
             document.getElementById('error-message').style.display = 'none';
+            
+            // Clear any existing analytics data
+            document.getElementById('analytics-content').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            // Show success message
+            alert('Vous avez été déconnecté avec succès.');
         }
 
         async function loadAnalytics() {
             try {
+                console.log('Loading analytics...');
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('error').style.display = 'none';
                 document.getElementById('analytics-content').style.display = 'none';
 
                 const response = await fetch('/api/analytics/comprehensive');
+                console.log('Analytics response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('Analytics data received:', data);
 
-                if (data.success) {
+                if (data.success && data.stats) {
                     displayAnalytics(data.stats);
                 } else {
-                    throw new Error('Failed to load analytics');
+                    throw new Error('Failed to load analytics: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error loading analytics:', error);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
+                document.getElementById('error').innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    Erreur lors du chargement des données: ${error.message}
+                `;
             }
         }
 
         function displayAnalytics(stats) {
+            console.log('Displaying analytics:', stats);
+            
             // Display overview stats
             displayOverviewStats(stats.overview);
             
@@ -510,6 +532,7 @@
         }
 
         function displayOverviewStats(overview) {
+            console.log('Displaying overview stats:', overview);
             const container = document.getElementById('overview-stats');
             container.innerHTML = `
                 <div class="stat-card">
