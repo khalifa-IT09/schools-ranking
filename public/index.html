@@ -150,24 +150,24 @@
     </div>
 
     <!-- About Modal -->
-    <div class="modal" id="aboutModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>À propos de cette application</h3>
-                <button class="close" onclick="closeAboutModal(); return false;" title="Fermer" type="button">&times;</button>
+    <div id="aboutModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div style="background: white; margin: 5% auto; padding: 0; border-radius: 15px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);">
+            <div style="background: #667eea; color: white; padding: 20px 30px; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.5rem;">À propos de cette application</h3>
+                <button onclick="closeAboutModal(); return false;" style="background: none; border: none; color: white; font-size: 2rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" title="Fermer" type="button">&times;</button>
             </div>
-            <div class="modal-body">
+            <div style="padding: 30px;">
                 <p>Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.</p>
-                <h4>Niveaux d'éducation couverts :</h4>
-                <ul>
-                    <li><strong>Écoles Primaires (CAS)</strong> : Résultats du Certificat d'Aptitude Scolaire</li>
-                    <li><strong>Collèges (Brevet)</strong> : Résultats du Brevet d'Études du Premier Cycle</li>
-                    <li><strong>Lycées (Baccalauréat)</strong> : Résultats du Baccalauréat</li>
+                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;">Niveaux d'éducation couverts :</h4>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li style="margin-bottom: 8px; color: #666;"><strong>Écoles Primaires (CAS)</strong> : Résultats du Certificat d'Aptitude Scolaire</li>
+                    <li style="margin-bottom: 8px; color: #666;"><strong>Collèges (Brevet)</strong> : Résultats du Brevet d'Études du Premier Cycle</li>
+                    <li style="margin-bottom: 8px; color: #666;"><strong>Lycées (Baccalauréat)</strong> : Résultats du Baccalauréat</li>
                 </ul>
-                <h4>Critères de classement :</h4>
-                <ul>
-                    <li>Taux de réussite (40%)</li>
-                    <li>Moyenne générale des scores (60%)</li>
+                <h4 style="color: #333; margin: 20px 0 10px 0; font-size: 1.2rem;">Critères de classement :</h4>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li style="margin-bottom: 8px; color: #666;">Taux de réussite (40%)</li>
+                    <li style="margin-bottom: 8px; color: #666;">Moyenne générale des scores (60%)</li>
                 </ul>
                 <p><em>Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.</em></p>
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
