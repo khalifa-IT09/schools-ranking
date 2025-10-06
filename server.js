@@ -812,6 +812,11 @@ app.get('/analytics', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'analytics-dashboard.html'));
 });
 
+// Serve admin access page
+app.get('/admin-access', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-access.html'));
+});
+
 // Serve admin dashboard (admin only)
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
