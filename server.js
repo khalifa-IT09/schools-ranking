@@ -773,7 +773,7 @@ app.get('/api/schools/:level', (req, res) => {
   console.log(`API Request: /api/schools/${level} - region: ${region}, limit: ${limit}, offset: ${offset}`);
 
   // Validate level parameter
-  if (!['primary', 'middle', 'secondary'].includes(level)) {
+  if (!level || !['primary', 'middle', 'secondary'].includes(level)) {
     console.error(`❌ Invalid level: ${level}`);
     return res.status(400).json({ 
       error: 'Invalid level. Must be primary, middle, or secondary',

@@ -346,6 +346,12 @@ class SchoolRankingApp {
     async switchLevel(level) {
         if (this.currentLevel === level) return;
         
+        // Validate level parameter
+        if (!level || !['primary', 'middle', 'secondary'].includes(level)) {
+            console.error('❌ Invalid level parameter:', level);
+            return;
+        }
+        
         this.currentLevel = level;
         this.currentPage = 1;
         this.currentSearch = '';
@@ -441,6 +447,12 @@ class SchoolRankingApp {
 
     async loadSchools() {
         try {
+            // Validate currentLevel before making API request
+            if (!this.currentLevel || !['primary', 'middle', 'secondary'].includes(this.currentLevel)) {
+                console.error('❌ Invalid currentLevel:', this.currentLevel);
+                this.currentLevel = 'primary'; // Default fallback
+            }
+            
             let url;
             if (this.currentSearch) {
                 url = `/api/schools/${this.currentLevel}/search?q=${encodeURIComponent(this.currentSearch)}&region=${this.currentRegion}`;
