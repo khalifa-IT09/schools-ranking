@@ -3,7 +3,7 @@ class SchoolRankingApp {
     constructor() {
         this.currentLevel = 'primary';
         this.currentPage = 1;
-        this.pageSize = 20;
+        this.pageSize = 200;
         this.currentRegion = 'all';
         this.currentSearch = '';
         this.schools = [];
@@ -30,7 +30,6 @@ class SchoolRankingApp {
                 stat_schools: "Écoles",
                 stat_students: "Élèves",
                 stat_success_rate: "Taux de Réussite",
-                stat_average: "Moyenne Générale",
                 
                 // Results
                 loading_data: "Chargement des données...",
@@ -66,9 +65,8 @@ class SchoolRankingApp {
                 candidates: "Candidats",
                 admitted: "Admis",
                 success_rate: "Taux de Réussite",
-                max_average: "Moyenne Max",
-                min_average: "Moyenne Min",
-                general_average: "Moyenne Générale",
+                max_average: "Note Max",
+                min_average: "Note Min",
                 ranking_score: "Score de classement",
                 national_ranking: "Classement national",
                 regional_ranking: "Classement régional",
@@ -76,6 +74,9 @@ class SchoolRankingApp {
                 performance_stats: "Statistiques de performance",
                 general_info: "Informations générales",
                 evaluation: "Évaluation",
+                region: "Région",
+                level: "Niveau",
+                ranking: "Classement",
                 excellent: "Excellent",
                 good: "Bon",
                 average: "Moyen",
@@ -103,7 +104,6 @@ class SchoolRankingApp {
                 stat_schools: "المدارس",
                 stat_students: "الطلاب",
                 stat_success_rate: "معدل النجاح",
-                stat_average: "المتوسط العام",
                 
                 // Results
                 loading_data: "جاري تحميل البيانات...",
@@ -141,7 +141,6 @@ class SchoolRankingApp {
                 success_rate: "معدل النجاح",
                 max_average: "الدرجة العليا",
                 min_average: "الدرجة الدنيا",
-                general_average: "المتوسط العام",
                 ranking_score: "نقاط التصنيف",
                 national_ranking: "التصنيف الوطني",
                 regional_ranking: "التصنيف الإقليمي",
@@ -423,7 +422,6 @@ class SchoolRankingApp {
             document.getElementById('totalSchools').textContent = 'Erreur';
             document.getElementById('totalStudents').textContent = 'Erreur';
             document.getElementById('successRate').textContent = 'Erreur';
-            document.getElementById('averageScore').textContent = 'Erreur';
         }
     }
 
@@ -432,14 +430,12 @@ class SchoolRankingApp {
             document.getElementById('totalSchools').textContent = data.stats.totalSchools.toLocaleString();
             document.getElementById('totalStudents').textContent = data.stats.totalStudents.toLocaleString();
             document.getElementById('successRate').textContent = `${data.stats.overallSuccessRate}%`;
-            document.getElementById('averageScore').textContent = data.stats.averageScore.toFixed(2);
         } else if (data.message) {
             console.log('Stats message:', data.message);
             // Show placeholder values
             document.getElementById('totalSchools').textContent = '0';
             document.getElementById('totalStudents').textContent = '0';
             document.getElementById('successRate').textContent = '0%';
-            document.getElementById('averageScore').textContent = '0.00';
         }
     }
 
@@ -570,10 +566,6 @@ class SchoolRankingApp {
                     <div class="school-stat">
                         <div class="school-stat-value ${successRateClass}">${school.successRate.toFixed(1)}%</div>
                         <div class="school-stat-label">${this.translate('success_rate')}</div>
-                    </div>
-                    <div class="school-stat">
-                        <div class="school-stat-value">${school.averageScore.toFixed(2)}</div>
-                        <div class="school-stat-label">${this.translate('general_average')}</div>
                     </div>
                     <div class="school-stat">
                         <div class="school-stat-value">${school.passedStudents}</div>
@@ -716,16 +708,12 @@ class SchoolRankingApp {
                             <span class="detail-value ${successRateClass}">${school.successRate.toFixed(2)}%</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">${this.translate('general_average')}:</span>
-                            <span class="detail-value">${school.averageScore.toFixed(2)}/20</span>
-                        </div>
-                        <div class="detail-item">
                             <span class="detail-label">${this.translate('max_average')}:</span>
-                            <span class="detail-value">${school.maxScore.toFixed(2)}/20</span>
+                            <span class="detail-value">${school.maxScore.toFixed(2)}/${this.currentLevel === 'primary' ? '200' : '10'}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">${this.translate('min_average')}:</span>
-                            <span class="detail-value">${school.minScore.toFixed(2)}/20</span>
+                            <span class="detail-value">${school.minScore.toFixed(2)}/${this.currentLevel === 'primary' ? '200' : '10'}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">${this.translate('ranking_score')}:</span>
@@ -759,16 +747,12 @@ class SchoolRankingApp {
                                     <div class="bar-fill" style="height: ${Math.min(school.successRate, 100)}%"></div>
                                     <div class="bar-label">${school.successRate.toFixed(1)}%</div>
                                 </div>
-                                <div class="chart-bar" data-label="${this.translate('general_average')}" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
-                                    <div class="bar-fill" style="height: ${Math.min((school.averageScore / 20) * 100, 100)}%"></div>
-                                    <div class="bar-label">${school.averageScore.toFixed(1)}</div>
-                                </div>
-                                <div class="chart-bar" data-label="${this.translate('max_average')}" data-value="${school.maxScore}" data-max="20" style="--bar-color: #9b59b6;">
-                                    <div class="bar-fill" style="height: ${Math.min((school.maxScore / 20) * 100, 100)}%"></div>
+                                <div class="chart-bar" data-label="${this.translate('max_average')}" data-value="${school.maxScore}" data-max="${this.currentLevel === 'primary' ? '200' : '10'}" style="--bar-color: #9b59b6;">
+                                    <div class="bar-fill" style="height: ${Math.min((school.maxScore / (this.currentLevel === 'primary' ? 200 : 10)) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.maxScore.toFixed(1)}</div>
                                 </div>
-                                <div class="chart-bar" data-label="${this.translate('min_average')}" data-value="${school.minScore}" data-max="20" style="--bar-color: #1abc9c;">
-                                    <div class="bar-fill" style="height: ${Math.min((school.minScore / 20) * 100, 100)}%"></div>
+                                <div class="chart-bar" data-label="${this.translate('min_average')}" data-value="${school.minScore}" data-max="${this.currentLevel === 'primary' ? '200' : '10'}" style="--bar-color: #1abc9c;">
+                                    <div class="bar-fill" style="height: ${Math.min((school.minScore / (this.currentLevel === 'primary' ? 200 : 10)) * 100, 100)}%"></div>
                                     <div class="bar-label">${school.minScore.toFixed(1)}</div>
                                 </div>
                             </div>
@@ -794,10 +778,6 @@ class SchoolRankingApp {
                             <span class="detail-value ${successRateClass}">${school.successRate.toFixed(2)}%</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">${this.translate('general_average')}:</span>
-                            <span class="detail-value">${school.averageScore.toFixed(2)}/20</span>
-                        </div>
-                        <div class="detail-item">
                             <span class="detail-label">${this.translate('ranking_score')}:</span>
                             <span class="detail-value">${school.rankingScore.toFixed(2)}</span>
                         </div>
@@ -828,10 +808,6 @@ class SchoolRankingApp {
                                 <div class="chart-bar" data-label="${this.translate('success_rate')}" data-value="${school.successRate}" data-max="100" style="--bar-color: #e74c3c;">
                                     <div class="bar-fill" style="height: ${Math.min(school.successRate, 100)}%"></div>
                                     <div class="bar-label">${school.successRate.toFixed(1)}%</div>
-                                </div>
-                                <div class="chart-bar" data-label="${this.translate('general_average')}" data-value="${school.averageScore}" data-max="20" style="--bar-color: #f39c12;">
-                                    <div class="bar-fill" style="height: ${Math.min((school.averageScore / 20) * 100, 100)}%"></div>
-                                    <div class="bar-label">${school.averageScore.toFixed(1)}</div>
                                 </div>
                             </div>
                         </div>
