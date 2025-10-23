@@ -137,9 +137,13 @@ class SchoolRankingApp {
 
     init() {
         console.log('🚀 Initializing School Ranking App...');
+        console.log('🔧 Setting up event listeners...');
         this.setupEventListeners();
+        console.log('📊 Loading initial data...');
         this.loadInitialData();
+        console.log('🌐 Updating language...');
         this.updateLanguage();
+        console.log('✅ App initialization complete');
     }
 
     setupEventListeners() {
@@ -267,6 +271,7 @@ class SchoolRankingApp {
 
     async loadSchools() {
         try {
+            console.log('🚀 Starting loadSchools...');
             this.showLoading();
             
             const params = new URLSearchParams({
@@ -287,11 +292,19 @@ class SchoolRankingApp {
 
             console.log(`📚 Loading schools: ${url}`);
             const response = await fetch(url);
+            console.log('📡 Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
+            console.log('📊 Response data:', data);
 
             if (data.success) {
                 this.schools = data.schools || [];
                 this.totalSchools = data.total || 0;
+                console.log('✅ Data loaded successfully:', this.schools.length, 'schools');
                 this.hideLoading();
                 this.renderSchools();
                 this.updateStats();
@@ -514,8 +527,11 @@ class SchoolRankingApp {
 
     async loadInitialData() {
         try {
+            console.log('🌍 Loading regions...');
             await this.loadRegions();
+            console.log('🏫 Loading schools...');
             await this.loadSchools();
+            console.log('✅ Initial data loaded');
         } catch (error) {
             console.error('❌ Error loading initial data:', error);
         }
