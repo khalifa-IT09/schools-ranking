@@ -356,20 +356,18 @@ class SchoolRankingApp {
     updateStats() {
         const totalSchoolsEl = document.getElementById('totalSchools');
         const totalStudentsEl = document.getElementById('totalStudents');
-        const averageScoreEl = document.getElementById('averageScore');
-        const regionsCountEl = document.getElementById('regionsCount');
+        const successRateEl = document.getElementById('successRate');
 
         if (totalSchoolsEl) totalSchoolsEl.textContent = this.totalSchools.toLocaleString();
         if (totalStudentsEl) {
             const totalStudents = this.schools.reduce((sum, school) => sum + (school.totalStudents || 0), 0);
             totalStudentsEl.textContent = totalStudents.toLocaleString();
         }
-        if (averageScoreEl) {
+        if (successRateEl) {
             const averageScore = this.schools.length > 0 ? 
                 this.schools.reduce((sum, school) => sum + (school.score || 0), 0) / this.schools.length : 0;
-            averageScoreEl.textContent = Math.round(averageScore * 100) / 100;
+            successRateEl.textContent = Math.round(averageScore * 100) / 100 + '%';
         }
-        if (regionsCountEl) regionsCountEl.textContent = this.regions.length;
     }
 
     updatePagination() {
