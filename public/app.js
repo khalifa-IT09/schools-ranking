@@ -188,11 +188,11 @@ class SchoolRankingApp {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             console.log('✅ Search input found and event listener attached');
-            searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', (e) => {
                 this.currentSearch = e.target.value;
                 console.log(`🔍 Search input changed: "${this.currentSearch}"`);
                 this.debounceSearch();
-            });
+        });
         } else {
             console.error('❌ Search input not found!');
         }
@@ -402,7 +402,7 @@ class SchoolRankingApp {
         }
         
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card-professional" onclick="console.log('Click detected for school:', '${school.id}'); window.app.showSchoolDetails('${school.id}')">
+            <div class="school-card-professional" data-school-id="${school.id}">
                 <div class="school-ranking-badge">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
                 
                 <div class="school-header-professional">
@@ -411,7 +411,7 @@ class SchoolRankingApp {
                         <i class="fas fa-map-marker-alt"></i>
                         <span>${school.region}</span>
                     </div>
-                </div>
+                    </div>
                 
                 <div class="statistics-grid-professional">
                     <div class="stat-card-professional">
@@ -438,9 +438,35 @@ class SchoolRankingApp {
                         <div class="stat-number-professional">${school.minScore || 0}</div>
                         <div class="stat-label-professional">Note Min</div>
                     </div>
-                    </div>
-                    </div>
+                </div>
+            </div>
         `).join('');
+        
+        // Add event listeners to school cards
+        this.addSchoolCardEventListeners();
+    }
+
+    addSchoolCardEventListeners() {
+        console.log('🔧 Adding event listeners to school cards...');
+        const schoolCards = document.querySelectorAll('.school-card-professional');
+        console.log(`🔧 Found ${schoolCards.length} school cards`);
+        
+        schoolCards.forEach((card, index) => {
+            const schoolId = card.getAttribute('data-school-id');
+            console.log(`🔧 Adding listener to card ${index + 1}: ${schoolId}`);
+            
+            card.addEventListener('click', (event) => {
+                console.log('🎯 School card clicked!', schoolId);
+                event.preventDefault();
+                event.stopPropagation();
+                this.showSchoolDetails(schoolId);
+            });
+            
+            // Add cursor pointer style
+            card.style.cursor = 'pointer';
+        });
+        
+        console.log('✅ Event listeners added successfully');
     }
 
     async updateStats() {
@@ -504,7 +530,7 @@ class SchoolRankingApp {
         // Previous button
         if (this.currentPage > 1) {
         paginationHTML += `
-                <button class="pagination-btn" onclick="window.app.goToPage(${this.currentPage - 1})">
+                <button class="pagination-btn" data-action="prev" data-page="${this.currentPage - 1}">
                 <i class="fas fa-chevron-left"></i>
             </button>
         `;
@@ -517,7 +543,7 @@ class SchoolRankingApp {
         for (let i = startPage; i <= endPage; i++) {
             paginationHTML += `
                 <button class="pagination-btn ${i === this.currentPage ? 'active' : ''}" 
-                        onclick="window.app.goToPage(${i})">
+                        data-action="page" data-page="${i}">
                     ${i}
                 </button>
             `;
@@ -526,13 +552,37 @@ class SchoolRankingApp {
         // Next button
         if (this.currentPage < totalPages) {
         paginationHTML += `
-                <button class="pagination-btn" onclick="window.app.goToPage(${this.currentPage + 1})">
+                <button class="pagination-btn" data-action="next" data-page="${this.currentPage + 1}">
                 <i class="fas fa-chevron-right"></i>
             </button>
         `;
         }
         
         pagination.innerHTML = paginationHTML;
+        
+        // Add event listeners to pagination buttons
+        this.addPaginationEventListeners();
+    }
+
+    addPaginationEventListeners() {
+        console.log('🔧 Adding event listeners to pagination buttons...');
+        const paginationButtons = document.querySelectorAll('.pagination-btn');
+        console.log(`🔧 Found ${paginationButtons.length} pagination buttons`);
+        
+        paginationButtons.forEach((button, index) => {
+            const action = button.getAttribute('data-action');
+            const page = button.getAttribute('data-page');
+            console.log(`🔧 Adding listener to button ${index + 1}: ${action} page ${page}`);
+            
+            button.addEventListener('click', (event) => {
+                console.log('🎯 Pagination button clicked!', action, page);
+                event.preventDefault();
+                event.stopPropagation();
+                this.goToPage(parseInt(page));
+            });
+        });
+        
+        console.log('✅ Pagination event listeners added successfully');
     }
 
     goToPage(page) {
@@ -562,12 +612,23 @@ class SchoolRankingApp {
             <div class="error-message">
                     <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #e74c3c; margin-bottom: 1rem;"></i>
                     <h3>${this.translate('error_loading')}</h3>
-                    <button class="btn-primary" onclick="window.app.loadSchools()">
+                    <button class="btn-primary" data-action="refresh">
                         <i class="fas fa-refresh"></i>
                         ${this.translate('try_again')}
                 </button>
             </div>
         `;
+        
+        // Add event listener to refresh button
+        const refreshButton = schoolsGrid.querySelector('[data-action="refresh"]');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', (event) => {
+                console.log('🎯 Refresh button clicked!');
+                event.preventDefault();
+                event.stopPropagation();
+                this.loadSchools();
+            });
+        }
     }
     }
 
@@ -579,7 +640,7 @@ class SchoolRankingApp {
         // First, let's try to show a simple modal to test if the modal system works
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
+            const modalBody = document.getElementById('modalBody');
 
         console.log('🔍 Modal elements:', { modal: !!modal, modalTitle: !!modalTitle, modalBody: !!modalBody });
         
@@ -675,7 +736,7 @@ class SchoolRankingApp {
                                             <div class="stat-card-simple">
                                                 <div class="stat-number-simple">${statistics.averageScore}</div>
                                                 <div class="stat-label-simple">Note Moyenne</div>
-                                            </div>
+                </div>
                                         </div>
                                         
                                         <div class="performance-section">
@@ -684,19 +745,19 @@ class SchoolRankingApp {
                                                 <div class="chart-info">
                                                     <span class="chart-scale">Échelle: ${curveData.scale}</span>
                                                     <span class="chart-interval">Intervalle: ${curveData.interval} points</span>
-                                                </div>
+                    </div>
                                                 <div class="performance-chart" id="performanceChart">
                                                     ${this.generateInteractivePerformanceChart(curveData, school.level)}
-                                                </div>
-                                            </div>
-                                        </div>
+                        </div>
+                        </div>
+                    </div>
                                         
                                         <div class="admission-info">
                                             <p><strong>Critère d'admission:</strong> ${admissionCriteria}</p>
                                         </div>
-                                    </div>
-                                `;
-                } else {
+                </div>
+            `;
+            } else {
                     modalBody.innerHTML = `
                         <div class="error-details">
                             <i class="fas fa-exclamation-triangle"></i>
@@ -704,8 +765,8 @@ class SchoolRankingApp {
                             <p>Impossible de charger les détails de cette école.</p>
                 </div>
             `;
-                }
-            } catch (error) {
+            }
+        } catch (error) {
                 console.error('❌ Error loading school details:', error);
                 // Show fallback with basic school info
                 const school = this.schools.find(s => s.id === schoolId);
@@ -728,7 +789,7 @@ class SchoolRankingApp {
                                 <div class="stat-card-simple">
                                     <div class="stat-number-simple">${school.successRate || school.score || 0}%</div>
                                     <div class="stat-label-simple">Taux de Réussite</div>
-                                </div>
+            </div>
                                 
                                 <div class="stat-card-simple">
                                     <div class="stat-number-simple">${school.score || 0}</div>
