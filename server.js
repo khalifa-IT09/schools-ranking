@@ -204,7 +204,7 @@ async function processCSVFile(filename, level) {
       .on('end', () => {
         console.log(`✅ Processed ${processedCount} valid records for ${level} level`);
         console.log(`❌ Skipped ${errorCount} invalid records`);
-        console.log(`Sample record keys:`, Object.keys(results[0] || []);
+        console.log(`Sample record keys:`, Object.keys(results[0] || []));
         if (results.length > 0) {
           console.log(`Sample record:`, results[0]);
         }
