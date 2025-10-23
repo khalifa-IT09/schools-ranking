@@ -1014,20 +1014,27 @@ app.get('/api/school/:schoolId/details', (req, res) => {
   }
   
   try {
-    // Find the school in all levels
+    console.log(`🔍 Looking for school: ${schoolId}`);
+    
+    // Find the school in the pre-calculated rankings
     let school = null;
     let level = null;
     
-    for (const [levelKey, rankings] of Object.entries(schoolRankings)) {
-      const foundSchool = rankings.find(s => s.id === schoolId);
-      if (foundSchool) {
-        school = foundSchool;
-        level = levelKey;
-        break;
+    for (const [levelKey, rankings] of Object.entries(rankingsCache)) {
+      if (rankings && rankings.length > 0) {
+        console.log(`🔍 Checking ${levelKey} level with ${rankings.length} schools`);
+        const foundSchool = rankings.find(s => s.id === schoolId);
+        if (foundSchool) {
+          school = foundSchool;
+          level = levelKey;
+          console.log(`✅ Found school: ${school.name} in ${level}`);
+          break;
+        }
       }
     }
     
     if (!school) {
+      console.log(`❌ School not found: ${schoolId}`);
       return res.status(404).json({
         success: false,
         error: 'School not found'
@@ -1036,10 +1043,14 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     
     // Get raw data for this school to calculate detailed statistics
     const rawData = schoolData[level];
+    console.log(`📊 Processing ${rawData.length} records for ${school.name}`);
+    
     const schoolRecords = rawData.filter(record => {
       const schoolName = getSchoolName(record, level);
       return schoolName === school.name;
     });
+    
+    console.log(`📊 Found ${schoolRecords.length} records for ${school.name}`);
     
     // Calculate detailed statistics
     const totalCandidates = schoolRecords.length;
@@ -1058,6 +1069,8 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
     const minScore = scores.length > 0 ? Math.min(...scores) : 0;
     const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    
+    console.log(`📊 Statistics: ${totalCandidates} candidates, ${admittedStudents} admitted, ${successRate.toFixed(1)}% success rate`);
     
     // Create score distribution for performance curve
     const scoreRanges = [];
