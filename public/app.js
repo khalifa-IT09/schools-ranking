@@ -1159,6 +1159,9 @@ class CommunityVoting {
         await this.loadLeaderboard();
         await this.loadVotingSchools();
         
+        // Check vote restrictions on initialization
+        this.checkVoteRestrictions();
+        
         console.log('✅ Community Voting initialized');
         
         // Add debugging function to window for testing
@@ -1539,7 +1542,34 @@ class CommunityVoting {
             const schoolId = this.generateSchoolId(school);
             const voteCount = this.voteCounts[schoolId] || 0;
             const remainingVotes = Math.max(0, 7 - voteCount);
-            const canVote = remainingVotes > 0;
+            
+            // Check if user can vote based on restrictions
+            const today = new Date().toDateString();
+            const lastVoteDate = localStorage.getItem('lastVoteDate');
+            const lastVoteSchool = localStorage.getItem('lastVoteSchool');
+            const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
+            const lastVoteTime = localStorage.getItem(`lastVoteTime_${schoolId}`);
+            
+            let canVote = remainingVotes > 0;
+            
+            // Check daily limit
+            if (lastVoteDate === today && dailyVoteCount >= 1) {
+                canVote = false;
+            }
+            
+            // Check if voted for different school today
+            if (lastVoteSchool && lastVoteSchool !== schoolId && lastVoteDate === today) {
+                canVote = false;
+            }
+            
+            // Check 24h cooldown
+            if (lastVoteTime) {
+                const timeDiff = Date.now() - parseInt(lastVoteTime);
+                const hoursDiff = timeDiff / (1000 * 60 * 60);
+                if (hoursDiff < 24) {
+                    canVote = false;
+                }
+            }
 
             return `
                 <div class="voting-school-card" style="animation-delay: ${index * 0.1}s;">
@@ -1570,7 +1600,7 @@ class CommunityVoting {
                             onclick="communityVoting.voteForSchool('${schoolId}', '${school.name}', '${school.region}', '${school.level}')"
                             ${!canVote ? 'disabled' : ''}>
                         <i class="fas fa-vote-yea"></i>
-                        ${canVote ? 'Voter' : 'Limite atteinte'}
+                        ${this.getVoteButtonText(canVote, lastVoteTime, lastVoteSchool, schoolId, lastVoteDate, today)}
                     </button>
                 </div>
             `;
@@ -1591,6 +1621,68 @@ class CommunityVoting {
             const voteButton = event.target.closest('.vote-button');
             if (!voteButton) return;
 
+            // Check if user has already voted today
+            const today = new Date().toDateString();
+            const lastVoteDate = localStorage.getItem('lastVoteDate');
+            const lastVoteSchool = localStorage.getItem('lastVoteSchool');
+            const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
+            const currentDate = new Date().toDateString();
+
+            // Reset daily count if it's a new day
+            if (lastVoteDate !== currentDate) {
+                localStorage.setItem('dailyVoteCount', '0');
+                localStorage.setItem('lastVoteDate', currentDate);
+            }
+
+            // Check daily vote limit (1 vote per day)
+            if (dailyVoteCount >= 1) {
+                voteButton.innerHTML = '<i class="fas fa-clock"></i> Limite quotidienne atteinte';
+                voteButton.classList.add('vote-limit');
+                voteButton.disabled = true;
+                
+                setTimeout(() => {
+                    voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter';
+                    voteButton.classList.remove('vote-limit');
+                    voteButton.disabled = false;
+                }, 3000);
+                return;
+            }
+
+            // Check if user voted for a different school today
+            if (lastVoteSchool && lastVoteSchool !== schoolId && lastVoteDate === currentDate) {
+                voteButton.innerHTML = '<i class="fas fa-ban"></i> Une seule école par jour';
+                voteButton.classList.add('vote-limit');
+                voteButton.disabled = true;
+                
+                setTimeout(() => {
+                    voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter';
+                    voteButton.classList.remove('vote-limit');
+                    voteButton.disabled = false;
+                }, 3000);
+                return;
+            }
+
+            // Check 24h cooldown for same school
+            const lastVoteTime = localStorage.getItem(`lastVoteTime_${schoolId}`);
+            if (lastVoteTime) {
+                const timeDiff = Date.now() - parseInt(lastVoteTime);
+                const hoursDiff = timeDiff / (1000 * 60 * 60);
+                
+                if (hoursDiff < 24) {
+                    const remainingHours = Math.ceil(24 - hoursDiff);
+                    voteButton.innerHTML = `<i class="fas fa-clock"></i> Attendez ${remainingHours}h`;
+                    voteButton.classList.add('vote-limit');
+                    voteButton.disabled = true;
+                    
+                    setTimeout(() => {
+                        voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter';
+                        voteButton.classList.remove('vote-limit');
+                        voteButton.disabled = false;
+                    }, 3000);
+                    return;
+                }
+            }
+
             // Show loading state
             voteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
             voteButton.disabled = true;
@@ -1604,13 +1696,21 @@ class CommunityVoting {
                     schoolId: schoolId,
                     schoolName: schoolName,
                     schoolRegion: schoolRegion,
-                    schoolLevel: schoolLevel
+                    schoolLevel: schoolLevel,
+                    userIP: await this.getUserIP(),
+                    voteTime: Date.now()
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
+                // Update local storage
+                localStorage.setItem('lastVoteDate', currentDate);
+                localStorage.setItem('lastVoteSchool', schoolId);
+                localStorage.setItem('dailyVoteCount', '1');
+                localStorage.setItem(`lastVoteTime_${schoolId}`, Date.now().toString());
+                
                 // Update vote count
                 this.voteCounts[schoolId] = (this.voteCounts[schoolId] || 0) + 1;
                 
@@ -1618,24 +1718,15 @@ class CommunityVoting {
                 voteButton.classList.add('vote-success');
                 voteButton.innerHTML = '<i class="fas fa-check"></i> Vote enregistré !';
                 
-                // Update remaining votes
+                // Update remaining votes display
                 const remainingVotes = Math.max(0, 7 - this.voteCounts[schoolId]);
                 const voteCountEl = voteButton.closest('.voting-school-card').querySelector('.stat-number');
-                if (voteCountEl) voteCountEl.textContent = remainingVotes;
-
-                // Disable button if limit reached
-                if (remainingVotes === 0) {
-                    voteButton.classList.remove('vote-success');
-                    voteButton.classList.add('vote-limit');
-                    voteButton.innerHTML = '<i class="fas fa-ban"></i> Limite atteinte';
-                } else {
-                    // Reset button after 2 seconds
-                    setTimeout(() => {
-                        voteButton.classList.remove('vote-success');
-                        voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter à nouveau';
-                        voteButton.disabled = false;
-                    }, 2000);
+                if (voteCountEl) {
+                    voteCountEl.textContent = remainingVotes;
                 }
+
+                // Disable all vote buttons for 24 hours
+                this.disableAllVoteButtons();
 
                 // Refresh leaderboard and stats
                 setTimeout(() => {
@@ -1644,8 +1735,13 @@ class CommunityVoting {
                 }, 1000);
 
             } else {
-                // Show error
-                voteButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erreur';
+                // Show error message
+                let errorMessage = 'Erreur';
+                if (data.message) {
+                    errorMessage = data.message;
+                }
+                
+                voteButton.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${errorMessage}`;
                 voteButton.classList.add('vote-limit');
                 
                 // Reset button after 3 seconds
@@ -1660,7 +1756,7 @@ class CommunityVoting {
             console.error('❌ Error voting for school:', error);
             const voteButton = event.target.closest('.vote-button');
             if (voteButton) {
-                voteButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erreur';
+                voteButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erreur de connexion';
                 voteButton.classList.add('vote-limit');
                 
                 setTimeout(() => {
@@ -1670,6 +1766,71 @@ class CommunityVoting {
                 }, 3000);
             }
         }
+    }
+
+    // Get user IP address
+    async getUserIP() {
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            return data.ip;
+        } catch (error) {
+            console.error('Error getting IP:', error);
+            return 'unknown';
+        }
+    }
+
+    // Disable all vote buttons
+    disableAllVoteButtons() {
+        const allVoteButtons = document.querySelectorAll('.vote-button');
+        allVoteButtons.forEach(button => {
+            button.disabled = true;
+            button.classList.add('vote-limit');
+            button.innerHTML = '<i class="fas fa-clock"></i> Attendez 24h';
+        });
+    }
+
+    // Check and update vote restrictions on page load
+    checkVoteRestrictions() {
+        const today = new Date().toDateString();
+        const lastVoteDate = localStorage.getItem('lastVoteDate');
+        const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
+        
+        // Reset daily count if it's a new day
+        if (lastVoteDate !== today) {
+            localStorage.setItem('dailyVoteCount', '0');
+            localStorage.setItem('lastVoteDate', today);
+            return;
+        }
+
+        // If user has voted today, disable all buttons
+        if (dailyVoteCount >= 1) {
+            this.disableAllVoteButtons();
+        }
+    }
+
+    // Get appropriate button text based on vote restrictions
+    getVoteButtonText(canVote, lastVoteTime, lastVoteSchool, schoolId, lastVoteDate, today) {
+        if (canVote) {
+            return 'Voter';
+        }
+        
+        // Check daily limit
+        if (lastVoteDate === today) {
+            return 'Limite quotidienne';
+        }
+        
+        // Check 24h cooldown
+        if (lastVoteTime) {
+            const timeDiff = Date.now() - parseInt(lastVoteTime);
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            if (hoursDiff < 24) {
+                const remainingHours = Math.ceil(24 - hoursDiff);
+                return `Attendez ${remainingHours}h`;
+            }
+        }
+        
+        return 'Limite atteinte';
     }
 
     // Load school badges
