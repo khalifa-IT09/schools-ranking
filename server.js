@@ -374,8 +374,19 @@ function calculateSchoolRanking(data, level) {
       }
     })
     .map((school, index) => ({
-      ...school,
-      rank: index + 1
+      id: `${level}_${index + 1}`,
+      name: school.name,
+      region: school.region,
+      level: school.level,
+      rank: index + 1,
+      totalStudents: school.totalStudents,
+      passedStudents: school.passedStudents,
+      averageScore: Math.round(school.averageScore * 100) / 100,
+      successRate: Math.round(school.successRate * 100) / 100,
+      maxScore: Math.round(school.maxScore * 100) / 100,
+      minScore: Math.round(school.minScore * 100) / 100,
+      score: Math.round(school.successRate * 100) / 100,
+      regionalRank: school.regionalRank || null
     }));
   
   // Calculate regional rankings
@@ -531,8 +542,19 @@ function calculateSchoolRankingOptimized(data, level) {
       }
     })
     .map((school, index) => ({
-      ...school,
-      rank: index + 1
+      id: `${level}_${index + 1}`,
+      name: school.name,
+      region: school.region,
+      level: school.level,
+      rank: index + 1,
+      totalStudents: school.totalStudents,
+      passedStudents: school.passedStudents,
+      averageScore: Math.round(school.averageScore * 100) / 100,
+      successRate: Math.round(school.successRate * 100) / 100,
+      maxScore: Math.round(school.maxScore * 100) / 100,
+      minScore: Math.round(school.minScore * 100) / 100,
+      score: Math.round(school.successRate * 100) / 100,
+      regionalRank: school.regionalRank || null
     }));
   
   console.log(`Generated ${rankings.length} ranked schools for ${level} level`);
