@@ -79,7 +79,7 @@ class SimpleVotingSystem {
             const data = await response.json();
             console.log('📊 Response data:', data);
             
-            if (data.success && data.regions) {
+            if (data.regions && data.regions.length > 0) {
                 const regionFilter = document.getElementById('regionFilter');
                 regionFilter.innerHTML = '<option value="">Sélectionner une région</option>';
                 
