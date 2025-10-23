@@ -988,6 +988,7 @@ app.get('/api/stats/:level', (req, res) => {
     rankings.reduce((sum, school) => sum + school.averageScore, 0) / rankings.length : 0;
   
   res.json({
+    success: true,
     level,
     stats: {
       totalSchools,

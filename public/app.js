@@ -334,7 +334,7 @@ class SchoolRankingApp {
                     console.log('🎨 Rendering schools...');
                     this.renderSchools();
                     console.log('📊 Updating stats...');
-                    this.updateStats();
+                    await this.updateStats();
                     console.log('📄 Updating pagination...');
                     this.updatePagination();
                     console.log('✅ All rendering completed successfully');
@@ -399,29 +399,48 @@ class SchoolRankingApp {
         `).join('');
     }
 
-    updateStats() {
+    async updateStats() {
         const totalSchoolsEl = document.getElementById('totalSchools');
         const totalStudentsEl = document.getElementById('totalStudents');
         const successRateEl = document.getElementById('successRate');
 
-        // Use totalSchools from the API response, not current page schools
-        if (totalSchoolsEl) totalSchoolsEl.textContent = this.totalSchools.toLocaleString();
-        
-        if (totalStudentsEl) {
-            // Calculate total students from current page schools
-            const totalStudents = this.schools.reduce((sum, school) => sum + (school.totalStudents || 0), 0);
-            totalStudentsEl.textContent = totalStudents.toLocaleString();
-        }
-        
-        if (successRateEl) {
-            // Calculate average success rate from current page schools
-            if (this.schools.length > 0) {
-                const totalSuccessRate = this.schools.reduce((sum, school) => sum + (school.successRate || school.score || 0), 0);
-                const averageSuccessRate = totalSuccessRate / this.schools.length;
-                successRateEl.textContent = Math.round(averageSuccessRate * 100) / 100 + '%';
+        try {
+            // Fetch statistics from the API
+            const response = await fetch(`/api/stats/${this.currentLevel}`);
+            const data = await response.json();
+            
+            if (data.success && data.stats) {
+                const stats = data.stats;
+                
+                if (totalSchoolsEl) totalSchoolsEl.textContent = stats.totalSchools.toLocaleString();
+                if (totalStudentsEl) totalStudentsEl.textContent = stats.totalStudents.toLocaleString();
+                if (successRateEl) successRateEl.textContent = stats.overallSuccessRate.toFixed(1) + '%';
             } else {
-                successRateEl.textContent = '0%';
+                // Fallback to current page data
+                if (totalSchoolsEl) totalSchoolsEl.textContent = this.totalSchools.toLocaleString();
+                if (totalStudentsEl) {
+                    const totalStudents = this.schools.reduce((sum, school) => sum + (school.totalStudents || 0), 0);
+                    totalStudentsEl.textContent = totalStudents.toLocaleString();
+                }
+                if (successRateEl) {
+                    if (this.schools.length > 0) {
+                        const totalSuccessRate = this.schools.reduce((sum, school) => sum + (school.successRate || school.score || 0), 0);
+                        const averageSuccessRate = totalSuccessRate / this.schools.length;
+                        successRateEl.textContent = Math.round(averageSuccessRate * 100) / 100 + '%';
+                    } else {
+                        successRateEl.textContent = '0%';
+                    }
+                }
             }
+        } catch (error) {
+            console.error('❌ Error fetching statistics:', error);
+            // Fallback to current page data
+            if (totalSchoolsEl) totalSchoolsEl.textContent = this.totalSchools.toLocaleString();
+            if (totalStudentsEl) {
+                const totalStudents = this.schools.reduce((sum, school) => sum + (school.totalStudents || 0), 0);
+                totalStudentsEl.textContent = totalStudents.toLocaleString();
+            }
+            if (successRateEl) successRateEl.textContent = '0%';
         }
     }
 
