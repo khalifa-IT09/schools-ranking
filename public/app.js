@@ -402,7 +402,7 @@ class SchoolRankingApp {
         }
         
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card-professional" onclick="window.app.showSchoolDetails('${school.id}')">
+            <div class="school-card-professional" onclick="console.log('Click detected for school:', '${school.id}'); window.app.showSchoolDetails('${school.id}')">
                 <div class="school-ranking-badge">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
                 
                 <div class="school-header-professional">
@@ -573,12 +573,32 @@ class SchoolRankingApp {
 
     async showSchoolDetails(schoolId) {
         console.log('🔍 showSchoolDetails called with ID:', schoolId);
+        console.log('🔍 Current app instance:', this);
+        console.log('🔍 Window.app:', window.app);
         
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
+        const modalBody = document.getElementById('modalBody');
 
         console.log('🔍 Modal elements:', { modal: !!modal, modalTitle: !!modalTitle, modalBody: !!modalBody });
+        
+        if (!modal) {
+            console.error('❌ Modal not found!');
+            alert('Modal not found!');
+            return;
+        }
+        
+        if (!modalTitle) {
+            console.error('❌ Modal title not found!');
+            alert('Modal title not found!');
+            return;
+        }
+        
+        if (!modalBody) {
+            console.error('❌ Modal body not found!');
+            alert('Modal body not found!');
+            return;
+        }
 
         if (modal && modalTitle && modalBody) {
             // Show loading state
