@@ -1002,6 +1002,112 @@ app.get('/api/stats/:level', (req, res) => {
   });
 });
 
+// New endpoint for detailed school statistics
+app.get('/api/school/:schoolId/details', (req, res) => {
+  const { schoolId } = req.params;
+  
+  if (!schoolId) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Missing school ID' 
+    });
+  }
+  
+  try {
+    // Find the school in all levels
+    let school = null;
+    let level = null;
+    
+    for (const [levelKey, rankings] of Object.entries(schoolRankings)) {
+      const foundSchool = rankings.find(s => s.id === schoolId);
+      if (foundSchool) {
+        school = foundSchool;
+        level = levelKey;
+        break;
+      }
+    }
+    
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found'
+      });
+    }
+    
+    // Get raw data for this school to calculate detailed statistics
+    const rawData = schoolData[level];
+    const schoolRecords = rawData.filter(record => {
+      const schoolName = getSchoolName(record, level);
+      return schoolName === school.name;
+    });
+    
+    // Calculate detailed statistics
+    const totalCandidates = schoolRecords.length;
+    const scores = schoolRecords.map(record => getScore(record, level)).filter(score => score > 0);
+    const admittedStudents = schoolRecords.filter(record => {
+      if (level === 'primary') {
+        // For primary: score >= 85 is admitted
+        return getScore(record, level) >= 85;
+      } else {
+        // For middle/secondary: check Decision field
+        return getPassedStatus(record, level);
+      }
+    }).length;
+    
+    const successRate = totalCandidates > 0 ? (admittedStudents / totalCandidates) * 100 : 0;
+    const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const minScore = scores.length > 0 ? Math.min(...scores) : 0;
+    const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    
+    // Create score distribution for performance curve
+    const scoreRanges = [];
+    if (level === 'primary') {
+      // Primary: 0-200 scale
+      for (let i = 0; i <= 200; i += 10) {
+        const range = `${i}-${i + 9}`;
+        const count = scores.filter(score => score >= i && score <= i + 9).length;
+        scoreRanges.push({ range, count, percentage: (count / totalCandidates) * 100 });
+      }
+    } else {
+      // Middle/Secondary: 0-20 scale
+      for (let i = 0; i <= 20; i += 1) {
+        const range = `${i}-${i + 0.99}`;
+        const count = scores.filter(score => score >= i && score < i + 1).length;
+        scoreRanges.push({ range, count, percentage: (count / totalCandidates) * 100 });
+      }
+    }
+    
+    res.json({
+      success: true,
+      school: {
+        id: school.id,
+        name: school.name,
+        region: school.region,
+        level: school.level,
+        rank: school.rank
+      },
+      statistics: {
+        totalCandidates,
+        admittedStudents,
+        successRate: Math.round(successRate * 100) / 100,
+        maxScore: Math.round(maxScore * 100) / 100,
+        minScore: Math.round(minScore * 100) / 100,
+        averageScore: Math.round(averageScore * 100) / 100
+      },
+      performanceCurve: scoreRanges,
+      admissionCriteria: level === 'primary' ? 'Score ≥ 85 points' : 'Decision: Admis'
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error getting school details for ${schoolId}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement des détails de l\'école'
+    });
+  }
+});
+
 // Simple test endpoint
 app.get('/test', (req, res) => {
   res.send('<h1>Server is working!</h1><p>The Community Voting app is running correctly.</p>');

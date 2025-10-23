@@ -547,44 +547,153 @@ class SchoolRankingApp {
     }
 
     async showSchoolDetails(schoolId) {
-        const school = this.schools.find(s => s.id === schoolId);
-        if (!school) return;
-
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalBody = document.getElementById('modalBody');
 
         if (modal && modalTitle && modalBody) {
+            // Show loading state
             modalTitle.textContent = this.translate('modal_school_details');
             modalBody.innerHTML = `
-                <div class="school-detail">
-                    <h3>${school.name}</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span class="label">${this.translate('region')}:</span>
-                            <span class="value">${school.region}</span>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-graduation-cap"></i>
-                            <span class="label">${this.translate('level')}:</span>
-                            <span class="value">${school.level}</span>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-users"></i>
-                            <span class="label">${this.translate('students')}:</span>
-                            <span class="value">${school.totalStudents || 0}</span>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-chart-line"></i>
-                            <span class="label">${this.translate('success_rate')}:</span>
-                            <span class="value">${school.score || 0}%</span>
-                        </div>
-                    </div>
+                <div class="loading-details">
+                    <div class="spinner"></div>
+                    <p>Chargement des détails...</p>
                 </div>
             `;
             modal.style.display = 'block';
+
+            try {
+                // Fetch detailed school statistics
+                const response = await fetch(`/api/school/${schoolId}/details`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const { school, statistics, performanceCurve, admissionCriteria } = data;
+                    
+                    modalBody.innerHTML = `
+                        <div class="school-detail-enhanced">
+                            <div class="school-header">
+                                <h2>${school.name}</h2>
+                                <div class="school-meta">
+                                    <span class="region">${school.region}</span>
+                                    <span class="rank">#${school.rank}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="statistics-grid">
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.totalCandidates}</div>
+                                        <div class="stat-label">Candidats</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.admittedStudents}</div>
+                                        <div class="stat-label">Admis</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card success-rate">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-trophy"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.successRate}%</div>
+                                        <div class="stat-label">Taux de Réussite</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.maxScore}</div>
+                                        <div class="stat-label">Note Max</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.minScore}</div>
+                                        <div class="stat-label">Note Min</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-number">${statistics.averageScore}</div>
+                                        <div class="stat-label">Moyenne</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="performance-section">
+                                <h3>Courbe de Performance</h3>
+                                <div class="performance-chart">
+                                    <div class="chart-container">
+                                        ${this.generatePerformanceChart(performanceCurve, school.level)}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="admission-info">
+                                <p><strong>Critère d'admission:</strong> ${admissionCriteria}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="error-details">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Erreur</h3>
+                            <p>Impossible de charger les détails de cette école.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Error loading school details:', error);
+                modalBody.innerHTML = `
+                    <div class="error-details">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Erreur</h3>
+                        <p>Une erreur s'est produite lors du chargement des détails.</p>
+                    </div>
+                `;
+            }
         }
+    }
+
+    generatePerformanceChart(performanceCurve, level) {
+        const maxCount = Math.max(...performanceCurve.map(item => item.count));
+        const scale = level === 'primary' ? 10 : 1; // Different scales for different levels
+        
+        return performanceCurve
+            .filter(item => item.count > 0) // Only show ranges with students
+            .map(item => {
+                const height = (item.count / maxCount) * 100;
+                return `
+                    <div class="chart-bar" style="height: ${height}%">
+                        <div class="bar-fill"></div>
+                        <div class="bar-label">${item.range}</div>
+                        <div class="bar-count">${item.count}</div>
+                    </div>
+                `;
+            }).join('');
     }
 
     updateLanguage() {
