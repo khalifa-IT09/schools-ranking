@@ -215,7 +215,7 @@ class SimpleVotingSystem {
                 <div class="voting-filters">
                     <div class="filter-group">
                         <label for="levelFilter">Niveau d'éducation:</label>
-                        <select id="levelFilter" onchange="simpleVoting.onLevelChange()">
+                        <select id="levelFilter" onchange="window.simpleVoting.onLevelChange()">
                             <option value="">Sélectionner un niveau</option>
                             <option value="primary">Écoles Primaires (CAS)</option>
                             <option value="middle">Collèges (Brevet)</option>
@@ -225,12 +225,12 @@ class SimpleVotingSystem {
                     
                     <div class="filter-group">
                         <label for="regionFilter">Région:</label>
-                        <select id="regionFilter" onchange="simpleVoting.onRegionChange()" disabled>
+                        <select id="regionFilter" onchange="window.simpleVoting.onRegionChange()" disabled>
                             <option value="">Sélectionner une région</option>
                         </select>
                     </div>
                     
-                    <button class="load-schools-btn" onclick="simpleVoting.loadSchoolsForVoting()" disabled>
+                    <button class="load-schools-btn" onclick="window.simpleVoting.loadSchoolsForVoting()" disabled>
                         <i class="fas fa-search"></i>
                         Charger les écoles
                     </button>
@@ -244,6 +244,37 @@ class SimpleVotingSystem {
 
         // Load vote statistics
         this.loadVoteStats();
+        
+        // Add direct event listeners as backup
+        this.addEventListeners();
+    }
+
+    // Add direct event listeners as backup
+    addEventListeners() {
+        const levelFilter = document.getElementById('levelFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        const loadBtn = document.querySelector('.load-schools-btn');
+        
+        if (levelFilter) {
+            levelFilter.addEventListener('change', () => {
+                console.log('🔄 Level changed via event listener');
+                this.onLevelChange();
+            });
+        }
+        
+        if (regionFilter) {
+            regionFilter.addEventListener('change', () => {
+                console.log('🔄 Region changed via event listener');
+                this.onRegionChange();
+            });
+        }
+        
+        if (loadBtn) {
+            loadBtn.addEventListener('click', () => {
+                console.log('🔄 Load schools clicked via event listener');
+                this.loadSchoolsForVoting();
+            });
+        }
     }
 
     // Render schools
@@ -417,6 +448,18 @@ class SimpleVotingSystem {
         };
         return levels[level] || level;
     }
+
+    // Manual test function to load regions
+    testLoadRegions() {
+        console.log('🧪 Testing region loading...');
+        const levelFilter = document.getElementById('levelFilter');
+        if (levelFilter && levelFilter.value) {
+            console.log('📚 Selected level:', levelFilter.value);
+            this.onLevelChange();
+        } else {
+            console.log('❌ No level selected');
+        }
+    }
 }
 
 // Initialize simple voting system
@@ -427,3 +470,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Make it globally available
 window.simpleVoting = simpleVoting;
+window.testLoadRegions = () => simpleVoting.testLoadRegions();
