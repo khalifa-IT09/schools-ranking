@@ -389,30 +389,26 @@ class SchoolRankingApp {
         }
 
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card" onclick="window.app.showSchoolDetails('${school.id}')">
-                <div class="school-rank">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
-                <div class="school-info">
-                    <h3 class="school-name">${school.name}</h3>
-                    <div class="school-details">
-                        <div class="school-region">
+            <div class="school-card-modern" onclick="window.app.showSchoolDetails('${school.id}')">
+                <div class="school-rank-badge">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
+                <div class="school-content">
+                    <div class="school-main-info">
+                        <h3 class="school-name-modern">${school.name}</h3>
+                        <div class="school-location">
                             <i class="fas fa-map-marker-alt"></i>
-                            ${school.region}
+                            <span>${school.region}</span>
                         </div>
-                        <div class="school-stats">
-                            <div class="stat">
+                        <div class="school-stats-modern">
+                            <div class="stat-item">
                                 <i class="fas fa-users"></i>
-                                <span>${school.totalStudents || 0} ${this.translate('students')}</span>
+                                <span>${school.totalStudents || 0} Élèves</span>
                             </div>
-                            <div class="stat">
+                            <div class="stat-item success-rate">
                                 <i class="fas fa-chart-line"></i>
-                                <span>${school.successRate || school.score || 0}% ${this.translate('success_rate')}</span>
+                                <span>${school.successRate || school.score || 0}% Taux de réussite</span>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="school-score">
-                    <div class="score-value">${school.successRate || school.score || 0}</div>
-                    <div class="score-label">${this.translate('success_rate')}</div>
                 </div>
             </div>
         `).join('');
