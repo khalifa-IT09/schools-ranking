@@ -920,6 +920,8 @@ app.get('/api/schools/:level/search', (req, res) => {
   const { level } = req.params;
   const { q, region } = req.query;
   
+  console.log(`🔍 Search request - Level: ${level}, Query: "${q}", Region: ${region}`);
+  
   if (!['primary', 'middle', 'secondary'].includes(level)) {
     return res.status(400).json({ error: 'Invalid level' });
   }
@@ -932,28 +934,40 @@ app.get('/api/schools/:level/search', (req, res) => {
   
   const data = schoolData[level];
   if (!data || data.length === 0) {
-    return res.json({ schools: [], total: 0 });
+    console.log(`❌ No data available for level: ${level}`);
+    return res.json({ success: true, schools: [], total: 0 });
   }
   
   let rankings = calculateSchoolRanking(data, level);
+  console.log(`📊 Total rankings before filter: ${rankings.length}`);
   
   // Filter by search query
   if (q) {
     const query = q.toLowerCase();
+    const beforeFilter = rankings.length;
     rankings = rankings.filter(school => 
       school.name.toLowerCase().includes(query) ||
       school.region.toLowerCase().includes(query)
     );
+    console.log(`🔍 After search filter: ${rankings.length} schools (was ${beforeFilter})`);
+    
+    // Log some sample school names for debugging
+    if (rankings.length > 0) {
+      console.log(`📝 Sample results: ${rankings.slice(0, 3).map(s => s.name).join(', ')}`);
+    }
   }
   
   // Filter by region
   if (region && region !== 'all') {
+    const beforeRegion = rankings.length;
     rankings = rankings.filter(school => 
       school.region.toLowerCase().includes(region.toLowerCase())
     );
+    console.log(`🌍 After region filter: ${rankings.length} schools (was ${beforeRegion})`);
   }
   
   res.json({
+    success: true,
     schools: rankings.slice(0, 200), // Limit search results to 200
     total: rankings.length,
     query: q || '',

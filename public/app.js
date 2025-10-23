@@ -180,10 +180,14 @@ class SchoolRankingApp {
         // Search functionality
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+            console.log('✅ Search input found and event listener attached');
+            searchInput.addEventListener('input', (e) => {
                 this.currentSearch = e.target.value;
+                console.log(`🔍 Search input changed: "${this.currentSearch}"`);
                 this.debounceSearch();
-        });
+            });
+        } else {
+            console.error('❌ Search input not found!');
         }
 
         // Region filter
@@ -215,8 +219,10 @@ class SchoolRankingApp {
     }
 
     debounceSearch() {
+        console.log(`⏱️ Debouncing search for: "${this.currentSearch}"`);
         clearTimeout(this.searchTimeout);
         this.searchTimeout = setTimeout(() => {
+            console.log(`🚀 Executing search for: "${this.currentSearch}"`);
             this.loadSchools();
         }, 300);
     }
