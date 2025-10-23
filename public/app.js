@@ -392,7 +392,7 @@ class SchoolRankingApp {
                     </div>
                 </div>
                 <div class="school-score">
-                    <div class="score-value">${school.score || 0}</div>
+                    <div class="score-value">${school.successRate || school.score || 0}</div>
                     <div class="score-label">${this.translate('success_rate')}</div>
                 </div>
             </div>
@@ -404,15 +404,24 @@ class SchoolRankingApp {
         const totalStudentsEl = document.getElementById('totalStudents');
         const successRateEl = document.getElementById('successRate');
 
+        // Use totalSchools from the API response, not current page schools
         if (totalSchoolsEl) totalSchoolsEl.textContent = this.totalSchools.toLocaleString();
+        
         if (totalStudentsEl) {
+            // Calculate total students from current page schools
             const totalStudents = this.schools.reduce((sum, school) => sum + (school.totalStudents || 0), 0);
             totalStudentsEl.textContent = totalStudents.toLocaleString();
         }
+        
         if (successRateEl) {
-            const averageScore = this.schools.length > 0 ? 
-                this.schools.reduce((sum, school) => sum + (school.score || 0), 0) / this.schools.length : 0;
-            successRateEl.textContent = Math.round(averageScore * 100) / 100 + '%';
+            // Calculate average success rate from current page schools
+            if (this.schools.length > 0) {
+                const totalSuccessRate = this.schools.reduce((sum, school) => sum + (school.successRate || school.score || 0), 0);
+                const averageSuccessRate = totalSuccessRate / this.schools.length;
+                successRateEl.textContent = Math.round(averageSuccessRate * 100) / 100 + '%';
+            } else {
+                successRateEl.textContent = '0%';
+            }
         }
     }
 
