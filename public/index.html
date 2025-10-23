@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classement des Écoles - Mauritanie</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="voting-modern.css">
 </head>
 <body>
     <div class="container">
@@ -120,7 +122,7 @@
         <!-- Community Voting Section -->
         <div class="voting-container" id="votingContainer" style="display: none;">
             <div class="voting-header">
-                <h2 data-translate="voting_title">Vote Communautaire</h2>
+                <h2 data-translate="voting_title">🗳️ Vote Communautaire</h2>
                 <p data-translate="voting_subtitle">Soutenez votre école préférée ! Votez pour les écoles qui méritent d'être reconnues par la communauté.</p>
             </div>
 
@@ -178,7 +180,7 @@
             <div class="leaderboard-section">
                 <h3 data-translate="voting_leaderboard_title">🏆 Top de la Semaine</h3>
                 <div class="leaderboard-container" id="leaderboardContainer">
-                    <div class="loading" id="votingLoading">
+                    <div class="voting-loading" id="votingLoading">
                         <div class="spinner"></div>
                         <p data-translate="loading_voting">Chargement du classement...</p>
                     </div>
@@ -190,7 +192,7 @@
 
             <!-- School Voting Cards -->
             <div class="voting-schools-section">
-                <h3 data-translate="voting_schools_title">Votez pour votre école</h3>
+                <h3 data-translate="voting_schools_title">🎓 Votez pour votre école</h3>
                 <div class="voting-schools-grid" id="votingSchoolsGrid">
                     <!-- Voting school cards will be populated here -->
                 </div>

@@ -1369,7 +1369,9 @@ class CommunityVoting {
         if (this.leaderboard.length === 0) {
             leaderboardGrid.innerHTML = `
                 <div class="voting-loading">
-                    <p>Aucune donnée de vote disponible pour le moment.</p>
+                    <i class="fas fa-trophy" style="font-size: 3rem; color: #667eea; margin-bottom: 1rem;"></i>
+                    <h3>Aucune donnée de vote disponible</h3>
+                    <p>Les votes commenceront bientôt !</p>
                 </div>
             `;
             return;
@@ -1381,12 +1383,18 @@ class CommunityVoting {
                 `<span class="badge ${badge.class}">${badge.name}</span>`
             ).join('');
 
+            // Add special styling for top 3
+            let rankClass = '';
+            if (index === 0) rankClass = 'leaderboard-gold';
+            else if (index === 1) rankClass = 'leaderboard-silver';
+            else if (index === 2) rankClass = 'leaderboard-bronze';
+
             return `
-                <div class="leaderboard-item">
+                <div class="leaderboard-item ${rankClass}" style="animation-delay: ${index * 0.1}s;">
                     <div class="leaderboard-rank">#${school.rank}</div>
                     <div class="leaderboard-school">
                         <h4>${school.school_name}</h4>
-                        <p>${school.school_region} • ${this.getLevelName(school.school_level)}</p>
+                        <p><i class="fas fa-map-marker-alt"></i> ${school.school_region} • <i class="fas fa-graduation-cap"></i> ${this.getLevelName(school.school_level)}</p>
                     </div>
                     <div class="leaderboard-stats">
                         <div class="leaderboard-votes">
@@ -1519,24 +1527,26 @@ class CommunityVoting {
             console.log('⚠️ No schools to render, showing message');
             votingSchoolsGrid.innerHTML = `
                 <div class="voting-loading">
-                    <p>Aucune école disponible pour le vote.</p>
+                    <i class="fas fa-search" style="font-size: 3rem; color: #667eea; margin-bottom: 1rem;"></i>
+                    <h3>Aucune école trouvée</h3>
+                    <p>Essayez de changer le niveau ou la région pour voir plus d'écoles.</p>
                 </div>
             `;
             return;
         }
 
-        const schoolsHTML = this.votingSchools.map(school => {
+        const schoolsHTML = this.votingSchools.map((school, index) => {
             const schoolId = this.generateSchoolId(school);
             const voteCount = this.voteCounts[schoolId] || 0;
             const remainingVotes = Math.max(0, 7 - voteCount);
             const canVote = remainingVotes > 0;
 
             return `
-                <div class="voting-school-card">
+                <div class="voting-school-card" style="animation-delay: ${index * 0.1}s;">
                     <div class="voting-school-header">
                         <div class="voting-school-info">
                             <h4>${school.name}</h4>
-                            <p>${school.region} • ${this.getLevelName(school.level)}</p>
+                            <p><i class="fas fa-map-marker-alt"></i> ${school.region} • <i class="fas fa-graduation-cap"></i> ${this.getLevelName(school.level)}</p>
                         </div>
                     </div>
                     <div class="voting-school-stats">
