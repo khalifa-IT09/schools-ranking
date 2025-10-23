@@ -1142,6 +1142,11 @@ class CommunityVoting {
         // Load initial data
         await this.loadVotingStats();
         
+        // Make debugging functions available globally
+        window.debugVoteCounts = () => this.debugVoteCounts();
+        window.resetVoteCounts = () => this.resetVoteCounts();
+        window.renderVotingSchools = () => this.renderVotingSchools();
+        
         // Test if elements exist
         const votingRegionFilter = document.getElementById('votingRegionFilter');
         const votingLevelFilter = document.getElementById('votingLevelFilter');
@@ -1551,12 +1556,17 @@ class CommunityVoting {
             weeklyVoteCount = 0;
             localStorage.setItem('weeklyVoteCount', '0');
             localStorage.setItem('currentWeek', currentWeek);
+            console.log('🔄 New week detected, resetting weekly votes');
         }
         
         // Calculate remaining votes (7 - weekly vote count)
         const remainingVotes = Math.max(0, 7 - weeklyVoteCount);
         
         console.log('📊 Vote counts - Daily:', dailyVoteCount, 'Weekly:', weeklyVoteCount, 'Remaining:', remainingVotes);
+        console.log('📊 Current week:', currentWeek, 'Stored week:', storedWeek);
+        
+        // Debug vote counts
+        this.debugVoteCounts();
 
         const schoolsHTML = this.votingSchools.map((school, index) => {
             const schoolId = this.generateSchoolId(school);
@@ -1731,7 +1741,9 @@ class CommunityVoting {
                 
                 // Update weekly vote count
                 const currentWeeklyCount = parseInt(localStorage.getItem('weeklyVoteCount') || '0');
-                localStorage.setItem('weeklyVoteCount', (currentWeeklyCount + 1).toString());
+                const newWeeklyCount = currentWeeklyCount + 1;
+                localStorage.setItem('weeklyVoteCount', newWeeklyCount.toString());
+                console.log('📊 Updated weekly vote count:', currentWeeklyCount, '->', newWeeklyCount);
                 
                 // Update vote count
                 this.voteCounts[schoolId] = (this.voteCounts[schoolId] || 0) + 1;
@@ -1742,6 +1754,7 @@ class CommunityVoting {
                 
                 // Refresh the voting schools to get updated vote counts from server
                 setTimeout(() => {
+                    console.log('🔄 Refreshing voting schools after vote...');
                     this.renderVotingSchools();
                     this.loadVotingStats();
                     this.loadLeaderboard();
@@ -1802,6 +1815,42 @@ class CommunityVoting {
         monday.setDate(now.getDate() + mondayOffset);
         monday.setHours(0, 0, 0, 0);
         return monday.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+    }
+
+    // Debug function to check vote counts
+    debugVoteCounts() {
+        const weeklyVoteCount = parseInt(localStorage.getItem('weeklyVoteCount') || '0');
+        const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
+        const lastVoteDate = localStorage.getItem('lastVoteDate');
+        const currentWeek = this.getCurrentWeekStart();
+        const storedWeek = localStorage.getItem('currentWeek');
+        
+        console.log('🔍 DEBUG VOTE COUNTS:');
+        console.log('  Weekly votes:', weeklyVoteCount);
+        console.log('  Daily votes:', dailyVoteCount);
+        console.log('  Last vote date:', lastVoteDate);
+        console.log('  Current week:', currentWeek);
+        console.log('  Stored week:', storedWeek);
+        console.log('  Remaining votes:', Math.max(0, 7 - weeklyVoteCount));
+        
+        return {
+            weeklyVoteCount,
+            dailyVoteCount,
+            lastVoteDate,
+            currentWeek,
+            storedWeek,
+            remainingVotes: Math.max(0, 7 - weeklyVoteCount)
+        };
+    }
+
+    // Reset vote counts for testing
+    resetVoteCounts() {
+        localStorage.removeItem('weeklyVoteCount');
+        localStorage.removeItem('dailyVoteCount');
+        localStorage.removeItem('lastVoteDate');
+        localStorage.removeItem('lastVoteSchool');
+        localStorage.removeItem('currentWeek');
+        console.log('🔄 Vote counts reset for testing');
     }
 
     // Disable all vote buttons
