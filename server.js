@@ -1141,6 +1141,46 @@ app.get('/api/voting/school/:schoolId/stats', (req, res) => {
   }
 });
 
+// Get user's vote count for a specific school
+app.get('/api/voting/school/:schoolId/user-votes', (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    const voterIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+
+    if (!schoolId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing school ID',
+        message: 'ID de l\'école manquant'
+      });
+    }
+
+    const result = dbManager.getUserVoteCount(schoolId, voterIp);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        schoolId: schoolId,
+        userVoteCount: result.voteCount,
+        remainingVotes: result.remainingVotes
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Erreur lors du chargement des votes utilisateur'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in user votes endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
 // Get school badges
 app.get('/api/voting/school/:schoolId/badges', (req, res) => {
   try {

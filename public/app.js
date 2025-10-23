@@ -1515,7 +1515,7 @@ class CommunityVoting {
     }
 
     // Render voting schools
-    renderVotingSchools() {
+    async renderVotingSchools() {
         console.log('🎓 renderVotingSchools called with:', this.votingSchools.length, 'schools');
         
         const votingSchoolsGrid = document.getElementById('votingSchoolsGrid');
@@ -1538,10 +1538,37 @@ class CommunityVoting {
             return;
         }
 
-        const schoolsHTML = this.votingSchools.map((school, index) => {
+        // Fetch real vote counts from server for each school
+        const schoolsWithVoteCounts = await Promise.all(
+            this.votingSchools.map(async (school) => {
+                const schoolId = this.generateSchoolId(school);
+                try {
+                    // Get user's specific vote count for this school
+                    const userResponse = await fetch(`/api/voting/school/${schoolId}/user-votes`);
+                    const userData = await userResponse.json();
+                    
+                    if (userData.success) {
+                        return {
+                            ...school,
+                            serverVoteCount: userData.userVoteCount || 0,
+                            remainingVotes: userData.remainingVotes || 7
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error fetching user vote count for school:', schoolId, error);
+                }
+                return {
+                    ...school,
+                    serverVoteCount: 0,
+                    remainingVotes: 7
+                };
+            })
+        );
+
+        const schoolsHTML = schoolsWithVoteCounts.map((school, index) => {
             const schoolId = this.generateSchoolId(school);
-            const voteCount = this.voteCounts[schoolId] || 0;
-            const remainingVotes = Math.max(0, 7 - voteCount);
+            const voteCount = school.serverVoteCount || 0;
+            const remainingVotes = school.remainingVotes || 7;
             
             // Check if user can vote based on restrictions
             const today = new Date().toDateString();
@@ -1718,18 +1745,9 @@ class CommunityVoting {
                 voteButton.classList.add('vote-success');
                 voteButton.innerHTML = '<i class="fas fa-check"></i> Vote enregistré !';
                 
-                // Update remaining votes display
-                const remainingVotes = Math.max(0, 7 - this.voteCounts[schoolId]);
-                const voteCountEl = voteButton.closest('.voting-school-card').querySelector('.stat-number');
-                if (voteCountEl) {
-                    voteCountEl.textContent = remainingVotes;
-                }
-
-                // Disable all vote buttons for 24 hours
-                this.disableAllVoteButtons();
-
-                // Refresh leaderboard and stats
+                // Refresh the voting schools to get updated vote counts from server
                 setTimeout(() => {
+                    this.renderVotingSchools();
                     this.loadVotingStats();
                     this.loadLeaderboard();
                 }, 1000);

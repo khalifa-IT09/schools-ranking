@@ -317,6 +317,36 @@ class DatabaseManager {
     }
   }
 
+  // Get user's vote count for a specific school
+  getUserVoteCount(schoolId, voterIp) {
+    try {
+      const weekStart = this.getCurrentWeekStart();
+      
+      // Get user's votes for this school this week
+      const userVotes = this.data.votes.filter(vote => 
+        vote.school_id === schoolId && 
+        vote.voter_ip === voterIp && 
+        vote.week_start === weekStart
+      );
+
+      const voteCount = userVotes.length;
+      const remainingVotes = Math.max(0, 7 - voteCount);
+
+      return {
+        success: true,
+        voteCount: voteCount,
+        remainingVotes: remainingVotes,
+        weekStart: weekStart
+      };
+    } catch (error) {
+      console.error('❌ Error fetching user vote count:', error);
+      return {
+        success: false,
+        error: 'Database error'
+      };
+    }
+  }
+
   // Award badges to schools
   awardBadge(schoolId, schoolName, badgeType, badgeName, badgeDescription) {
     try {
