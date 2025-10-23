@@ -1538,37 +1538,28 @@ class CommunityVoting {
             return;
         }
 
-        // Fetch real vote counts from server for each school
-        const schoolsWithVoteCounts = await Promise.all(
-            this.votingSchools.map(async (school) => {
-                const schoolId = this.generateSchoolId(school);
-                try {
-                    // Get user's specific vote count for this school
-                    const userResponse = await fetch(`/api/voting/school/${schoolId}/user-votes`);
-                    const userData = await userResponse.json();
-                    
-                    if (userData.success) {
-                        return {
-                            ...school,
-                            serverVoteCount: userData.userVoteCount || 0,
-                            remainingVotes: userData.remainingVotes || 7
-                        };
-                    }
-                } catch (error) {
-                    console.error('Error fetching user vote count for school:', schoolId, error);
-                }
-                return {
-                    ...school,
-                    serverVoteCount: 0,
-                    remainingVotes: 7
-                };
-            })
-        );
+        // Get user's total vote count for the week from localStorage
+        const today = new Date().toDateString();
+        const lastVoteDate = localStorage.getItem('lastVoteDate');
+        const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
+        let weeklyVoteCount = parseInt(localStorage.getItem('weeklyVoteCount') || '0');
+        
+        // Reset weekly votes if it's a new week
+        const currentWeek = this.getCurrentWeekStart();
+        const storedWeek = localStorage.getItem('currentWeek');
+        if (storedWeek !== currentWeek) {
+            weeklyVoteCount = 0;
+            localStorage.setItem('weeklyVoteCount', '0');
+            localStorage.setItem('currentWeek', currentWeek);
+        }
+        
+        // Calculate remaining votes (7 - weekly vote count)
+        const remainingVotes = Math.max(0, 7 - weeklyVoteCount);
+        
+        console.log('📊 Vote counts - Daily:', dailyVoteCount, 'Weekly:', weeklyVoteCount, 'Remaining:', remainingVotes);
 
-        const schoolsHTML = schoolsWithVoteCounts.map((school, index) => {
+        const schoolsHTML = this.votingSchools.map((school, index) => {
             const schoolId = this.generateSchoolId(school);
-            const voteCount = school.serverVoteCount || 0;
-            const remainingVotes = school.remainingVotes || 7;
             
             // Check if user can vote based on restrictions
             const today = new Date().toDateString();
@@ -1738,6 +1729,10 @@ class CommunityVoting {
                 localStorage.setItem('dailyVoteCount', '1');
                 localStorage.setItem(`lastVoteTime_${schoolId}`, Date.now().toString());
                 
+                // Update weekly vote count
+                const currentWeeklyCount = parseInt(localStorage.getItem('weeklyVoteCount') || '0');
+                localStorage.setItem('weeklyVoteCount', (currentWeeklyCount + 1).toString());
+                
                 // Update vote count
                 this.voteCounts[schoolId] = (this.voteCounts[schoolId] || 0) + 1;
                 
@@ -1796,6 +1791,17 @@ class CommunityVoting {
             console.error('Error getting IP:', error);
             return 'unknown';
         }
+    }
+
+    // Get current week start (Monday) - client-side version
+    getCurrentWeekStart() {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Sunday = 0, so -6 to get Monday
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + mondayOffset);
+        monday.setHours(0, 0, 0, 0);
+        return monday.toISOString().split('T')[0]; // Return YYYY-MM-DD format
     }
 
     // Disable all vote buttons
