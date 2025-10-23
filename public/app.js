@@ -606,7 +606,7 @@ class SchoolRankingApp {
                 console.log('🔍 Response data:', data);
             
             if (data.success) {
-                    const { school, statistics, performanceCurve, admissionCriteria } = data;
+                    const { school, statistics, performanceCurve, curveData, admissionCriteria } = data;
                     
                                 modalBody.innerHTML = `
                                     <div class="school-detail-enhanced">
@@ -647,20 +647,26 @@ class SchoolRankingApp {
                                             <div class="stat-card-simple">
                                                 <div class="stat-number-simple">${statistics.averageScore}</div>
                                                 <div class="stat-label-simple">Note Moyenne</div>
-                </div>
+                                            </div>
                                         </div>
                                         
                                         <div class="performance-section">
-                                            <h3>Répartition des Notes</h3>
-                                            <div class="performance-chart">
-                                                ${this.generatePerformanceChart(performanceCurve, school.level)}
-                    </div>
-                        </div>
+                                            <h3>Courbe de Performance</h3>
+                                            <div class="performance-chart-container">
+                                                <div class="chart-info">
+                                                    <span class="chart-scale">Échelle: ${curveData.scale}</span>
+                                                    <span class="chart-interval">Intervalle: ${curveData.interval} points</span>
+                                                </div>
+                                                <div class="performance-chart" id="performanceChart">
+                                                    ${this.generateInteractivePerformanceChart(curveData, school.level)}
+                                                </div>
+                                            </div>
+                                        </div>
                                         
                                         <div class="admission-info">
                                             <p><strong>Critère d'admission:</strong> ${admissionCriteria}</p>
-                        </div>
-                    </div>
+                                        </div>
+                                    </div>
                                 `;
                 } else {
                     modalBody.innerHTML = `
@@ -728,14 +734,76 @@ class SchoolRankingApp {
             .filter(item => item.count > 0) // Only show ranges with students
             .map(item => {
                 const height = (item.count / maxCount) * 100;
-            return `
+                return `
                     <div class="chart-bar" style="height: ${height}%">
                         <div class="bar-fill"></div>
                         <div class="bar-label">${item.range}</div>
                         <div class="bar-count">${item.count}</div>
-                </div>
+                    </div>
+                `;
+            }).join('');
+    }
+
+    generateInteractivePerformanceChart(curveData, level) {
+        if (!curveData || !curveData.points || curveData.points.length === 0) {
+            return '<div class="no-data">Aucune donnée disponible pour la courbe de performance</div>';
+        }
+
+        const maxCount = curveData.maxCount;
+        const points = curveData.points;
+        const isPrimary = level === 'primary';
+        
+        // Create SVG-based interactive chart
+        const chartWidth = 400;
+        const chartHeight = 200;
+        const padding = 40;
+        const barWidth = Math.max(8, (chartWidth - padding * 2) / points.length);
+        
+        let svgContent = `
+            <svg class="performance-curve-svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}">
+                <defs>
+                    <linearGradient id="curveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.8" />
+                        <stop offset="100%" style="stop-color:#667eea;stop-opacity:0.3" />
+                    </linearGradient>
+                </defs>
+        `;
+        
+        // Add grid lines
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight - padding * 2) * (i / 5);
+            svgContent += `<line x1="${padding}" y1="${y}" x2="${chartWidth - padding}" y2="${y}" stroke="#e0e0e0" stroke-width="1" opacity="0.5"/>`;
+        }
+        
+        // Add bars with hover effects
+        points.forEach((point, index) => {
+            const x = padding + (chartWidth - padding * 2) * (index / points.length);
+            const barHeight = (point.count / maxCount) * (chartHeight - padding * 2);
+            const y = chartHeight - padding - barHeight;
+            
+            svgContent += `
+                <g class="chart-bar-group" data-count="${point.count}" data-percentage="${point.percentage.toFixed(1)}" data-range="${point.range}">
+                    <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" 
+                          fill="url(#curveGradient)" 
+                          class="chart-bar-interactive"
+                          rx="2"/>
+                    <text x="${x + barWidth/2}" y="${chartHeight - padding + 15}" 
+                          text-anchor="middle" font-size="10" fill="#666" class="bar-label">${point.range}</text>
+                    <text x="${x + barWidth/2}" y="${y - 5}" 
+                          text-anchor="middle" font-size="9" fill="#333" class="bar-count">${point.count}</text>
+                </g>
             `;
-        }).join('');
+        });
+        
+        // Add axis labels
+        svgContent += `
+            <text x="${chartWidth/2}" y="${chartHeight - 10}" text-anchor="middle" font-size="12" fill="#666">Notes</text>
+            <text x="15" y="${chartHeight/2}" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90, 15, ${chartHeight/2})">Nombre d'élèves</text>
+        `;
+        
+        svgContent += '</svg>';
+        
+        return svgContent;
     }
 
     updateLanguage() {

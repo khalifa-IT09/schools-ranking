@@ -1108,23 +1108,62 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     
     console.log(`📊 Statistics: ${totalCandidates} candidates, ${admittedStudents} admitted, ${successRate.toFixed(1)}% success rate`);
     
-    // Create score distribution for performance curve
+    // Create enhanced score distribution for performance curve
     const scoreRanges = [];
+    const performanceCurve = [];
+    
     if (level === 'primary') {
-      // Primary: 0-200 scale
-      for (let i = 0; i <= 200; i += 10) {
-        const range = `${i}-${i + 9}`;
-        const count = scores.filter(score => score >= i && score <= i + 9).length;
-        scoreRanges.push({ range, count, percentage: (count / totalCandidates) * 100 });
+      // Primary: 0-200 scale with 5-point intervals for better visualization
+      for (let i = 0; i <= 200; i += 5) {
+        const range = `${i}-${i + 4}`;
+        const count = scores.filter(score => score >= i && score <= i + 4).length;
+        const percentage = totalCandidates > 0 ? (count / totalCandidates) * 100 : 0;
+        scoreRanges.push({ range, count, percentage });
+        
+        // Only include ranges with students for cleaner curve
+        if (count > 0) {
+          performanceCurve.push({
+            range: range,
+            count: count,
+            percentage: Math.round(percentage * 100) / 100,
+            x: i + 2.5, // Center point of range
+            y: count,
+            height: percentage
+          });
+        }
       }
     } else {
-      // Middle/Secondary: 0-20 scale
-      for (let i = 0; i <= 20; i += 1) {
-        const range = `${i}-${i + 0.99}`;
-        const count = scores.filter(score => score >= i && score < i + 1).length;
-        scoreRanges.push({ range, count, percentage: (count / totalCandidates) * 100 });
+      // Middle/Secondary: 0-20 scale with 0.5-point intervals
+      for (let i = 0; i <= 20; i += 0.5) {
+        const range = `${i.toFixed(1)}-${(i + 0.4).toFixed(1)}`;
+        const count = scores.filter(score => score >= i && score < i + 0.5).length;
+        const percentage = totalCandidates > 0 ? (count / totalCandidates) * 100 : 0;
+        scoreRanges.push({ range, count, percentage });
+        
+        // Only include ranges with students for cleaner curve
+        if (count > 0) {
+          performanceCurve.push({
+            range: range,
+            count: count,
+            percentage: Math.round(percentage * 100) / 100,
+            x: i + 0.25, // Center point of range
+            y: count,
+            height: percentage
+          });
+        }
       }
     }
+    
+    // Calculate curve statistics
+    const maxCount = Math.max(...performanceCurve.map(item => item.count));
+    const totalRanges = performanceCurve.length;
+    const curveData = {
+      points: performanceCurve,
+      maxCount: maxCount,
+      totalRanges: totalRanges,
+      scale: level === 'primary' ? '0-200' : '0-20',
+      interval: level === 'primary' ? 5 : 0.5
+    };
     
     res.json({
       success: true,
@@ -1144,6 +1183,7 @@ app.get('/api/school/:schoolId/details', (req, res) => {
         averageScore: Math.round(averageScore * 100) / 100
       },
       performanceCurve: scoreRanges,
+      curveData: curveData,
       admissionCriteria: level === 'primary' ? 'Score ≥ 85 points' : 'Decision: Admis'
     });
     
