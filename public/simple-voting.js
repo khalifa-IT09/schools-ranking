@@ -36,15 +36,19 @@ class SimpleVotingSystem {
 
     // Handle level selection change
     async onLevelChange() {
+        console.log('🔄 Level changed, loading regions...');
         const levelFilter = document.getElementById('levelFilter');
         const regionFilter = document.getElementById('regionFilter');
         const loadBtn = document.querySelector('.load-schools-btn');
         
         if (levelFilter.value) {
+            console.log('📚 Selected level:', levelFilter.value);
             // Enable region filter and load regions
             regionFilter.disabled = false;
+            regionFilter.innerHTML = '<option value="">Chargement des régions...</option>';
             await this.loadRegions(levelFilter.value);
         } else {
+            console.log('❌ No level selected');
             // Disable region filter and load button
             regionFilter.disabled = true;
             regionFilter.innerHTML = '<option value="">Sélectionner une région</option>';
@@ -68,8 +72,12 @@ class SimpleVotingSystem {
     // Load regions for selected level
     async loadRegions(level) {
         try {
+            console.log('🌐 Fetching regions for level:', level);
             const response = await fetch(`/api/regions/${level}`);
+            console.log('📡 Response status:', response.status);
+            
             const data = await response.json();
+            console.log('📊 Response data:', data);
             
             if (data.success && data.regions) {
                 const regionFilter = document.getElementById('regionFilter');
@@ -83,10 +91,57 @@ class SimpleVotingSystem {
                 });
                 
                 console.log('✅ Loaded', data.regions.length, 'regions for level:', level);
+            } else {
+                console.error('❌ No regions found or API error:', data);
+                const regionFilter = document.getElementById('regionFilter');
+                regionFilter.innerHTML = '<option value="">Aucune région trouvée</option>';
+                
+                // Add fallback regions if API fails
+                this.addFallbackRegions(level);
             }
         } catch (error) {
             console.error('❌ Error loading regions:', error);
+            const regionFilter = document.getElementById('regionFilter');
+            regionFilter.innerHTML = '<option value="">Erreur de chargement</option>';
+            
+            // Add fallback regions if API fails
+            this.addFallbackRegions(level);
         }
+    }
+
+    // Add fallback regions if API fails
+    addFallbackRegions(level) {
+        console.log('🔄 Adding fallback regions for level:', level);
+        const regionFilter = document.getElementById('regionFilter');
+        
+        // Common regions in Mauritania
+        const fallbackRegions = [
+            'Nouakchott Nord',
+            'Nouakchott Sud', 
+            'Nouakchott Ouest',
+            'Nouakchott Est',
+            'Trarza',
+            'Brakna',
+            'Gorgol',
+            'Assaba',
+            'Hodh Ech Chargui',
+            'Hodh El Gharbi',
+            'Tagant',
+            'Guidimaka',
+            'Adrar',
+            'Dakhlet Nouadhibou',
+            'Inchiri'
+        ];
+        
+        regionFilter.innerHTML = '<option value="">Sélectionner une région</option>';
+        fallbackRegions.forEach(region => {
+            const option = document.createElement('option');
+            option.value = region;
+            option.textContent = region;
+            regionFilter.appendChild(option);
+        });
+        
+        console.log('✅ Added', fallbackRegions.length, 'fallback regions');
     }
 
     // Load schools for voting based on selected level and region
