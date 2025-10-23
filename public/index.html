@@ -44,6 +44,10 @@
                 <i class="fas fa-university"></i>
                 <span data-translate="nav_secondary">Lycées (Baccalauréat)</span>
             </button>
+            <button class="nav-tab" data-level="voting">
+                <i class="fas fa-vote-yea"></i>
+                <span data-translate="nav_voting">Vote Communautaire</span>
+            </button>
         </nav>
 
         <!-- Controls -->
@@ -110,6 +114,86 @@
             </div>
             <div class="schools-grid" id="schoolsGrid">
                 <!-- Schools will be populated here -->
+            </div>
+        </div>
+
+        <!-- Community Voting Section -->
+        <div class="voting-container" id="votingContainer" style="display: none;">
+            <div class="voting-header">
+                <h2 data-translate="voting_title">Vote Communautaire</h2>
+                <p data-translate="voting_subtitle">Soutenez votre école préférée ! Votez pour les écoles qui méritent d'être reconnues par la communauté.</p>
+            </div>
+
+            <!-- Voting Stats -->
+            <div class="voting-stats" id="votingStats">
+                <div class="voting-stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-vote-yea"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="totalVotes">-</div>
+                        <div class="stat-label" data-translate="voting_total_votes">Votes Totaux</div>
+                    </div>
+                </div>
+                <div class="voting-stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-school"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="votingSchools">-</div>
+                        <div class="stat-label" data-translate="voting_schools">Écoles Participantes</div>
+                    </div>
+                </div>
+                <div class="voting-stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="weeklyVotes">-</div>
+                        <div class="stat-label" data-translate="voting_weekly">Cette Semaine</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voting Controls -->
+            <div class="voting-controls">
+                <div class="voting-filter-container">
+                    <select id="votingRegionFilter">
+                        <option value="all" data-translate="all_regions">Toutes les régions</option>
+                    </select>
+                    <select id="votingLevelFilter">
+                        <option value="all" data-translate="all_levels">Tous les niveaux</option>
+                        <option value="primary" data-translate="nav_primary">Primaires</option>
+                        <option value="middle" data-translate="nav_middle">Collèges</option>
+                        <option value="secondary" data-translate="nav_secondary">Lycées</option>
+                    </select>
+                    <button id="refreshVotingBtn" class="btn-refresh">
+                        <i class="fas fa-sync-alt"></i>
+                        <span data-translate="refresh">Actualiser</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top of the Week Leaderboard -->
+            <div class="leaderboard-section">
+                <h3 data-translate="voting_leaderboard_title">🏆 Top de la Semaine</h3>
+                <div class="leaderboard-container" id="leaderboardContainer">
+                    <div class="loading" id="votingLoading">
+                        <div class="spinner"></div>
+                        <p data-translate="loading_voting">Chargement du classement...</p>
+                    </div>
+                    <div class="leaderboard-grid" id="leaderboardGrid">
+                        <!-- Leaderboard will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- School Voting Cards -->
+            <div class="voting-schools-section">
+                <h3 data-translate="voting_schools_title">Votez pour votre école</h3>
+                <div class="voting-schools-grid" id="votingSchoolsGrid">
+                    <!-- Voting school cards will be populated here -->
+                </div>
             </div>
         </div>
 

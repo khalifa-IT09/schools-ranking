@@ -10,6 +10,7 @@ class SchoolRankingApp {
         this.totalSchools = 0;
         this.regions = [];
         this.currentLanguage = 'fr'; // Default to French
+        this.lastTabClick = 0; // Track last tab click time
         
         // Translation system
         this.translations = {
@@ -263,7 +264,9 @@ class SchoolRankingApp {
         // Navigation tabs
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
-                this.switchLevel(e.target.dataset.level);
+                const level = e.target.dataset.level;
+                console.log('🖱️ Tab clicked:', level);
+                this.switchLevel(level);
             });
         });
 
@@ -344,29 +347,47 @@ class SchoolRankingApp {
     }
 
     async switchLevel(level) {
-        if (this.currentLevel === level) return;
+        if (this.currentLevel === level) {
+            // Prevent rapid clicking on the same tab
+            const now = Date.now();
+            if (now - this.lastTabClick < 300) {
+                console.log('⏳ Too fast, ignoring click');
+                return;
+            }
+            this.lastTabClick = now;
+            return;
+        }
         
         // Validate level parameter
-        if (!level || !['primary', 'middle', 'secondary'].includes(level)) {
+        if (!level || !['primary', 'middle', 'secondary', 'voting'].includes(level)) {
             console.error('❌ Invalid level parameter:', level);
             return;
         }
+        
+        console.log('🔄 Switching to:', level);
+        this.lastTabClick = Date.now();
         
         this.currentLevel = level;
         this.currentPage = 1;
         this.currentSearch = '';
         this.currentRegion = 'all';
         
-        // Update UI
+        // Update UI immediately for better responsiveness
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.classList.remove('active');
         });
-        document.querySelector(`[data-level="${level}"]`).classList.add('active');
+        const activeTab = document.querySelector(`[data-level="${level}"]`);
+        if (activeTab) {
+            activeTab.classList.add('active');
+        }
         
         document.getElementById('searchInput').value = '';
         document.getElementById('regionFilter').value = 'all';
         
-        await this.loadInitialData();
+        // Load data asynchronously without blocking UI
+        this.loadInitialData().catch(error => {
+            console.error('❌ Error in switchLevel:', error);
+        });
     }
 
     async loadRegions() {
@@ -998,6 +1019,7 @@ function showHelp() {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new SchoolRankingApp();
+    window.app = app; // Make app globally available
 });
 
 // Add CSS for modal content
@@ -1094,3 +1116,683 @@ const modalStyles = `
 `;
 
 document.head.insertAdjacentHTML('beforeend', modalStyles);
+
+// ===== COMMUNITY VOTING FUNCTIONALITY =====
+
+class CommunityVoting {
+    constructor() {
+        this.votingStats = null;
+        this.leaderboard = [];
+        this.votingSchools = [];
+        this.currentVotingRegion = 'all';
+        this.currentVotingLevel = 'all';
+        this.voteCounts = {}; // Track votes per school for current user
+    }
+
+    // Initialize voting functionality
+    async init() {
+        console.log('🗳️ Initializing Community Voting...');
+        
+        // Add voting translations
+        this.addVotingTranslations();
+        
+        // Setup event listeners
+        this.setupVotingEventListeners();
+        
+        // Load initial data
+        await this.loadVotingStats();
+        
+        // Test if elements exist
+        const votingRegionFilter = document.getElementById('votingRegionFilter');
+        const votingLevelFilter = document.getElementById('votingLevelFilter');
+        console.log('🔍 Element check - Region filter:', !!votingRegionFilter, 'Level filter:', !!votingLevelFilter);
+        
+        // Load regions first with fallback
+        try {
+            await this.loadVotingRegions();
+        } catch (error) {
+            console.error('❌ Error loading initial regions:', error);
+            // Fallback to default regions
+            this.updateVotingRegionFilter(['Toutes les régions', 'Nouakchott', 'Nouadhibou', 'Rosso', 'Kaédi', 'Kiffa', 'Zouerate', 'Atar', 'Néma', 'Aïoun']);
+        }
+        
+        await this.loadLeaderboard();
+        await this.loadVotingSchools();
+        
+        console.log('✅ Community Voting initialized');
+        
+        // Add debugging function to window for testing
+        window.debugVoting = () => {
+            console.log('🔍 Debug Voting System:');
+            console.log('- Current Level:', this.currentVotingLevel);
+            console.log('- Current Region:', this.currentVotingRegion);
+            console.log('- Voting Schools:', this.votingSchools.length);
+            console.log('- Schools Data:', this.votingSchools);
+            console.log('- Grid Element:', document.getElementById('votingSchoolsGrid'));
+        };
+        
+        // Add manual trigger for testing
+        window.testVotingSchools = () => {
+            console.log('🧪 Testing voting schools loading...');
+            console.log('Current level:', this.currentVotingLevel);
+            console.log('Current region:', this.currentVotingRegion);
+            this.loadVotingSchools();
+        };
+        
+        // Add direct API test
+        window.testVotingAPI = async () => {
+            console.log('🧪 Testing voting API directly...');
+            try {
+                const response = await fetch(`/api/schools/secondary?limit=5&region=Nouakchott%20Nord`);
+                const data = await response.json();
+                console.log('Direct API test result:', data);
+                return data;
+            } catch (error) {
+                console.error('Direct API test error:', error);
+            }
+        };
+        
+        // Add manual render test
+        window.testVotingRender = () => {
+            console.log('🧪 Testing manual render...');
+            this.votingSchools = [
+                {name: 'Test School 1', region: 'Test Region', level: 'secondary', totalStudents: 100, successRate: 95},
+                {name: 'Test School 2', region: 'Test Region', level: 'secondary', totalStudents: 200, successRate: 90}
+            ];
+            this.renderVotingSchools();
+        };
+    }
+
+    // Add voting translations to existing translation system
+    addVotingTranslations() {
+        const votingTranslations = {
+            fr: {
+                nav_voting: "Vote Communautaire",
+                voting_title: "Vote Communautaire",
+                voting_subtitle: "Soutenez votre école préférée ! Votez pour les écoles qui méritent d'être reconnues par la communauté.",
+                voting_total_votes: "Votes Totaux",
+                voting_schools: "Écoles Participantes",
+                voting_weekly: "Cette Semaine",
+                all_levels: "Tous les niveaux",
+                voting_leaderboard_title: "🏆 Top de la Semaine",
+                voting_schools_title: "Votez pour votre école",
+                loading_voting: "Chargement du classement...",
+                vote_button: "Voter",
+                vote_success: "Vote enregistré !",
+                vote_limit_reached: "Limite de votes atteinte",
+                vote_error: "Erreur lors du vote",
+                votes_remaining: "votes restants",
+                total_votes: "votes totaux",
+                unique_voters: "votants uniques",
+                badges: "Badges",
+                no_badges: "Aucun badge",
+                vote_loading: "Enregistrement du vote...",
+                vote_again: "Voter à nouveau",
+                vote_limit_info: "Vous pouvez voter 7 fois par école par semaine"
+            },
+            ar: {
+                nav_voting: "التصويت المجتمعي",
+                voting_title: "التصويت المجتمعي",
+                voting_subtitle: "ادعموا مدرستكم المفضلة! صوتوا للمدارس التي تستحق الاعتراف من المجتمع.",
+                voting_total_votes: "إجمالي الأصوات",
+                voting_schools: "المدارس المشاركة",
+                voting_weekly: "هذا الأسبوع",
+                all_levels: "جميع المستويات",
+                voting_leaderboard_title: "🏆 الأسبوع",
+                voting_schools_title: "صوتوا لمدرستكم",
+                loading_voting: "تحميل الترتيب...",
+                vote_button: "صوت",
+                vote_success: "تم تسجيل الصوت!",
+                vote_limit_reached: "تم الوصول للحد الأقصى من الأصوات",
+                vote_error: "خطأ في التصويت",
+                votes_remaining: "أصوات متبقية",
+                total_votes: "إجمالي الأصوات",
+                unique_voters: "ناخبين فريدين",
+                badges: "الشارات",
+                no_badges: "لا توجد شارات",
+                vote_loading: "تسجيل الصوت...",
+                vote_again: "صوت مرة أخرى",
+                vote_limit_info: "يمكنكم التصويت 7 مرات لكل مدرسة في الأسبوع"
+            }
+        };
+
+        // Merge with existing translations
+        Object.keys(votingTranslations).forEach(lang => {
+            if (window.app && window.app.translations && window.app.translations[lang]) {
+                Object.assign(window.app.translations[lang], votingTranslations[lang]);
+            }
+        });
+    }
+
+    // Setup event listeners for voting
+    setupVotingEventListeners() {
+        // Voting region filter
+        const votingRegionFilter = document.getElementById('votingRegionFilter');
+        if (votingRegionFilter) {
+            votingRegionFilter.addEventListener('change', () => {
+                this.currentVotingRegion = votingRegionFilter.value;
+                this.loadLeaderboard();
+                this.loadVotingSchools();
+            });
+        }
+
+        // Voting level filter
+        const votingLevelFilter = document.getElementById('votingLevelFilter');
+        if (votingLevelFilter) {
+            votingLevelFilter.addEventListener('change', () => {
+                console.log('🔄 Level filter changed to:', votingLevelFilter.value);
+                this.currentVotingLevel = votingLevelFilter.value;
+                this.loadVotingRegions(); // Load regions for the selected level
+                this.loadLeaderboard();
+                this.loadVotingSchools();
+            });
+        } else {
+            console.error('❌ votingLevelFilter element not found!');
+        }
+
+        // Refresh voting button
+        const refreshVotingBtn = document.getElementById('refreshVotingBtn');
+        if (refreshVotingBtn) {
+            refreshVotingBtn.addEventListener('click', () => {
+                this.loadVotingStats();
+                this.loadVotingRegions(); // Also refresh regions
+                this.loadLeaderboard();
+                this.loadVotingSchools();
+            });
+        }
+    }
+
+    // Load voting statistics
+    async loadVotingStats() {
+        try {
+            const response = await fetch('/api/voting/stats');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.votingStats = data.stats;
+                this.updateVotingStatsDisplay();
+            }
+        } catch (error) {
+            console.error('❌ Error loading voting stats:', error);
+        }
+    }
+
+    // Update voting stats display
+    updateVotingStatsDisplay() {
+        if (!this.votingStats) return;
+
+        const totalVotesEl = document.getElementById('totalVotes');
+        const votingSchoolsEl = document.getElementById('votingSchools');
+        const weeklyVotesEl = document.getElementById('weeklyVotes');
+
+        if (totalVotesEl) totalVotesEl.textContent = this.votingStats.total_votes || 0;
+        if (votingSchoolsEl) votingSchoolsEl.textContent = this.votingStats.total_schools || 0;
+        if (weeklyVotesEl) weeklyVotesEl.textContent = this.votingStats.current_week_votes || 0;
+    }
+
+    // Load leaderboard
+    async loadLeaderboard() {
+        try {
+            const votingLoading = document.getElementById('votingLoading');
+            const leaderboardGrid = document.getElementById('leaderboardGrid');
+            
+            if (votingLoading) votingLoading.style.display = 'block';
+            if (leaderboardGrid) leaderboardGrid.innerHTML = '';
+
+            const params = new URLSearchParams({
+                region: this.currentVotingRegion,
+                level: this.currentVotingLevel,
+                limit: 10
+            });
+
+            const response = await fetch(`/api/voting/leaderboard?${params}`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.leaderboard = data.leaderboard;
+                this.renderLeaderboard();
+            }
+
+            if (votingLoading) votingLoading.style.display = 'none';
+        } catch (error) {
+            console.error('❌ Error loading leaderboard:', error);
+            const votingLoading = document.getElementById('votingLoading');
+            if (votingLoading) votingLoading.style.display = 'none';
+        }
+    }
+
+    // Render leaderboard
+    renderLeaderboard() {
+        const leaderboardGrid = document.getElementById('leaderboardGrid');
+        if (!leaderboardGrid) return;
+
+        if (this.leaderboard.length === 0) {
+            leaderboardGrid.innerHTML = `
+                <div class="voting-loading">
+                    <p>Aucune donnée de vote disponible pour le moment.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const leaderboardHTML = this.leaderboard.map((school, index) => {
+            const badges = this.getSchoolBadges(school);
+            const badgeHTML = badges.map(badge => 
+                `<span class="badge ${badge.class}">${badge.name}</span>`
+            ).join('');
+
+            return `
+                <div class="leaderboard-item">
+                    <div class="leaderboard-rank">#${school.rank}</div>
+                    <div class="leaderboard-school">
+                        <h4>${school.school_name}</h4>
+                        <p>${school.school_region} • ${this.getLevelName(school.school_level)}</p>
+                    </div>
+                    <div class="leaderboard-stats">
+                        <div class="leaderboard-votes">
+                            <div class="vote-count">${school.total_votes}</div>
+                            <div class="vote-label">votes</div>
+                        </div>
+                        <div class="leaderboard-badges">
+                            ${badgeHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        leaderboardGrid.innerHTML = leaderboardHTML;
+    }
+
+    // Load voting schools
+    async loadVotingSchools() {
+        try {
+            console.log('🏫 Loading voting schools for level:', this.currentVotingLevel, 'region:', this.currentVotingRegion);
+            
+            // Get schools from the main ranking data
+            const currentLevel = this.currentVotingLevel === 'all' ? 'primary' : this.currentVotingLevel;
+            const response = await fetch(`/api/schools/${currentLevel}?limit=50&region=${this.currentVotingRegion}`);
+            const data = await response.json();
+
+            console.log('📊 Schools API response:', data);
+
+            console.log('🔍 API Response structure:', {
+                success: data.success,
+                hasSchools: !!data.schools,
+                schoolsLength: data.schools ? data.schools.length : 0,
+                total: data.total
+            });
+
+            if (data.schools && data.schools.length > 0) {
+                this.votingSchools = data.schools.slice(0, 20); // Limit to 20 schools for voting
+                console.log('✅ Loaded', this.votingSchools.length, 'schools for voting');
+                console.log('📋 First school:', this.votingSchools[0]);
+                this.renderVotingSchools();
+            } else {
+                console.log('⚠️ No schools found, showing message');
+                console.log('📊 Full API Response:', JSON.stringify(data, null, 2));
+                this.showNoSchoolsMessage();
+            }
+        } catch (error) {
+            console.error('❌ Error loading voting schools:', error);
+            this.showNoSchoolsMessage();
+        }
+    }
+
+    // Show message when no schools are available
+    showNoSchoolsMessage() {
+        const votingSchoolsGrid = document.getElementById('votingSchoolsGrid');
+        if (!votingSchoolsGrid) return;
+
+        votingSchoolsGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #666;">
+                <h3>Aucune école trouvée</h3>
+                <p>Essayez de changer le niveau ou la région pour voir plus d'écoles.</p>
+            </div>
+        `;
+    }
+
+    // Load regions for voting based on selected level
+    async loadVotingRegions() {
+        try {
+            console.log('🌍 Loading regions for level:', this.currentVotingLevel);
+            
+            if (this.currentVotingLevel === 'all') {
+                // For 'all' levels, show all regions
+                this.updateVotingRegionFilter(['Toutes les régions', 'Nouakchott', 'Nouadhibou', 'Rosso', 'Kaédi', 'Kiffa', 'Zouerate', 'Atar', 'Néma', 'Aïoun']);
+                return;
+            }
+
+            const response = await fetch(`/api/regions/${this.currentVotingLevel}`);
+            const data = await response.json();
+
+            console.log('📊 Regions API response:', data);
+
+            if (data.regions && Array.isArray(data.regions)) {
+                const regions = ['Toutes les régions', ...data.regions];
+                this.updateVotingRegionFilter(regions);
+                console.log('✅ Loaded', data.regions.length, 'regions for', this.currentVotingLevel);
+            } else {
+                console.log('⚠️ No regions found, using default');
+                this.updateVotingRegionFilter(['Toutes les régions']);
+            }
+        } catch (error) {
+            console.error('❌ Error loading voting regions:', error);
+            this.updateVotingRegionFilter(['Toutes les régions']);
+        }
+    }
+
+    // Update the voting region filter dropdown
+    updateVotingRegionFilter(regions) {
+        const votingRegionFilter = document.getElementById('votingRegionFilter');
+        if (!votingRegionFilter) {
+            console.error('❌ votingRegionFilter element not found!');
+            return;
+        }
+
+        console.log('🔄 Updating region filter with:', regions);
+
+        votingRegionFilter.innerHTML = regions.map(region => 
+            `<option value="${region === 'Toutes les régions' ? 'all' : region}">${region}</option>`
+        ).join('');
+
+        // Reset to 'all' when regions change
+        votingRegionFilter.value = 'all';
+        this.currentVotingRegion = 'all';
+        
+        console.log('✅ Region filter updated with', regions.length, 'options');
+    }
+
+    // Render voting schools
+    renderVotingSchools() {
+        console.log('🎓 renderVotingSchools called with:', this.votingSchools.length, 'schools');
+        
+        const votingSchoolsGrid = document.getElementById('votingSchoolsGrid');
+        if (!votingSchoolsGrid) {
+            console.error('❌ votingSchoolsGrid element not found!');
+            return;
+        }
+
+        console.log('🎓 Rendering voting schools:', this.votingSchools.length, 'schools');
+
+        if (this.votingSchools.length === 0) {
+            console.log('⚠️ No schools to render, showing message');
+            votingSchoolsGrid.innerHTML = `
+                <div class="voting-loading">
+                    <p>Aucune école disponible pour le vote.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const schoolsHTML = this.votingSchools.map(school => {
+            const schoolId = this.generateSchoolId(school);
+            const voteCount = this.voteCounts[schoolId] || 0;
+            const remainingVotes = Math.max(0, 7 - voteCount);
+            const canVote = remainingVotes > 0;
+
+            return `
+                <div class="voting-school-card">
+                    <div class="voting-school-header">
+                        <div class="voting-school-info">
+                            <h4>${school.name}</h4>
+                            <p>${school.region} • ${this.getLevelName(school.level)}</p>
+                        </div>
+                    </div>
+                    <div class="voting-school-stats">
+                        <div class="voting-stat">
+                            <span class="stat-number">${school.totalStudents}</span>
+                            <span class="stat-label">Élèves</span>
+                        </div>
+                        <div class="voting-stat">
+                            <span class="stat-number">${school.successRate.toFixed(1)}%</span>
+                            <span class="stat-label">Réussite</span>
+                        </div>
+                        <div class="voting-stat">
+                            <span class="stat-number">${remainingVotes}</span>
+                            <span class="stat-label">Votes restants</span>
+                        </div>
+                    </div>
+                    <div class="voting-school-badges" id="badges-${schoolId}">
+                        <!-- Badges will be loaded here -->
+                    </div>
+                    <button class="vote-button ${!canVote ? 'vote-limit' : ''}" 
+                            onclick="communityVoting.voteForSchool('${schoolId}', '${school.name}', '${school.region}', '${school.level}')"
+                            ${!canVote ? 'disabled' : ''}>
+                        <i class="fas fa-vote-yea"></i>
+                        ${canVote ? 'Voter' : 'Limite atteinte'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        votingSchoolsGrid.innerHTML = schoolsHTML;
+        console.log('✅ Schools HTML rendered, length:', schoolsHTML.length);
+
+        // Load badges for each school
+        this.votingSchools.forEach(school => {
+            this.loadSchoolBadges(this.generateSchoolId(school));
+        });
+    }
+
+    // Vote for a school
+    async voteForSchool(schoolId, schoolName, schoolRegion, schoolLevel) {
+        try {
+            const voteButton = event.target.closest('.vote-button');
+            if (!voteButton) return;
+
+            // Show loading state
+            voteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
+            voteButton.disabled = true;
+
+            const response = await fetch('/api/vote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    schoolId: schoolId,
+                    schoolName: schoolName,
+                    schoolRegion: schoolRegion,
+                    schoolLevel: schoolLevel
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update vote count
+                this.voteCounts[schoolId] = (this.voteCounts[schoolId] || 0) + 1;
+                
+                // Show success animation
+                voteButton.classList.add('vote-success');
+                voteButton.innerHTML = '<i class="fas fa-check"></i> Vote enregistré !';
+                
+                // Update remaining votes
+                const remainingVotes = Math.max(0, 7 - this.voteCounts[schoolId]);
+                const voteCountEl = voteButton.closest('.voting-school-card').querySelector('.stat-number');
+                if (voteCountEl) voteCountEl.textContent = remainingVotes;
+
+                // Disable button if limit reached
+                if (remainingVotes === 0) {
+                    voteButton.classList.remove('vote-success');
+                    voteButton.classList.add('vote-limit');
+                    voteButton.innerHTML = '<i class="fas fa-ban"></i> Limite atteinte';
+                } else {
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        voteButton.classList.remove('vote-success');
+                        voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter à nouveau';
+                        voteButton.disabled = false;
+                    }, 2000);
+                }
+
+                // Refresh leaderboard and stats
+                setTimeout(() => {
+                    this.loadVotingStats();
+                    this.loadLeaderboard();
+                }, 1000);
+
+            } else {
+                // Show error
+                voteButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erreur';
+                voteButton.classList.add('vote-limit');
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter';
+                    voteButton.classList.remove('vote-limit');
+                    voteButton.disabled = false;
+                }, 3000);
+            }
+
+        } catch (error) {
+            console.error('❌ Error voting for school:', error);
+            const voteButton = event.target.closest('.vote-button');
+            if (voteButton) {
+                voteButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erreur';
+                voteButton.classList.add('vote-limit');
+                
+                setTimeout(() => {
+                    voteButton.innerHTML = '<i class="fas fa-vote-yea"></i> Voter';
+                    voteButton.classList.remove('vote-limit');
+                    voteButton.disabled = false;
+                }, 3000);
+            }
+        }
+    }
+
+    // Load school badges
+    async loadSchoolBadges(schoolId) {
+        try {
+            const response = await fetch(`/api/voting/school/${schoolId}/badges`);
+            const data = await response.json();
+
+            if (data.success && data.badges.length > 0) {
+                const badgesContainer = document.getElementById(`badges-${schoolId}`);
+                if (badgesContainer) {
+                    const badgesHTML = data.badges.map(badge => 
+                        `<span class="badge ${this.getBadgeClass(badge.badge_type)}">${badge.badge_name}</span>`
+                    ).join('');
+                    badgesContainer.innerHTML = badgesHTML;
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading school badges:', error);
+        }
+    }
+
+    // Get school badges for display
+    getSchoolBadges(school) {
+        // This would be populated from the school's badge data
+        // For now, return empty array
+        return [];
+    }
+
+    // Get badge CSS class
+    getBadgeClass(badgeType) {
+        const badgeClasses = {
+            'top_performer_gold': 'badge-gold',
+            'top_performer_silver': 'badge-silver',
+            'top_performer_bronze': 'badge-bronze',
+            'community_favorite': 'badge-community'
+        };
+        return badgeClasses[badgeType] || 'badge';
+    }
+
+    // Generate school ID
+    generateSchoolId(school) {
+        return `${school.name}_${school.region}_${school.level}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    }
+
+    // Get level name
+    getLevelName(level) {
+        const levelNames = {
+            'primary': 'Primaire',
+            'middle': 'Collège',
+            'secondary': 'Lycée'
+        };
+        return levelNames[level] || level;
+    }
+}
+
+// Initialize Community Voting when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize community voting
+    window.communityVoting = new CommunityVoting();
+    
+    // Wait for app to be ready, then override tab switching
+    const setupVotingTab = () => {
+        if (window.app) {
+            console.log('✅ App is ready, setting up voting tab');
+            // Override the existing switchLevel method to include voting
+            const originalSwitchLevel = window.app.switchLevel;
+            window.app.switchLevel = function(level) {
+                console.log('🔄 Switching to level:', level);
+                if (level === 'voting') {
+                    console.log('🗳️ Switching to voting tab');
+                    // Show voting container
+                    document.getElementById('resultsContainer').style.display = 'none';
+                    document.getElementById('votingContainer').style.display = 'block';
+                    document.getElementById('pagination').style.display = 'none';
+                    
+                    // Update tab visual state
+                    document.querySelectorAll('.nav-tab').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    const votingTab = document.querySelector('[data-level="voting"]');
+                    if (votingTab) {
+                        votingTab.classList.add('active');
+                    }
+                    
+                    // Initialize voting if not already done
+                    if (window.communityVoting && !window.communityVoting.initialized) {
+                        console.log('🚀 Initializing Community Voting');
+                        window.communityVoting.init().catch(error => {
+                            console.error('❌ Error initializing Community Voting:', error);
+                            // Show a basic message if initialization fails
+                            const votingContainer = document.getElementById('votingContainer');
+                            if (votingContainer) {
+                                votingContainer.innerHTML = `
+                                    <div style="padding: 2rem; text-align: center;">
+                                        <h2>Vote Communautaire</h2>
+                                        <p>Erreur lors du chargement. Veuillez actualiser la page.</p>
+                                        <button onclick="location.reload()">Actualiser</button>
+                                    </div>
+                                `;
+                            }
+                        });
+                        window.communityVoting.initialized = true;
+                    } else {
+                        console.log('✅ Community Voting already initialized');
+                    }
+                } else {
+                    // Show regular results
+                    document.getElementById('resultsContainer').style.display = 'block';
+                    document.getElementById('votingContainer').style.display = 'none';
+                    document.getElementById('pagination').style.display = 'block';
+                    
+                    // Update tab visual state for regular tabs
+                    document.querySelectorAll('.nav-tab').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    const activeTab = document.querySelector(`[data-level="${level}"]`);
+                    if (activeTab) {
+                        activeTab.classList.add('active');
+                    }
+                    
+                    // Call original switchLevel
+                    if (originalSwitchLevel) {
+                        originalSwitchLevel.call(this, level);
+                    }
+                }
+            };
+        } else {
+            console.log('⏳ App not ready yet, retrying...');
+            setTimeout(setupVotingTab, 50);
+        }
+    };
+    
+    // Try to setup immediately, or retry if app not ready
+    setupVotingTab();
+});

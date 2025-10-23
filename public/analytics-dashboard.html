@@ -282,6 +282,30 @@
                 <!-- Will be populated by JavaScript -->
             </div>
 
+            <!-- Voting Statistics Section -->
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <h3><i class="fas fa-vote-yea"></i> Statistiques de Vote Communautaire</h3>
+                <div class="stats-grid" id="voting-stats">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Top Voted Schools -->
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <h3><i class="fas fa-trophy"></i> Top Écoles Votées</h3>
+                <div class="country-list" id="top-voted-schools">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Regional Voting Stats -->
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <h3><i class="fas fa-map-marker-alt"></i> Votes par Région</h3>
+                <div class="device-stats" id="regional-voting-stats">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
             <!-- Charts Grid -->
             <div class="chart-grid">
                 <!-- Countries Chart -->
@@ -345,6 +369,9 @@
 
                 if (data.success) {
                     displayAnalytics(data.stats);
+                    
+                    // Load voting analytics
+                    await loadVotingAnalytics();
                 } else {
                     throw new Error('Failed to load analytics');
                 }
@@ -352,6 +379,36 @@
                 console.error('Error loading analytics:', error);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        async function loadVotingAnalytics() {
+            try {
+                // Load voting stats
+                const votingResponse = await fetch('/api/analytics/voting');
+                const votingData = await votingResponse.json();
+                
+                if (votingData.success) {
+                    displayVotingStats(votingData.voting);
+                }
+
+                // Load top voted schools
+                const topSchoolsResponse = await fetch('/api/analytics/voting/top-schools?limit=10');
+                const topSchoolsData = await topSchoolsResponse.json();
+                
+                if (topSchoolsData.success) {
+                    displayTopVotedSchools(topSchoolsData.topSchools);
+                }
+
+                // Load regional voting stats
+                const regionalResponse = await fetch('/api/analytics/voting/regional');
+                const regionalData = await regionalResponse.json();
+                
+                if (regionalData.success) {
+                    displayRegionalVotingStats(regionalData.regional);
+                }
+            } catch (error) {
+                console.error('Error loading voting analytics:', error);
             }
         }
 
@@ -572,6 +629,85 @@
                     </div>
                     <div class="device-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
                     <div class="device-count">${count}</div>
+                </div>
+            `).join('');
+        }
+
+        // Voting Analytics Display Functions
+        function displayVotingStats(votingData) {
+            const container = document.getElementById('voting-stats');
+            const stats = votingData.stats || {};
+            
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-vote-yea"></i>
+                    </div>
+                    <div class="stat-number">${stats.total_votes || 0}</div>
+                    <div class="stat-label">Total Votes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-school"></i>
+                    </div>
+                    <div class="stat-number">${stats.total_schools || 0}</div>
+                    <div class="stat-label">Écoles Participantes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-number">${stats.total_badges || 0}</div>
+                    <div class="stat-label">Badges Attribués</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-calendar-week"></i>
+                    </div>
+                    <div class="stat-number">${stats.current_week_votes || 0}</div>
+                    <div class="stat-label">Votes Cette Semaine</div>
+                </div>
+            `;
+        }
+
+        function displayTopVotedSchools(schools) {
+            const container = document.getElementById('top-voted-schools');
+            
+            if (!schools || schools.length === 0) {
+                container.innerHTML = '<p>Aucune donnée de vote disponible.</p>';
+                return;
+            }
+            
+            container.innerHTML = schools.map((school, index) => `
+                <div class="country-item">
+                    <div class="country-rank">${index + 1}</div>
+                    <div class="country-info">
+                        <div class="country-name">${school.school_name}</div>
+                        <div class="country-region">${school.school_region} • ${school.school_level}</div>
+                    </div>
+                    <div class="country-visits">${school.vote_count} votes</div>
+                </div>
+            `).join('');
+        }
+
+        function displayRegionalVotingStats(regionalData) {
+            const container = document.getElementById('regional-voting-stats');
+            
+            if (!regionalData || Object.keys(regionalData).length === 0) {
+                container.innerHTML = '<p>Aucune donnée régionale disponible.</p>';
+                return;
+            }
+            
+            container.innerHTML = Object.entries(regionalData).map(([region, data]) => `
+                <div class="device-item">
+                    <div class="device-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="device-name">${region}</div>
+                    <div class="device-count">${data.total_votes} votes</div>
+                    <div class="device-details">
+                        ${data.unique_schools_count} écoles • ${data.unique_voters_count} votants
+                    </div>
                 </div>
             `).join('');
         }

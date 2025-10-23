@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Voting System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        select { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Voting System Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Regions API</h3>
+        <button onclick="testRegionsAPI('primary')">Test Primary Regions</button>
+        <button onclick="testRegionsAPI('middle')">Test Middle Regions</button>
+        <button onclick="testRegionsAPI('secondary')">Test Secondary Regions</button>
+        <div id="regionsResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Schools API</h3>
+        <button onclick="testSchoolsAPI('primary')">Test Primary Schools</button>
+        <button onclick="testSchoolsAPI('middle')">Test Middle Schools</button>
+        <button onclick="testSchoolsAPI('secondary')">Test Secondary Schools</button>
+        <div id="schoolsResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Voting Stats</h3>
+        <button onclick="testVotingStats()">Test Voting Stats</button>
+        <div id="statsResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Region Filter</h3>
+        <select id="testLevelFilter" onchange="testRegionFilter()">
+            <option value="all">All Levels</option>
+            <option value="primary">Primary</option>
+            <option value="middle">Middle</option>
+            <option value="secondary">Secondary</option>
+        </select>
+        <select id="testRegionFilter">
+            <option value="all">All Regions</option>
+        </select>
+        <div id="filterResult" class="result"></div>
+    </div>
+
+    <script>
+        async function testRegionsAPI(level) {
+            try {
+                const response = await fetch(`/api/regions/${level}`);
+                const data = await response.json();
+                document.getElementById('regionsResult').innerHTML = 
+                    `<strong>${level.toUpperCase()} Regions:</strong><br>` + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('regionsResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function testSchoolsAPI(level) {
+            try {
+                const response = await fetch(`/api/schools/${level}?limit=5`);
+                const data = await response.json();
+                document.getElementById('schoolsResult').innerHTML = 
+                    `<strong>${level.toUpperCase()} Schools:</strong><br>` + 
+                    `Found ${data.schools ? data.schools.length : 0} schools<br>` +
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('schoolsResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function testVotingStats() {
+            try {
+                const response = await fetch('/api/voting/stats');
+                const data = await response.json();
+                document.getElementById('statsResult').innerHTML = 
+                    `<strong>Voting Stats:</strong><br>` + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('statsResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function testRegionFilter() {
+            const level = document.getElementById('testLevelFilter').value;
+            const regionFilter = document.getElementById('testRegionFilter');
+            
+            if (level === 'all') {
+                regionFilter.innerHTML = '<option value="all">All Regions</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/regions/${level}`);
+                const data = await response.json();
+                
+                if (data.regions && Array.isArray(data.regions)) {
+                    regionFilter.innerHTML = '<option value="all">All Regions</option>' +
+                        data.regions.map(region => `<option value="${region}">${region}</option>`).join('');
+                    document.getElementById('filterResult').innerHTML = 
+                        `<strong>Success:</strong> Loaded ${data.regions.length} regions for ${level}`;
+                } else {
+                    document.getElementById('filterResult').innerHTML = 
+                        `<strong>Error:</strong> No regions found in response`;
+                }
+            } catch (error) {
+                document.getElementById('filterResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            testVotingStats();
+        };
+    </script>
+</body>
+</html>

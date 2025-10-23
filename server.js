@@ -7,6 +7,7 @@ const fs = require('fs');
 const XLSX = require('xlsx');
 const csv = require('csv-parser');
 const analytics = require('./analytics');
+const dbManager = require('./database-simple');
 require('dotenv').config();
 
 const app = express();
@@ -997,6 +998,278 @@ app.get('/api/stats/:level', (req, res) => {
   });
 });
 
+// Simple test endpoint
+app.get('/test', (req, res) => {
+  res.send('<h1>Server is working!</h1><p>The Community Voting app is running correctly.</p>');
+});
+
+// ===== COMMUNITY VOTING API ENDPOINTS =====
+
+// Record a vote for a school
+app.post('/api/vote', (req, res) => {
+  try {
+    const { schoolId, schoolName, schoolRegion, schoolLevel } = req.body;
+    const voterIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    // Validate required fields
+    if (!schoolId || !schoolName || !schoolRegion || !schoolLevel) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'Champs requis manquants: schoolId, schoolName, schoolRegion, schoolLevel'
+      });
+    }
+
+    // Validate school level
+    if (!['primary', 'middle', 'secondary'].includes(schoolLevel)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid school level',
+        message: 'Niveau d\'école invalide. Doit être primary, middle, ou secondary'
+      });
+    }
+
+    // Record the vote
+    const result = dbManager.recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent);
+
+    if (result.success) {
+      // Check and award badges after successful vote
+      dbManager.checkAndAwardBadges();
+      
+      res.json({
+        success: true,
+        message: result.message,
+        remainingVotes: result.remainingVotes,
+        voteId: result.voteId
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: result.message
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in vote endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Get top voted schools for a region and level
+app.get('/api/voting/leaderboard', (req, res) => {
+  try {
+    const { region = 'all', level = 'all', limit = 10 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 10, 50); // Max 50 results
+
+    // Validate level parameter
+    if (level !== 'all' && !['primary', 'middle', 'secondary'].includes(level)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid level',
+        message: 'Niveau invalide. Doit être primary, middle, secondary, ou all'
+      });
+    }
+
+    const result = dbManager.getTopVotedSchools(region, level, limitNum);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        leaderboard: result.schools,
+        week_start: result.week_start,
+        region: region,
+        level: level,
+        total: result.schools.length
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Erreur lors du chargement du classement'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in leaderboard endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Get school vote statistics
+app.get('/api/voting/school/:schoolId/stats', (req, res) => {
+  try {
+    const { schoolId } = req.params;
+
+    if (!schoolId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing school ID',
+        message: 'ID de l\'école manquant'
+      });
+    }
+
+    const result = dbManager.getSchoolVoteStats(schoolId);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        schoolId: schoolId,
+        stats: result
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Erreur lors du chargement des statistiques'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in school stats endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Get school badges
+app.get('/api/voting/school/:schoolId/badges', (req, res) => {
+  try {
+    const { schoolId } = req.params;
+
+    if (!schoolId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing school ID',
+        message: 'ID de l\'école manquant'
+      });
+    }
+
+    const result = dbManager.getSchoolBadges(schoolId);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        schoolId: schoolId,
+        badges: result.badges
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Erreur lors du chargement des badges'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in school badges endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Get voting statistics
+app.get('/api/voting/stats', (req, res) => {
+  try {
+    const result = dbManager.getDatabaseStats();
+
+    if (result.success) {
+      res.json({
+        success: true,
+        stats: result.stats,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Erreur lors du chargement des statistiques'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error in voting stats endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// ===== END COMMUNITY VOTING API ENDPOINTS =====
+
+// Voting Analytics endpoints
+app.get('/api/analytics/voting', async (req, res) => {
+  try {
+    const votingStats = await dbManager.getDatabaseStats();
+    res.json({
+      success: true,
+      voting: votingStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching voting analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch voting analytics' });
+  }
+});
+
+// Top voted schools analytics
+app.get('/api/analytics/voting/top-schools', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const topSchools = await dbManager.getTopVotedSchools(limit);
+    res.json({
+      success: true,
+      topSchools,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching top voted schools:', error);
+    res.status(500).json({ error: 'Failed to fetch top voted schools' });
+  }
+});
+
+// Voting trends analytics
+app.get('/api/analytics/voting/trends', async (req, res) => {
+  try {
+    const trends = await dbManager.getVotingTrends();
+    res.json({
+      success: true,
+      trends,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching voting trends:', error);
+    res.status(500).json({ error: 'Failed to fetch voting trends' });
+  }
+});
+
+// Regional voting analytics
+app.get('/api/analytics/voting/regional', async (req, res) => {
+  try {
+    const regionalStats = await dbManager.getRegionalVotingStats();
+    res.json({
+      success: true,
+      regional: regionalStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching regional voting stats:', error);
+    res.status(500).json({ error: 'Failed to fetch regional voting stats' });
+  }
+});
+
 // Analytics endpoint for admin
 app.get('/api/analytics', (req, res) => {
   try {
@@ -1125,8 +1398,8 @@ if (process.env.NODE_ENV === 'production') {
   console.log(`🔧 Production mode: Optimized for 512MB Render Starter plan (${maxOldSpaceSize}MB limit)`);
 }
 
-// Start server immediately
-app.listen(PORT, () => {
+// Start server immediately - bind to 0.0.0.0 to ensure browser can connect
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 School Ranking App running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌐 Application: http://localhost:${PORT}`);

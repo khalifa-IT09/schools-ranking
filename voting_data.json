@@ -1,0 +1,38 @@
+{
+  "votes": [
+    {
+      "id": 1761177743435.7036,
+      "school_id": "test_school_1",
+      "school_name": "Test School",
+      "school_region": "Nouakchott",
+      "school_level": "primary",
+      "voter_ip": "::1",
+      "voter_user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; fr-FR) WindowsPowerShell/5.1.19041.6456",
+      "vote_timestamp": "2025-10-23T00:02:23.435Z",
+      "week_start": "2025-10-19"
+    }
+  ],
+  "badges": [
+    {
+      "id": 1761177743436.95,
+      "school_id": "test_school_1",
+      "school_name": "Test School",
+      "badge_type": "top_performer_gold",
+      "badge_name": "🏆 Champion Régional",
+      "badge_description": "Top 1 dans la région Nouakchott cette semaine",
+      "earned_date": "2025-10-23T00:02:23.436Z",
+      "is_active": 1
+    }
+  ],
+  "weeklyStats": {
+    "test_school_1_2025-10-19": {
+      "school_id": "test_school_1",
+      "school_name": "Test School",
+      "school_region": "Nouakchott",
+      "school_level": "primary",
+      "week_start": "2025-10-19",
+      "vote_count": 1,
+      "last_updated": "2025-10-23T00:02:23.435Z"
+    }
+  }
+}
