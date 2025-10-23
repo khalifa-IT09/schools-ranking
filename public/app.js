@@ -419,10 +419,6 @@ class SchoolRankingApp {
                                 <i class="fas fa-chart-bar"></i>
                                 <span>Note Min: ${school.minScore || 0}</span>
                             </div>
-                            <div class="stat-item">
-                                <i class="fas fa-calculator"></i>
-                                <span>Moyenne: ${school.averageScore || 0}</span>
-                            </div>
                         </div>
                     </div>
                 </div>
