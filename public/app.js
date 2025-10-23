@@ -576,6 +576,7 @@ class SchoolRankingApp {
         console.log('🔍 Current app instance:', this);
         console.log('🔍 Window.app:', window.app);
         
+        // First, let's try to show a simple modal to test if the modal system works
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalBody = document.getElementById('modalBody');
@@ -599,6 +600,13 @@ class SchoolRankingApp {
             alert('Modal body not found!');
             return;
         }
+
+        // Show modal immediately with a simple test
+        console.log('✅ All modal elements found, showing modal...');
+        modal.style.display = 'block';
+        modalTitle.textContent = 'Test Modal';
+        modalBody.innerHTML = '<p>Modal is working! School ID: ' + schoolId + '</p>';
+        console.log('✅ Modal should now be visible');
 
         if (modal && modalTitle && modalBody) {
             // Show loading state
