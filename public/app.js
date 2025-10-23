@@ -252,6 +252,11 @@ class SchoolRankingApp {
             
             const data = await response.json();
             console.log('🌍 Regions data:', data);
+            console.log('🔍 Regions success property:', data.success);
+            console.log('🔍 Regions data type:', typeof data.success);
+            console.log('🔍 Regions success === true:', data.success === true);
+            console.log('🔍 Regions array:', data.regions);
+            console.log('🔍 Regions array length:', data.regions ? data.regions.length : 'undefined');
 
             if (data.success && data.regions) {
                 this.regions = data.regions;
@@ -315,6 +320,9 @@ class SchoolRankingApp {
             
             const data = await response.json();
             console.log('📊 Response data:', data);
+            console.log('🔍 Data success property:', data.success);
+            console.log('🔍 Data type:', typeof data.success);
+            console.log('🔍 Data success === true:', data.success === true);
 
             if (data.success) {
                 this.schools = data.schools || [];
