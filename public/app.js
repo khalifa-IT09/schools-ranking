@@ -401,11 +401,27 @@ class SchoolRankingApp {
                         <div class="school-stats-modern">
                             <div class="stat-item">
                                 <i class="fas fa-users"></i>
-                                <span>${school.totalStudents || 0} Élèves</span>
+                                <span>${school.totalStudents || 0} Candidats</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>${school.passedStudents || 0} Admis</span>
                             </div>
                             <div class="stat-item success-rate">
                                 <i class="fas fa-chart-line"></i>
                                 <span>${school.successRate || school.score || 0}% Taux de réussite</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-trophy"></i>
+                                <span>Note Max: ${school.maxScore || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Note Min: ${school.minScore || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-calculator"></i>
+                                <span>Moyenne: ${school.averageScore || 0}</span>
                             </div>
                         </div>
                     </div>
