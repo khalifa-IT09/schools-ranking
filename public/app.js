@@ -389,39 +389,41 @@ class SchoolRankingApp {
         }
 
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card-professional" onclick="window.app.showSchoolDetails('${school.id}')">
-                <div class="school-header-professional">
-                    <h2 class="school-name-professional">${school.name}</h2>
-                    <div class="school-location-professional">
+            <div class="school-card-attractive" onclick="window.app.showSchoolDetails('${school.id}')">
+                <div class="school-year-badge">2025</div>
+                
+                <div class="school-header-attractive">
+                    <h2 class="school-name-attractive">${school.name}</h2>
+                    <div class="school-location-attractive">
                         <i class="fas fa-map-marker-alt"></i>
                         <span>${school.region}</span>
                     </div>
                 </div>
                 
-                <div class="statistics-grid-professional">
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.totalStudents || 0}</div>
-                        <div class="stat-label-professional">Candidats</div>
+                <div class="statistics-grid-attractive">
+                    <div class="stat-card-attractive">
+                        <div class="stat-number-attractive">${school.totalStudents || 0}</div>
+                        <div class="stat-label-attractive">Candidats</div>
                     </div>
                     
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.passedStudents || 0}</div>
-                        <div class="stat-label-professional">Admis</div>
+                    <div class="stat-card-attractive">
+                        <div class="stat-number-attractive">${school.passedStudents || 0}</div>
+                        <div class="stat-label-attractive">Admis</div>
                     </div>
                     
-                    <div class="stat-card-professional success-highlight">
-                        <div class="stat-number-professional">${school.successRate || school.score || 0}%</div>
-                        <div class="stat-label-professional">Taux de Réussite</div>
+                    <div class="stat-card-attractive success-highlight-attractive">
+                        <div class="stat-number-attractive success-number">${school.successRate || school.score || 0}%</div>
+                        <div class="stat-label-attractive success-label">Taux de Réussite</div>
                     </div>
                     
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.maxScore || 0}</div>
-                        <div class="stat-label-professional">Note Max</div>
+                    <div class="stat-card-attractive">
+                        <div class="stat-number-attractive">${school.maxScore || 0}</div>
+                        <div class="stat-label-attractive">Note Max</div>
                     </div>
                     
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.minScore || 0}</div>
-                        <div class="stat-label-professional">Note Min</div>
+                    <div class="stat-card-attractive">
+                        <div class="stat-number-attractive">${school.minScore || 0}</div>
+                        <div class="stat-label-attractive">Note Min</div>
                     </div>
                 </div>
             </div>
