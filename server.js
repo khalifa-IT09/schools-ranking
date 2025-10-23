@@ -8,6 +8,7 @@ const XLSX = require('xlsx');
 const csv = require('csv-parser');
 const analytics = require('./analytics');
 const dbManager = require('./database-simple');
+const SimpleVoteManager = require('./simple-vote-manager');
 require('dotenv').config();
 
 const app = express();
@@ -1056,6 +1057,89 @@ app.post('/api/vote', (req, res) => {
       success: false,
       error: 'Internal server error',
       message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Initialize simple vote manager
+const voteManager = new SimpleVoteManager();
+
+// SIMPLE VOTING SYSTEM API ENDPOINTS
+
+// Record a vote
+app.post('/api/simple-vote', (req, res) => {
+  try {
+    const { schoolId, schoolName, schoolRegion, schoolLevel } = req.body;
+    const userIP = voteManager.getUserIP(req);
+
+    if (!schoolId || !schoolName) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID et nom de l\'école requis'
+      });
+    }
+
+    const result = voteManager.recordVote(schoolId, schoolName, schoolRegion, schoolLevel, userIP);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('❌ Error in simple vote endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur interne du serveur'
+    });
+  }
+});
+
+// Get vote statistics
+app.get('/api/simple-vote/stats', (req, res) => {
+  try {
+    const stats = voteManager.getVoteStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ Error getting vote stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du chargement des statistiques'
+    });
+  }
+});
+
+// Get school vote count
+app.get('/api/simple-vote/school/:schoolId', (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    const result = voteManager.getSchoolVoteCount(schoolId);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error getting school vote count:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du chargement des votes de l\'école'
+    });
+  }
+});
+
+// Check if user can vote
+app.get('/api/simple-vote/can-vote', (req, res) => {
+  try {
+    const userIP = voteManager.getUserIP(req);
+    const canVote = voteManager.canUserVoteToday(userIP);
+    
+    res.json({
+      success: true,
+      canVote: canVote,
+      message: canVote ? 'Vous pouvez voter' : 'Vous avez déjà voté aujourd\'hui'
+    });
+  } catch (error) {
+    console.error('❌ Error checking vote status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la vérification du statut de vote'
     });
   }
 });

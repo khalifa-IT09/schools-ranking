@@ -2002,26 +2002,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         votingTab.classList.add('active');
                     }
                     
-                    // Initialize voting if not already done
-                    if (window.communityVoting && !window.communityVoting.initialized) {
-                        console.log('🚀 Initializing Community Voting');
-                        window.communityVoting.init().catch(error => {
-                            console.error('❌ Error initializing Community Voting:', error);
-                            // Show a basic message if initialization fails
-                            const votingContainer = document.getElementById('votingContainer');
-                            if (votingContainer) {
-                                votingContainer.innerHTML = `
-                                    <div style="padding: 2rem; text-align: center;">
-                                        <h2>Vote Communautaire</h2>
-                                        <p>Erreur lors du chargement. Veuillez actualiser la page.</p>
-                                        <button onclick="location.reload()">Actualiser</button>
-                                    </div>
-                                `;
-                            }
-                        });
-                        window.communityVoting.initialized = true;
+                    // Initialize simple voting system
+                    console.log('🚀 Initializing Simple Voting System');
+                    if (window.simpleVoting) {
+                        console.log('✅ Simple Voting System already initialized');
                     } else {
-                        console.log('✅ Community Voting already initialized');
+                        console.log('🔄 Simple Voting System will initialize automatically');
                     }
                 } else {
                     // Show regular results
