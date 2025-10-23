@@ -389,37 +389,39 @@ class SchoolRankingApp {
         }
 
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card-modern" onclick="window.app.showSchoolDetails('${school.id}')">
-                <div class="school-rank-badge">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
-                <div class="school-content">
-                    <div class="school-main-info">
-                        <h3 class="school-name-modern">${school.name}</h3>
-                        <div class="school-location">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>${school.region}</span>
-                        </div>
-                        <div class="school-stats-modern">
-                            <div class="stat-item">
-                                <i class="fas fa-users"></i>
-                                <span>${school.totalStudents || 0} Candidats</span>
-                            </div>
-                            <div class="stat-item">
-                                <i class="fas fa-check-circle"></i>
-                                <span>${school.passedStudents || 0} Admis</span>
-                            </div>
-                            <div class="stat-item success-rate">
-                                <i class="fas fa-chart-line"></i>
-                                <span>${school.successRate || school.score || 0}% Taux de réussite</span>
-                            </div>
-                            <div class="stat-item">
-                                <i class="fas fa-trophy"></i>
-                                <span>Note Max: ${school.maxScore || 0}</span>
-                            </div>
-                            <div class="stat-item">
-                                <i class="fas fa-chart-bar"></i>
-                                <span>Note Min: ${school.minScore || 0}</span>
-                            </div>
-                        </div>
+            <div class="school-card-professional" onclick="window.app.showSchoolDetails('${school.id}')">
+                <div class="school-header-professional">
+                    <h2 class="school-name-professional">${school.name}</h2>
+                    <div class="school-location-professional">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${school.region}</span>
+                    </div>
+                </div>
+                
+                <div class="statistics-grid-professional">
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.totalStudents || 0}</div>
+                        <div class="stat-label-professional">Candidats</div>
+                    </div>
+                    
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.passedStudents || 0}</div>
+                        <div class="stat-label-professional">Admis</div>
+                    </div>
+                    
+                    <div class="stat-card-professional success-highlight">
+                        <div class="stat-number-professional">${school.successRate || school.score || 0}%</div>
+                        <div class="stat-label-professional">Taux de Réussite</div>
+                    </div>
+                    
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.maxScore || 0}</div>
+                        <div class="stat-label-professional">Note Max</div>
+                    </div>
+                    
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.minScore || 0}</div>
+                        <div class="stat-label-professional">Note Min</div>
                     </div>
                 </div>
             </div>
