@@ -172,7 +172,7 @@ class SchoolRankingApp {
                 e.preventDefault();
                 const level = tab.dataset.level;
                 if (level && level !== this.currentLevel) {
-                    this.switchLevel(level);
+                this.switchLevel(level);
                 }
             });
         });
@@ -180,19 +180,19 @@ class SchoolRankingApp {
         // Search functionality
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', (e) => {
                 this.currentSearch = e.target.value;
                 this.debounceSearch();
-            });
+        });
         }
 
         // Region filter
         const regionFilter = document.getElementById('regionFilter');
         if (regionFilter) {
             regionFilter.addEventListener('change', (e) => {
-                this.currentRegion = e.target.value;
-                this.loadSchools();
-            });
+            this.currentRegion = e.target.value;
+            this.loadSchools();
+        });
         }
 
         // Refresh button
@@ -223,11 +223,11 @@ class SchoolRankingApp {
 
     async switchLevel(level) {
         // Prevent rapid clicking
-        const now = Date.now();
+            const now = Date.now();
         if (now - this.lastTabClick < 100) {
-            return;
-        }
-        this.lastTabClick = now;
+                return;
+            }
+            this.lastTabClick = now;
 
         console.log(`🔄 Switching to level: ${level}`);
         
@@ -236,12 +236,12 @@ class SchoolRankingApp {
             console.error('❌ Invalid level parameter:', level);
             return;
         }
-
+        
         this.currentLevel = level;
         this.currentPage = 1;
         this.currentSearch = '';
         this.currentRegion = 'all';
-
+        
         // Update active tab
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.classList.remove('active');
@@ -283,7 +283,7 @@ class SchoolRankingApp {
                 
                 try {
                     console.log('🎨 Updating region filter...');
-                    this.updateRegionFilter();
+            this.updateRegionFilter();
                     console.log('✅ Region filter updated successfully');
                 } catch (regionError) {
                     console.error('❌ Error updating region filter:', regionError);
@@ -321,14 +321,14 @@ class SchoolRankingApp {
             if (this.currentRegion !== 'all') {
                 params.append('region', this.currentRegion);
             }
-
+            
             let url;
             if (this.currentSearch.trim()) {
                 url = `/api/schools/${this.currentLevel}/search?${params}&q=${encodeURIComponent(this.currentSearch)}`;
             } else {
                 url = `/api/schools/${this.currentLevel}?${params}`;
             }
-
+            
             console.log(`📚 Loading schools: ${url}`);
             const response = await fetch(url);
             console.log('📡 Response status:', response.status);
@@ -344,14 +344,14 @@ class SchoolRankingApp {
             console.log('🔍 Data success === true:', data.success === true);
 
             if (data.success) {
-                this.schools = data.schools || [];
-                this.totalSchools = data.total || 0;
+            this.schools = data.schools || [];
+            this.totalSchools = data.total || 0;
                 console.log('✅ Data loaded successfully:', this.schools.length, 'schools');
                 this.hideLoading();
-                
+            
                 try {
                     console.log('🎨 Rendering schools...');
-                    this.renderSchools();
+            this.renderSchools();
                     console.log('📊 Updating stats...');
                     await this.updateStats();
                     console.log('📄 Updating pagination...');
@@ -376,7 +376,7 @@ class SchoolRankingApp {
     renderSchools() {
         const schoolsGrid = document.getElementById('schoolsGrid');
         if (!schoolsGrid) return;
-
+        
         if (this.schools.length === 0) {
             schoolsGrid.innerHTML = `
                 <div class="no-schools">
@@ -387,46 +387,44 @@ class SchoolRankingApp {
             `;
             return;
         }
-
+        
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
-            <div class="school-card-attractive" onclick="window.app.showSchoolDetails('${school.id}')">
-                <div class="school-year-badge">2025</div>
-                
-                <div class="school-header-attractive">
-                    <h2 class="school-name-attractive">${school.name}</h2>
-                    <div class="school-location-attractive">
+            <div class="school-card-professional" onclick="window.app.showSchoolDetails('${school.id}')">
+                <div class="school-header-professional">
+                    <h2 class="school-name-professional">${school.name}</h2>
+                    <div class="school-location-professional">
                         <i class="fas fa-map-marker-alt"></i>
                         <span>${school.region}</span>
                     </div>
-                </div>
+                    </div>
                 
-                <div class="statistics-grid-attractive">
-                    <div class="stat-card-attractive">
-                        <div class="stat-number-attractive">${school.totalStudents || 0}</div>
-                        <div class="stat-label-attractive">Candidats</div>
+                <div class="statistics-grid-professional">
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.totalStudents || 0}</div>
+                        <div class="stat-label-professional">Candidats</div>
                     </div>
                     
-                    <div class="stat-card-attractive">
-                        <div class="stat-number-attractive">${school.passedStudents || 0}</div>
-                        <div class="stat-label-attractive">Admis</div>
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.passedStudents || 0}</div>
+                        <div class="stat-label-professional">Admis</div>
                     </div>
                     
-                    <div class="stat-card-attractive success-highlight-attractive">
-                        <div class="stat-number-attractive success-number">${school.successRate || school.score || 0}%</div>
-                        <div class="stat-label-attractive success-label">Taux de Réussite</div>
+                    <div class="stat-card-professional success-highlight">
+                        <div class="stat-number-professional">${school.successRate || school.score || 0}%</div>
+                        <div class="stat-label-professional">Taux de Réussite</div>
                     </div>
                     
-                    <div class="stat-card-attractive">
-                        <div class="stat-number-attractive">${school.maxScore || 0}</div>
-                        <div class="stat-label-attractive">Note Max</div>
-                    </div>
-                    
-                    <div class="stat-card-attractive">
-                        <div class="stat-number-attractive">${school.minScore || 0}</div>
-                        <div class="stat-label-attractive">Note Min</div>
-                    </div>
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.maxScore || 0}</div>
+                        <div class="stat-label-professional">Note Max</div>
                 </div>
-            </div>
+                    
+                    <div class="stat-card-professional">
+                        <div class="stat-number-professional">${school.minScore || 0}</div>
+                        <div class="stat-label-professional">Note Min</div>
+                    </div>
+                    </div>
+                    </div>
         `).join('');
     }
 
@@ -478,29 +476,29 @@ class SchoolRankingApp {
     updatePagination() {
         const pagination = document.getElementById('pagination');
         if (!pagination) return;
-
+        
         const totalPages = Math.ceil(this.totalSchools / this.pageSize);
         
         if (totalPages <= 1) {
             pagination.innerHTML = '';
             return;
         }
-
+        
         let paginationHTML = '';
         
         // Previous button
         if (this.currentPage > 1) {
-            paginationHTML += `
+        paginationHTML += `
                 <button class="pagination-btn" onclick="window.app.goToPage(${this.currentPage - 1})">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-            `;
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        `;
         }
-
+        
         // Page numbers
         const startPage = Math.max(1, this.currentPage - 2);
         const endPage = Math.min(totalPages, this.currentPage + 2);
-
+        
         for (let i = startPage; i <= endPage; i++) {
             paginationHTML += `
                 <button class="pagination-btn ${i === this.currentPage ? 'active' : ''}" 
@@ -509,16 +507,16 @@ class SchoolRankingApp {
                 </button>
             `;
         }
-
+        
         // Next button
         if (this.currentPage < totalPages) {
-            paginationHTML += `
+        paginationHTML += `
                 <button class="pagination-btn" onclick="window.app.goToPage(${this.currentPage + 1})">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            `;
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        `;
         }
-
+        
         pagination.innerHTML = paginationHTML;
     }
 
@@ -545,17 +543,17 @@ class SchoolRankingApp {
     showError() {
         const schoolsGrid = document.getElementById('schoolsGrid');
         if (schoolsGrid) {
-            schoolsGrid.innerHTML = `
-                <div class="error-message">
+        schoolsGrid.innerHTML = `
+            <div class="error-message">
                     <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #e74c3c; margin-bottom: 1rem;"></i>
                     <h3>${this.translate('error_loading')}</h3>
                     <button class="btn-primary" onclick="window.app.loadSchools()">
                         <i class="fas fa-refresh"></i>
                         ${this.translate('try_again')}
-                    </button>
-                </div>
-            `;
-        }
+                </button>
+            </div>
+        `;
+    }
     }
 
     async showSchoolDetails(schoolId) {
@@ -563,7 +561,7 @@ class SchoolRankingApp {
         
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
+            const modalBody = document.getElementById('modalBody');
 
         console.log('🔍 Modal elements:', { modal: !!modal, modalTitle: !!modalTitle, modalBody: !!modalBody });
 
@@ -589,10 +587,10 @@ class SchoolRankingApp {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                const data = await response.json();
+            const data = await response.json();
                 console.log('🔍 Response data:', data);
-
-                if (data.success) {
+            
+            if (data.success) {
                     const { school, statistics, performanceCurve, admissionCriteria } = data;
                     
                                 modalBody.innerHTML = `
@@ -634,20 +632,20 @@ class SchoolRankingApp {
                                             <div class="stat-card-simple">
                                                 <div class="stat-number-simple">${statistics.averageScore}</div>
                                                 <div class="stat-label-simple">Note Moyenne</div>
-                                            </div>
+                </div>
                                         </div>
                                         
                                         <div class="performance-section">
                                             <h3>Répartition des Notes</h3>
                                             <div class="performance-chart">
                                                 ${this.generatePerformanceChart(performanceCurve, school.level)}
-                                            </div>
-                                        </div>
+                    </div>
+                        </div>
                                         
                                         <div class="admission-info">
                                             <p><strong>Critère d'admission:</strong> ${admissionCriteria}</p>
-                                        </div>
-                                    </div>
+                        </div>
+                    </div>
                                 `;
                 } else {
                     modalBody.innerHTML = `
@@ -655,8 +653,8 @@ class SchoolRankingApp {
                             <i class="fas fa-exclamation-triangle"></i>
                             <h3>Erreur</h3>
                             <p>Impossible de charger les détails de cette école.</p>
-                        </div>
-                    `;
+                </div>
+            `;
                 }
             } catch (error) {
                 console.error('❌ Error loading school details:', error);
@@ -694,15 +692,15 @@ class SchoolRankingApp {
                             </div>
                         </div>
                     `;
-                } else {
+            } else {
                     modalBody.innerHTML = `
                         <div class="error-details">
                             <i class="fas fa-exclamation-triangle"></i>
                             <h3>Erreur</h3>
                             <p>Une erreur s'est produite lors du chargement des détails.</p>
-                        </div>
-                    `;
-                }
+            </div>
+        `;
+    }
             }
         }
     }
@@ -715,14 +713,14 @@ class SchoolRankingApp {
             .filter(item => item.count > 0) // Only show ranges with students
             .map(item => {
                 const height = (item.count / maxCount) * 100;
-                return `
+            return `
                     <div class="chart-bar" style="height: ${height}%">
                         <div class="bar-fill"></div>
                         <div class="bar-label">${item.range}</div>
                         <div class="bar-count">${item.count}</div>
-                    </div>
-                `;
-            }).join('');
+                </div>
+            `;
+        }).join('');
     }
 
     updateLanguage() {
