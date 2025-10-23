@@ -62,7 +62,7 @@ class SchoolRankingApp {
                 modal_close: "Fermer",
                 
                 // Footer
-                footer_copyright: "© 2025 Classement des Écoles - République Islamique de Mauritanie 🇲🇷",
+                footer_copyright: "© 2025 Classement des Écoles - République Islamique de Mauritanie",
                 footer_data_source: "Données officielles du Ministère de l'Éducation Nationale",
                 footer_about: "À propos",
                 footer_help: "Aide",
@@ -136,7 +136,7 @@ class SchoolRankingApp {
                 modal_close: "إغلاق",
                 
                 // Footer
-                footer_copyright: "© 2025 تصنيف المدارس - الجمهورية الإسلامية الموريتانية 🇲🇷",
+                footer_copyright: "© 2025 تصنيف المدارس - الجمهورية الإسلامية الموريتانية",
                 footer_data_source: "بيانات رسمية من وزارة التربية الوطنية",
                 footer_about: "حول",
                 footer_help: "مساعدة",
