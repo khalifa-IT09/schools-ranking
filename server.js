@@ -871,6 +871,7 @@ app.get('/api/schools/:level', (req, res) => {
     console.log(`✅ Returning ${paginatedRankings.length} schools (${startIndex}-${endIndex}) for ${level}`);
 
     res.json({
+      success: true,
       schools: paginatedRankings,
       total,
       level,
@@ -885,6 +886,7 @@ app.get('/api/schools/:level', (req, res) => {
   } catch (error) {
     console.error(`❌ Error fetching schools for ${level}:`, error);
     res.status(500).json({ 
+      success: false,
       error: 'Internal server error',
       message: 'Erreur lors du chargement des données',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -958,8 +960,10 @@ app.get('/api/regions/:level', (req, res) => {
   });
   
   res.json({
+    success: true,
     regions: Array.from(regions).sort(),
-    level
+    level,
+    total: regions.size
   });
 });
 
