@@ -1625,7 +1625,7 @@ class CommunityVoting {
                         <!-- Badges will be loaded here -->
                     </div>
                     <button class="vote-button ${!canVote ? 'vote-limit' : ''}" 
-                            onclick="communityVoting.voteForSchool('${schoolId}', '${school.name}', '${school.region}', '${school.level}')"
+                            onclick="window.communityVoting.voteForSchool('${schoolId}', '${school.name}', '${school.region}', '${school.level}')"
                             ${!canVote ? 'disabled' : ''}>
                         <i class="fas fa-vote-yea"></i>
                         ${this.getVoteButtonText(canVote, lastVoteTime, lastVoteSchool, schoolId, lastVoteDate, today)}
@@ -1645,9 +1645,14 @@ class CommunityVoting {
 
     // Vote for a school
     async voteForSchool(schoolId, schoolName, schoolRegion, schoolLevel) {
+        console.log('🗳️ voteForSchool called with:', { schoolId, schoolName, schoolRegion, schoolLevel });
         try {
             const voteButton = event.target.closest('.vote-button');
-            if (!voteButton) return;
+            if (!voteButton) {
+                console.error('❌ Vote button not found!');
+                return;
+            }
+            console.log('✅ Vote button found, proceeding with vote...');
 
             // Check if user has already voted today
             const today = new Date().toDateString();
@@ -1655,6 +1660,14 @@ class CommunityVoting {
             const lastVoteSchool = localStorage.getItem('lastVoteSchool');
             const dailyVoteCount = parseInt(localStorage.getItem('dailyVoteCount') || '0');
             const currentDate = new Date().toDateString();
+            
+            console.log('🔍 Vote restrictions check:', {
+                today,
+                lastVoteDate,
+                lastVoteSchool,
+                dailyVoteCount,
+                currentDate
+            });
 
             // Reset daily count if it's a new day
             if (lastVoteDate !== currentDate) {
