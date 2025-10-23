@@ -390,13 +390,15 @@ class SchoolRankingApp {
         
         schoolsGrid.innerHTML = this.schools.map((school, index) => `
             <div class="school-card-professional" onclick="window.app.showSchoolDetails('${school.id}')">
+                <div class="school-ranking-badge">#${(this.currentPage - 1) * this.pageSize + index + 1}</div>
+                
                 <div class="school-header-professional">
                     <h2 class="school-name-professional">${school.name}</h2>
                     <div class="school-location-professional">
                         <i class="fas fa-map-marker-alt"></i>
                         <span>${school.region}</span>
                     </div>
-                    </div>
+                </div>
                 
                 <div class="statistics-grid-professional">
                     <div class="stat-card-professional">
