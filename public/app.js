@@ -163,6 +163,13 @@ class SchoolRankingApp {
         console.log('🌐 Updating language...');
         this.updateLanguage();
         console.log('✅ App initialization complete');
+        
+        // Make search test function globally available for debugging
+        window.testSearch = (query) => {
+            console.log(`🧪 Testing search with query: "${query}"`);
+            this.currentSearch = query;
+            this.loadSchools();
+        };
     }
 
     setupEventListeners() {
