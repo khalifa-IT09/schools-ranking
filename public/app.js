@@ -547,9 +547,13 @@ class SchoolRankingApp {
     }
 
     async showSchoolDetails(schoolId) {
+        console.log('🔍 showSchoolDetails called with ID:', schoolId);
+        
         const modal = document.getElementById('schoolModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalBody = document.getElementById('modalBody');
+
+        console.log('🔍 Modal elements:', { modal: !!modal, modalTitle: !!modalTitle, modalBody: !!modalBody });
 
         if (modal && modalTitle && modalBody) {
             // Show loading state
@@ -561,11 +565,20 @@ class SchoolRankingApp {
                 </div>
             `;
             modal.style.display = 'block';
+            console.log('✅ Modal displayed');
 
             try {
                 // Fetch detailed school statistics
+                console.log('🔍 Fetching school details for:', schoolId);
                 const response = await fetch(`/api/school/${schoolId}/details`);
+                console.log('🔍 Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('🔍 Response data:', data);
 
                 if (data.success) {
                     const { school, statistics, performanceCurve, admissionCriteria } = data;
@@ -576,78 +589,33 @@ class SchoolRankingApp {
                                 <h2>${school.name}</h2>
                                 <div class="school-meta">
                                     <span class="region">${school.region}</span>
-                                    <span class="rank">#${school.rank}</span>
                                 </div>
                             </div>
                             
-                            <div class="statistics-grid">
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-users"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.totalCandidates}</div>
-                                        <div class="stat-label">Candidats</div>
-                                    </div>
+                            <div class="statistics-grid-simple">
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${statistics.totalCandidates}</div>
+                                    <div class="stat-label-simple">Candidats</div>
                                 </div>
                                 
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.admittedStudents}</div>
-                                        <div class="stat-label">Admis</div>
-                                    </div>
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${statistics.admittedStudents}</div>
+                                    <div class="stat-label-simple">Admis</div>
                                 </div>
                                 
-                                <div class="stat-card success-rate">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-trophy"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.successRate}%</div>
-                                        <div class="stat-label">Taux de Réussite</div>
-                                    </div>
+                                <div class="stat-card-simple success-highlight">
+                                    <div class="stat-number-simple">${statistics.successRate}%</div>
+                                    <div class="stat-label-simple">Taux de Réussite</div>
                                 </div>
                                 
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-arrow-up"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.maxScore}</div>
-                                        <div class="stat-label">Note Max</div>
-                                    </div>
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${statistics.maxScore}</div>
+                                    <div class="stat-label-simple">Note Max</div>
                                 </div>
                                 
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-arrow-down"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.minScore}</div>
-                                        <div class="stat-label">Note Min</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="stat-card">
-                                    <div class="stat-icon">
-                                        <i class="fas fa-chart-line"></i>
-                                    </div>
-                                    <div class="stat-content">
-                                        <div class="stat-number">${statistics.averageScore}</div>
-                                        <div class="stat-label">Moyenne</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="performance-section">
-                                <h3>Courbe de Performance</h3>
-                                <div class="performance-chart">
-                                    <div class="chart-container">
-                                        ${this.generatePerformanceChart(performanceCurve, school.level)}
-                                    </div>
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${statistics.minScore}</div>
+                                    <div class="stat-label-simple">Note Min</div>
                                 </div>
                             </div>
                             
@@ -667,13 +635,49 @@ class SchoolRankingApp {
                 }
             } catch (error) {
                 console.error('❌ Error loading school details:', error);
-                modalBody.innerHTML = `
-                    <div class="error-details">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Erreur</h3>
-                        <p>Une erreur s'est produite lors du chargement des détails.</p>
-                    </div>
-                `;
+                // Show fallback with basic school info
+                const school = this.schools.find(s => s.id === schoolId);
+                if (school) {
+                    modalBody.innerHTML = `
+                        <div class="school-detail-enhanced">
+                            <div class="school-header">
+                                <h2>${school.name}</h2>
+                                <div class="school-meta">
+                                    <span class="region">${school.region}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="statistics-grid-simple">
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${school.totalStudents || 0}</div>
+                                    <div class="stat-label-simple">Élèves</div>
+                                </div>
+                                
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${school.successRate || school.score || 0}%</div>
+                                    <div class="stat-label-simple">Taux de Réussite</div>
+                                </div>
+                                
+                                <div class="stat-card-simple">
+                                    <div class="stat-number-simple">${school.score || 0}</div>
+                                    <div class="stat-label-simple">Score</div>
+                                </div>
+                            </div>
+                            
+                            <div class="admission-info">
+                                <p><strong>Note:</strong> Détails complets en cours de chargement...</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="error-details">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Erreur</h3>
+                            <p>Une erreur s'est produite lors du chargement des détails.</p>
+                        </div>
+                    `;
+                }
             }
         }
     }
