@@ -256,7 +256,14 @@ class SchoolRankingApp {
             if (data.success && data.regions) {
                 this.regions = data.regions;
                 console.log('✅ Regions loaded:', this.regions.length);
-                this.updateRegionFilter();
+                
+                try {
+                    console.log('🎨 Updating region filter...');
+                    this.updateRegionFilter();
+                    console.log('✅ Region filter updated successfully');
+                } catch (regionError) {
+                    console.error('❌ Error updating region filter:', regionError);
+                }
             } else {
                 console.error('❌ Failed to load regions:', data);
             }
@@ -314,9 +321,19 @@ class SchoolRankingApp {
                 this.totalSchools = data.total || 0;
                 console.log('✅ Data loaded successfully:', this.schools.length, 'schools');
                 this.hideLoading();
-                this.renderSchools();
-                this.updateStats();
-                this.updatePagination();
+                
+                try {
+                    console.log('🎨 Rendering schools...');
+                    this.renderSchools();
+                    console.log('📊 Updating stats...');
+                    this.updateStats();
+                    console.log('📄 Updating pagination...');
+                    this.updatePagination();
+                    console.log('✅ All rendering completed successfully');
+                } catch (renderError) {
+                    console.error('❌ Error during rendering:', renderError);
+                    this.showError();
+                }
             } else {
                 console.error('❌ Failed to load schools:', data);
                 this.hideLoading();
