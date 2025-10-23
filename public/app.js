@@ -32,6 +32,9 @@ class SchoolRankingApp {
                 total_students: "Total des élèves",
                 average_score: "Score moyen",
                 regions_count: "Régions",
+                stat_schools: "Écoles",
+                stat_students: "Élèves",
+                stat_success_rate: "Taux de Réussite",
                 
                 // School card
                 school_details: "Détails de l'école",
@@ -70,7 +73,23 @@ class SchoolRankingApp {
                 
                 // Help modal
                 help_title: "Comment utiliser cette application",
-                help_content: "1. Sélectionnez le niveau d'éducation (Primaire, Collège, Lycée)<br>2. Filtrez par région si nécessaire<br>3. Recherchez une école spécifique<br>4. Cliquez sur une école pour voir ses détails"
+                help_content: "1. Sélectionnez le niveau d'éducation (Primaire, Collège, Lycée)<br>2. Filtrez par région si nécessaire<br>3. Recherchez une école spécifique<br>4. Cliquez sur une école pour voir ses détails",
+                
+                // Additional keys
+                results_title: "Classement des Écoles",
+                about_description: "Cette application permet aux familles mauritaniennes de trouver les meilleures écoles pour leurs enfants en se basant sur les résultats officiels des examens.",
+                about_levels_title: "Niveaux d'éducation couverts :",
+                about_primary: "Écoles Primaires (CAS)",
+                about_primary_desc: "Résultats du Certificat d'Aptitude Scolaire",
+                about_middle: "Collèges (Brevet)",
+                about_middle_desc: "Résultats du Brevet d'Études du Premier Cycle",
+                about_secondary: "Lycées (Baccalauréat)",
+                about_secondary_desc: "Résultats du Baccalauréat",
+                about_criteria_title: "Critères de classement :",
+                about_criteria_success: "Taux de réussite (40%)",
+                about_criteria_average: "Moyenne générale des scores (60%)",
+                about_data_source: "Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.",
+                about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932"
             },
             ar: {
                 // App titles and navigation
