@@ -244,10 +244,18 @@ class SchoolRankingApp {
         try {
             console.log(`🌍 Loading regions for level: ${this.currentLevel}`);
             const response = await fetch(`/api/regions/${this.currentLevel}`);
+            console.log('🌍 Regions response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
+            console.log('🌍 Regions data:', data);
 
             if (data.success && data.regions) {
                 this.regions = data.regions;
+                console.log('✅ Regions loaded:', this.regions.length);
                 this.updateRegionFilter();
             } else {
                 console.error('❌ Failed to load regions:', data);
