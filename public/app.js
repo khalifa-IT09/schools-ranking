@@ -292,15 +292,18 @@ class SchoolRankingApp {
             if (data.success) {
                 this.schools = data.schools || [];
                 this.totalSchools = data.total || 0;
+                this.hideLoading();
                 this.renderSchools();
                 this.updateStats();
                 this.updatePagination();
             } else {
                 console.error('❌ Failed to load schools:', data);
+                this.hideLoading();
                 this.showError();
             }
         } catch (error) {
             console.error('❌ Error loading schools:', error);
+            this.hideLoading();
             this.showError();
         }
     }
@@ -429,6 +432,11 @@ class SchoolRankingApp {
         
         if (loadingEl) loadingEl.style.display = 'block';
         if (schoolsGrid) schoolsGrid.innerHTML = '';
+    }
+
+    hideLoading() {
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
     }
 
     showError() {
