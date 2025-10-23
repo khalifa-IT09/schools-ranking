@@ -13,10 +13,7 @@ class SimpleVotingSystem {
         // Check if user can vote
         await this.checkVoteStatus();
         
-        // Load schools for voting
-        await this.loadSchools();
-        
-        // Render the voting interface
+        // Render the voting interface with level/region selection
         this.renderVotingInterface();
         
         console.log('✅ Simple Voting System initialized');
@@ -37,15 +34,91 @@ class SimpleVotingSystem {
         }
     }
 
-    // Load schools for voting
-    async loadSchools() {
+    // Handle level selection change
+    async onLevelChange() {
+        const levelFilter = document.getElementById('levelFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        const loadBtn = document.querySelector('.load-schools-btn');
+        
+        if (levelFilter.value) {
+            // Enable region filter and load regions
+            regionFilter.disabled = false;
+            await this.loadRegions(levelFilter.value);
+        } else {
+            // Disable region filter and load button
+            regionFilter.disabled = true;
+            regionFilter.innerHTML = '<option value="">Sélectionner une région</option>';
+            loadBtn.disabled = true;
+        }
+    }
+
+    // Handle region selection change
+    onRegionChange() {
+        const levelFilter = document.getElementById('levelFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        const loadBtn = document.querySelector('.load-schools-btn');
+        
+        if (levelFilter.value && regionFilter.value) {
+            loadBtn.disabled = false;
+        } else {
+            loadBtn.disabled = true;
+        }
+    }
+
+    // Load regions for selected level
+    async loadRegions(level) {
         try {
-            const response = await fetch('/api/schools/secondary?limit=20');
+            const response = await fetch(`/api/regions/${level}`);
+            const data = await response.json();
+            
+            if (data.success && data.regions) {
+                const regionFilter = document.getElementById('regionFilter');
+                regionFilter.innerHTML = '<option value="">Sélectionner une région</option>';
+                
+                data.regions.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region;
+                    option.textContent = region;
+                    regionFilter.appendChild(option);
+                });
+                
+                console.log('✅ Loaded', data.regions.length, 'regions for level:', level);
+            }
+        } catch (error) {
+            console.error('❌ Error loading regions:', error);
+        }
+    }
+
+    // Load schools for voting based on selected level and region
+    async loadSchoolsForVoting() {
+        const levelFilter = document.getElementById('levelFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        
+        if (!levelFilter.value || !regionFilter.value) {
+            alert('Veuillez sélectionner un niveau et une région');
+            return;
+        }
+
+        try {
+            console.log('🔄 Loading schools for:', levelFilter.value, regionFilter.value);
+            
+            const response = await fetch(`/api/schools/${levelFilter.value}?region=${regionFilter.value}&limit=20`);
             const data = await response.json();
             
             if (data.success && data.schools) {
                 this.schools = data.schools.slice(0, 20);
                 console.log('✅ Loaded', this.schools.length, 'schools for voting');
+                
+                // Update schools grid
+                const schoolsGrid = document.getElementById('schoolsGrid');
+                schoolsGrid.innerHTML = this.renderSchools();
+                
+                // Load vote counts for each school
+                this.loadVoteStats();
+            } else {
+                console.log('⚠️ No schools found');
+                const schoolsGrid = document.getElementById('schoolsGrid');
+                schoolsGrid.innerHTML = '<div class="no-schools">Aucune école trouvée pour cette région</div>';
             }
         } catch (error) {
             console.error('❌ Error loading schools:', error);
@@ -84,8 +157,32 @@ class SimpleVotingSystem {
                     </div>
                 </div>
 
+                <div class="voting-filters">
+                    <div class="filter-group">
+                        <label for="levelFilter">Niveau d'éducation:</label>
+                        <select id="levelFilter" onchange="simpleVoting.onLevelChange()">
+                            <option value="">Sélectionner un niveau</option>
+                            <option value="primary">Écoles Primaires (CAS)</option>
+                            <option value="middle">Collèges (Brevet)</option>
+                            <option value="secondary">Lycées (Baccalauréat)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="regionFilter">Région:</label>
+                        <select id="regionFilter" onchange="simpleVoting.onRegionChange()" disabled>
+                            <option value="">Sélectionner une région</option>
+                        </select>
+                    </div>
+                    
+                    <button class="load-schools-btn" onclick="simpleVoting.loadSchoolsForVoting()" disabled>
+                        <i class="fas fa-search"></i>
+                        Charger les écoles
+                    </button>
+                </div>
+
                 <div class="simple-schools-grid" id="schoolsGrid">
-                    ${this.renderSchools()}
+                    <div class="no-schools">Sélectionnez d'abord un niveau et une région pour voir les écoles disponibles</div>
                 </div>
             </div>
         `;
