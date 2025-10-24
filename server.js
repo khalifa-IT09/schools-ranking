@@ -357,7 +357,7 @@ function calculateSchoolRanking(data, level) {
         school.minScore = school.scores[0];
       }
       
-      school.rankingScore = (school.averageScore * 0.6) + (school.successRate * 0.4);
+      school.rankingScore = (school.successRate * 0.6) + (school.averageScore * 0.4);
     } catch (calcError) {
       console.warn(`⚠️ Error calculating stats for school ${school.name}:`, calcError.message);
       school.rankingScore = 0;
@@ -525,7 +525,7 @@ function calculateSchoolRankingOptimized(data, level) {
         school.minScore = school.scores[0];
       }
       
-      school.rankingScore = (school.averageScore * 0.6) + (school.successRate * 0.4);
+      school.rankingScore = (school.successRate * 0.6) + (school.averageScore * 0.4);
     } catch (calcError) {
       console.warn(`⚠️ Error calculating stats for school ${school.name}:`, calcError.message);
       school.rankingScore = 0;
@@ -1160,7 +1160,7 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     const maxCount = Math.max(...performanceCurve.map(item => item.count));
     const totalRanges = performanceCurve.length;
     // Calculate ranking score using the same formula as the ranking system
-    const rankingScore = (averageScore * 0.6) + (successRate * 0.4);
+    const rankingScore = (successRate * 0.6) + (averageScore * 0.4);
     
     const curveData = {
       points: performanceCurve,

@@ -97,8 +97,8 @@ class SchoolRankingApp {
                 about_secondary: "Lycées (Baccalauréat)",
                 about_secondary_desc: "Résultats du Baccalauréat",
                 about_criteria_title: "Critères de classement :",
-                about_criteria_success: "Taux de réussite (40%)",
-                about_criteria_average: "Moyenne générale des scores (60%)",
+                about_criteria_success: "Taux de réussite (60%)",
+                about_criteria_average: "Moyenne générale des scores (40%)",
                 about_data_source: "Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.",
                 about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932"
             },
@@ -185,8 +185,8 @@ class SchoolRankingApp {
                 about_secondary: "المدارس الثانوية",
                 about_secondary_desc: "نتائج البكالوريا",
                 about_criteria_title: "معايير التصنيف:",
-                about_criteria_success: "معدل النجاح (40%)",
-                about_criteria_average: "متوسط النقاط العامة (60%)",
+                about_criteria_success: "معدل النجاح (60%)",
+                about_criteria_average: "متوسط النقاط العامة (40%)",
                 about_data_source: "البيانات مقدمة من وزارة التربية في الجمهورية الإسلامية الموريتانية.",
                 about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932"
             }
