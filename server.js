@@ -1159,18 +1159,22 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     // Calculate curve statistics
     const maxCount = Math.max(...performanceCurve.map(item => item.count));
     const totalRanges = performanceCurve.length;
+    // Calculate ranking score using the same formula as the ranking system
+    const rankingScore = (averageScore * 0.6) + (successRate * 0.4);
+    
     const curveData = {
       points: performanceCurve,
       maxCount: maxCount,
       totalRanges: totalRanges,
       scale: level === 'primary' ? '0-200' : '0-20',
       interval: level === 'primary' ? 5 : 0.5,
-      // Add the 5 key statistics for the new chart
+      // Add the 6 key statistics for the new chart
       totalCandidates: totalCandidates,
       admittedStudents: admittedStudents,
       successRate: Math.round(successRate * 100) / 100,
       maxScore: Math.round(maxScore * 100) / 100,
-      minScore: Math.round(minScore * 100) / 100
+      minScore: Math.round(minScore * 100) / 100,
+      rankingScore: Math.round(rankingScore * 100) / 100
     };
     
     res.json({

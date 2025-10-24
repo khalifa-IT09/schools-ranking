@@ -798,7 +798,7 @@ class SchoolRankingApp {
         const barWidth = 60;
         const barSpacing = 20;
         
-        // Define the 5 key statistics with colors and icons
+        // Define the 6 key statistics with colors and icons
         const statistics = [
             { 
                 label: 'Candidats', 
@@ -829,6 +829,12 @@ class SchoolRankingApp {
                 color: '#9b59b6', 
                 icon: '📉',
                 value: curveData.minScore || 0
+            },
+            { 
+                label: 'Score de Classement', 
+                color: '#e67e22', 
+                icon: '🎯',
+                value: curveData.rankingScore || 0
             }
         ];
         
