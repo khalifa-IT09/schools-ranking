@@ -43,6 +43,13 @@ class SchoolRankingApp {
                 region: "Région",
                 level: "Niveau",
                 
+                // School statistics
+                candidates: "Candidats",
+                admitted: "Admis",
+                max_score: "Note Max",
+                min_score: "Note Min",
+                ranking_score: "Score de Classement",
+                
                 // Pagination
                 page: "Page",
                 of: "sur",
@@ -116,6 +123,13 @@ class SchoolRankingApp {
                 success_rate: "معدل النجاح",
                 region: "المنطقة",
                 level: "المستوى",
+                
+                // School statistics
+                candidates: "المترشحون",
+                admitted: "الناجحون",
+                max_score: "الدرجة العليا",
+                min_score: "الدرجة الدنيا",
+                ranking_score: "نقاط التصنيف",
                 
                 // Pagination
                 page: "صفحة",
@@ -440,32 +454,32 @@ class SchoolRankingApp {
                     </div>
                     </div>
                 
-                <div class="statistics-grid-professional">
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.totalStudents || 0}</div>
-                        <div class="stat-label-professional">Candidats</div>
-                    </div>
-                    
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.passedStudents || 0}</div>
-                        <div class="stat-label-professional">Admis</div>
-                    </div>
-                    
-                    <div class="stat-card-professional success-highlight">
-                        <div class="stat-number-professional">${school.successRate || school.score || 0}%</div>
-                        <div class="stat-label-professional">Taux de Réussite</div>
-                    </div>
-                    
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.maxScore || 0}</div>
-                        <div class="stat-label-professional">Note Max</div>
-                </div>
-                    
-                    <div class="stat-card-professional">
-                        <div class="stat-number-professional">${school.minScore || 0}</div>
-                        <div class="stat-label-professional">Note Min</div>
-                    </div>
-                </div>
+                            <div class="statistics-grid-professional">
+                                <div class="stat-card-professional">
+                                    <div class="stat-number-professional">${school.totalStudents || 0}</div>
+                                    <div class="stat-label-professional">${this.translate('candidates')}</div>
+                                </div>
+                                
+                                <div class="stat-card-professional">
+                                    <div class="stat-number-professional">${school.passedStudents || 0}</div>
+                                    <div class="stat-label-professional">${this.translate('admitted')}</div>
+                                </div>
+                                
+                                <div class="stat-card-professional success-highlight">
+                                    <div class="stat-number-professional">${school.successRate || school.score || 0}%</div>
+                                    <div class="stat-label-professional">${this.translate('success_rate')}</div>
+                                </div>
+                                
+                                <div class="stat-card-professional">
+                                    <div class="stat-number-professional">${school.maxScore || 0}</div>
+                                    <div class="stat-label-professional">${this.translate('max_score')}</div>
+                                </div>
+                                
+                                <div class="stat-card-professional">
+                                    <div class="stat-number-professional">${school.minScore || 0}</div>
+                                    <div class="stat-label-professional">${this.translate('min_score')}</div>
+                                </div>
+                            </div>
             </div>
         `).join('');
         
@@ -828,37 +842,37 @@ class SchoolRankingApp {
         // Define the 6 key statistics with colors and icons
         const statistics = [
             { 
-                label: 'Candidats', 
+                label: this.translate('candidates'), 
                 color: '#3498db', 
                 icon: '👥',
                 value: curveData.totalCandidates || 0
             },
             { 
-                label: 'Admis', 
+                label: this.translate('admitted'), 
                 color: '#2ecc71', 
                 icon: '✅',
                 value: curveData.admittedStudents || 0
             },
             { 
-                label: 'Taux de Réussite', 
+                label: this.translate('success_rate'), 
                 color: '#e74c3c', 
                 icon: '📊',
                 value: curveData.successRate || 0
             },
             { 
-                label: 'Note Max', 
+                label: this.translate('max_score'), 
                 color: '#f39c12', 
                 icon: '🏆',
                 value: curveData.maxScore || 0
             },
             { 
-                label: 'Note Min', 
+                label: this.translate('min_score'), 
                 color: '#9b59b6', 
                 icon: '📉',
                 value: curveData.minScore || 0
             },
             { 
-                label: 'Score de Classement', 
+                label: this.translate('ranking_score'), 
                 color: '#e67e22', 
                 icon: '🎯',
                 value: curveData.rankingScore || 0
