@@ -710,6 +710,9 @@ class SchoolRankingApp {
                                         <div class="performance-section">
                                             <h3>Courbe de Performance</h3>
                                             <div class="performance-chart-container">
+                                                <div class="chart-info">
+                                                    <span class="chart-scale">Échelle: ${curveData.scale}</span>
+                                                </div>
                                                 <div class="performance-chart" id="performanceChart">
                                                     ${this.generateInteractivePerformanceChart(curveData, school.level)}
                                                 </div>
