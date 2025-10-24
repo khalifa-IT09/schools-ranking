@@ -76,9 +76,9 @@ class SchoolRankingApp {
                 // App titles and navigation
                 app_title: "تصنيف المدارس - موريتانيا",
                 app_subtitle: "اعثروا على أفضل مدرسة لأطفالكم في الجمهورية الإسلامية الموريتانية",
-                nav_primary: "المدارس الابتدائية (CAS)",
-                nav_middle: "المدارس الإعدادية (Brevet)",
-                nav_secondary: "المدارس الثانوية (Baccalauréat)",
+                nav_primary: "المدارس الابتدائية",
+                nav_middle: "المدارس الإعدادية",
+                nav_secondary: "المدارس الثانوية",
                 
                 // Controls
                 search_placeholder: "البحث عن مدرسة...",
