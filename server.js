@@ -357,7 +357,12 @@ function calculateSchoolRanking(data, level) {
         school.minScore = school.scores[0];
       }
       
-      school.rankingScore = (school.successRate * 0.6) + (school.averageScore * 0.4);
+      // Normalize average score to percentage based on level
+      const normalizedAverageScore = level === 'primary' 
+        ? (school.averageScore / 200) * 100  // Primary: 0-200 scale
+        : (school.averageScore / 20) * 100; // Middle/Secondary: 0-20 scale
+      
+      school.rankingScore = (school.successRate * 0.6) + (normalizedAverageScore * 0.4);
     } catch (calcError) {
       console.warn(`⚠️ Error calculating stats for school ${school.name}:`, calcError.message);
       school.rankingScore = 0;
@@ -525,7 +530,12 @@ function calculateSchoolRankingOptimized(data, level) {
         school.minScore = school.scores[0];
       }
       
-      school.rankingScore = (school.successRate * 0.6) + (school.averageScore * 0.4);
+      // Normalize average score to percentage based on level
+      const normalizedAverageScore = level === 'primary' 
+        ? (school.averageScore / 200) * 100  // Primary: 0-200 scale
+        : (school.averageScore / 20) * 100; // Middle/Secondary: 0-20 scale
+      
+      school.rankingScore = (school.successRate * 0.6) + (normalizedAverageScore * 0.4);
     } catch (calcError) {
       console.warn(`⚠️ Error calculating stats for school ${school.name}:`, calcError.message);
       school.rankingScore = 0;
@@ -1160,7 +1170,12 @@ app.get('/api/school/:schoolId/details', (req, res) => {
     const maxCount = Math.max(...performanceCurve.map(item => item.count));
     const totalRanges = performanceCurve.length;
     // Calculate ranking score using the same formula as the ranking system
-    const rankingScore = (successRate * 0.6) + (averageScore * 0.4);
+    // Normalize average score to percentage based on level
+    const normalizedAverageScore = level === 'primary' 
+      ? (averageScore / 200) * 100  // Primary: 0-200 scale
+      : (averageScore / 20) * 100; // Middle/Secondary: 0-20 scale
+    
+    const rankingScore = (successRate * 0.6) + (normalizedAverageScore * 0.4);
     
     const curveData = {
       points: performanceCurve,
