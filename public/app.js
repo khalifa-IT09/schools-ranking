@@ -707,56 +707,16 @@ class SchoolRankingApp {
                                             </div>
                                         </div>
                                         
-                                        <div class="statistics-grid-simple">
-                                            <div class="stat-card-simple">
-                                                <div class="stat-number-simple">${statistics.totalCandidates}</div>
-                                                <div class="stat-label-simple">Candidats</div>
-                                            </div>
-                                            
-                                            <div class="stat-card-simple">
-                                                <div class="stat-number-simple">${statistics.admittedStudents}</div>
-                                                <div class="stat-label-simple">Admis</div>
-                                            </div>
-                                            
-                                            <div class="stat-card-simple success-highlight">
-                                                <div class="stat-number-simple">${statistics.successRate}%</div>
-                                                <div class="stat-label-simple">Taux de Réussite</div>
-                                            </div>
-                                            
-                                            <div class="stat-card-simple">
-                                                <div class="stat-number-simple">${statistics.maxScore}</div>
-                                                <div class="stat-label-simple">Note Max</div>
-                                            </div>
-                                            
-                                            <div class="stat-card-simple">
-                                                <div class="stat-number-simple">${statistics.minScore}</div>
-                                                <div class="stat-label-simple">Note Min</div>
-                                            </div>
-                                            
-                                            <div class="stat-card-simple">
-                                                <div class="stat-number-simple">${statistics.averageScore}</div>
-                                                <div class="stat-label-simple">Note Moyenne</div>
-                </div>
-                                        </div>
-                                        
                                         <div class="performance-section">
                                             <h3>Courbe de Performance</h3>
                                             <div class="performance-chart-container">
-                                                <div class="chart-info">
-                                                    <span class="chart-scale">Échelle: ${curveData.scale}</span>
-                                                    <span class="chart-interval">Intervalle: ${curveData.interval} points</span>
-                    </div>
                                                 <div class="performance-chart" id="performanceChart">
                                                     ${this.generateInteractivePerformanceChart(curveData, school.level)}
-                        </div>
-                        </div>
-                    </div>
-                                        
-                                        <div class="admission-info">
-                                            <p><strong>Critère d'admission:</strong> ${admissionCriteria}</p>
+                                                </div>
+                                            </div>
                                         </div>
-                </div>
-            `;
+                                    </div>
+                                `;
             } else {
                     modalBody.innerHTML = `
                         <div class="error-details">
@@ -771,37 +731,27 @@ class SchoolRankingApp {
                 // Show fallback with basic school info
                 const school = this.schools.find(s => s.id === schoolId);
                 if (school) {
-                    modalBody.innerHTML = `
-                        <div class="school-detail-enhanced">
-                            <div class="school-header">
-                                <h2>${school.name}</h2>
-                                <div class="school-meta">
-                                    <span class="region">${school.region}</span>
+                            modalBody.innerHTML = `
+                                <div class="school-detail-enhanced">
+                                    <div class="school-header">
+                                        <h2>${school.name}</h2>
+                                        <div class="school-meta">
+                                            <span class="region">${school.region}</span>
+                                            <span class="rank">#${school.rank || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="performance-section">
+                                        <h3>Courbe de Performance</h3>
+                                        <div class="performance-chart-container">
+                                            <div class="loading-chart">
+                                                <div class="spinner"></div>
+                                                <p>Chargement de la courbe de performance...</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div class="statistics-grid-simple">
-                                <div class="stat-card-simple">
-                                    <div class="stat-number-simple">${school.totalStudents || 0}</div>
-                                    <div class="stat-label-simple">Élèves</div>
-                                </div>
-                                
-                                <div class="stat-card-simple">
-                                    <div class="stat-number-simple">${school.successRate || school.score || 0}%</div>
-                                    <div class="stat-label-simple">Taux de Réussite</div>
-            </div>
-                                
-                                <div class="stat-card-simple">
-                                    <div class="stat-number-simple">${school.score || 0}</div>
-                                    <div class="stat-label-simple">Score</div>
-                                </div>
-                            </div>
-                            
-                            <div class="admission-info">
-                                <p><strong>Note:</strong> Détails complets en cours de chargement...</p>
-                            </div>
-                        </div>
-                    `;
+                            `;
             } else {
                     modalBody.innerHTML = `
                         <div class="error-details">
