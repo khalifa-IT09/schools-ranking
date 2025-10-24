@@ -1164,7 +1164,13 @@ app.get('/api/school/:schoolId/details', (req, res) => {
       maxCount: maxCount,
       totalRanges: totalRanges,
       scale: level === 'primary' ? '0-200' : '0-20',
-      interval: level === 'primary' ? 5 : 0.5
+      interval: level === 'primary' ? 5 : 0.5,
+      // Add the 5 key statistics for the new chart
+      totalCandidates: totalCandidates,
+      admittedStudents: admittedStudents,
+      successRate: Math.round(successRate * 100) / 100,
+      maxScore: Math.round(maxScore * 100) / 100,
+      minScore: Math.round(minScore * 100) / 100
     };
     
     res.json({

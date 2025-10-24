@@ -838,56 +838,115 @@ class SchoolRankingApp {
             return '<div class="no-data">Aucune donnée disponible pour la courbe de performance</div>';
         }
 
-        const maxCount = curveData.maxCount;
-        const points = curveData.points;
-        const isPrimary = level === 'primary';
+        // Create a beautiful 5-parameter chart with icons and colors
+        const chartWidth = 500;
+        const chartHeight = 300;
+        const padding = 60;
+        const barWidth = 60;
+        const barSpacing = 20;
         
-        // Create SVG-based interactive chart
-        const chartWidth = 400;
-        const chartHeight = 200;
-        const padding = 40;
-        const barWidth = Math.max(8, (chartWidth - padding * 2) / points.length);
+        // Define the 5 key statistics with colors and icons
+        const statistics = [
+            { 
+                label: 'Candidats', 
+                color: '#3498db', 
+                icon: '👥',
+                value: curveData.totalCandidates || 0
+            },
+            { 
+                label: 'Admis', 
+                color: '#2ecc71', 
+                icon: '✅',
+                value: curveData.admittedStudents || 0
+            },
+            { 
+                label: 'Taux de Réussite', 
+                color: '#e74c3c', 
+                icon: '📊',
+                value: curveData.successRate || 0
+            },
+            { 
+                label: 'Note Max', 
+                color: '#f39c12', 
+                icon: '🏆',
+                value: curveData.maxScore || 0
+            },
+            { 
+                label: 'Note Min', 
+                color: '#9b59b6', 
+                icon: '📉',
+                value: curveData.minScore || 0
+            }
+        ];
+        
+        // Calculate max value for scaling
+        const maxValue = Math.max(...statistics.map(stat => stat.value));
         
         let svgContent = `
             <svg class="performance-curve-svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}">
                 <defs>
-                    <linearGradient id="curveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.8" />
-                        <stop offset="100%" style="stop-color:#667eea;stop-opacity:0.3" />
-                    </linearGradient>
+                    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+                    </filter>
                 </defs>
         `;
         
-        // Add grid lines
-        for (let i = 0; i <= 5; i++) {
-            const y = padding + (chartHeight - padding * 2) * (i / 5);
-            svgContent += `<line x1="${padding}" y1="${y}" x2="${chartWidth - padding}" y2="${y}" stroke="#e0e0e0" stroke-width="1" opacity="0.5"/>`;
-        }
+        // Add background
+        svgContent += `<rect width="${chartWidth}" height="${chartHeight}" fill="#f8f9fa" rx="10"/>`;
         
-        // Add bars with hover effects
-        points.forEach((point, index) => {
-            const x = padding + (chartWidth - padding * 2) * (index / points.length);
-            const barHeight = (point.count / maxCount) * (chartHeight - padding * 2);
-            const y = chartHeight - padding - barHeight;
+        // Add title
+        svgContent += `
+            <text x="${chartWidth/2}" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">
+                Statistiques de Performance
+            </text>
+        `;
+        
+        // Add bars for each statistic
+        statistics.forEach((stat, index) => {
+            const x = padding + index * (barWidth + barSpacing);
+            const barHeight = (stat.value / maxValue) * (chartHeight - padding * 2 - 60);
+            const y = chartHeight - padding - 40 - barHeight;
             
+            // Create gradient for each bar
+            const gradientId = `gradient-${index}`;
             svgContent += `
-                <g class="chart-bar-group" data-count="${point.count}" data-percentage="${point.percentage.toFixed(1)}" data-range="${point.range}">
+                <defs>
+                    <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:${stat.color};stop-opacity:0.9" />
+                        <stop offset="100%" style="stop-color:${stat.color};stop-opacity:0.6" />
+                    </linearGradient>
+                </defs>
+            `;
+            
+            // Add bar
+            svgContent += `
+                <g class="chart-bar-group" data-label="${stat.label}" data-value="${stat.value}">
                     <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" 
-                          fill="url(#curveGradient)" 
+                          fill="url(#${gradientId})" 
                           class="chart-bar-interactive"
-                          rx="2"/>
-                    <text x="${x + barWidth/2}" y="${chartHeight - padding + 15}" 
-                          text-anchor="middle" font-size="10" fill="#666" class="bar-label">${point.range}</text>
-                    <text x="${x + barWidth/2}" y="${y - 5}" 
-                          text-anchor="middle" font-size="9" fill="#333" class="bar-count">${point.count}</text>
+                          rx="8"
+                          filter="url(#shadow)"/>
+                    
+                    <!-- Icon -->
+                    <text x="${x + barWidth/2}" y="${y - 10}" 
+                          text-anchor="middle" font-size="24" class="bar-icon">${stat.icon}</text>
+                    
+                    <!-- Value -->
+                    <text x="${x + barWidth/2}" y="${y - 35}" 
+                          text-anchor="middle" font-size="14" font-weight="bold" fill="#2c3e50" class="bar-value">${stat.value}</text>
+                    
+                    <!-- Label -->
+                    <text x="${x + barWidth/2}" y="${chartHeight - padding - 10}" 
+                          text-anchor="middle" font-size="12" fill="#7f8c8d" class="bar-label">${stat.label}</text>
                 </g>
             `;
         });
         
-        // Add axis labels
+        // Add decorative elements
         svgContent += `
-            <text x="${chartWidth/2}" y="${chartHeight - 10}" text-anchor="middle" font-size="12" fill="#666">Notes</text>
-            <text x="15" y="${chartHeight/2}" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90, 15, ${chartHeight/2})">Nombre d'élèves</text>
+            <circle cx="50" cy="50" r="3" fill="#3498db" opacity="0.6"/>
+            <circle cx="450" cy="80" r="2" fill="#e74c3c" opacity="0.6"/>
+            <circle cx="80" cy="250" r="2" fill="#2ecc71" opacity="0.6"/>
         `;
         
         svgContent += '</svg>';
