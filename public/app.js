@@ -791,12 +791,12 @@ class SchoolRankingApp {
             return '<div class="no-data">Aucune donnée disponible pour la courbe de performance</div>';
         }
 
-        // Create a beautiful 5-parameter chart with icons and colors
-        const chartWidth = 500;
+        // Create a beautiful 6-parameter chart with icons and colors
+        const chartWidth = 600;
         const chartHeight = 300;
-        const padding = 60;
-        const barWidth = 60;
-        const barSpacing = 20;
+        const padding = 40;
+        const barWidth = 50;
+        const barSpacing = 15;
         
         // Define the 6 key statistics with colors and icons
         const statistics = [
@@ -860,9 +860,13 @@ class SchoolRankingApp {
             </text>
         `;
         
+        // Calculate total width needed for all bars
+        const totalBarsWidth = statistics.length * barWidth + (statistics.length - 1) * barSpacing;
+        const startX = (chartWidth - totalBarsWidth) / 2; // Center the bars
+        
         // Add bars for each statistic
         statistics.forEach((stat, index) => {
-            const x = padding + index * (barWidth + barSpacing);
+            const x = startX + index * (barWidth + barSpacing);
             const barHeight = (stat.value / maxValue) * (chartHeight - padding * 2 - 60);
             const y = chartHeight - padding - 40 - barHeight;
             
