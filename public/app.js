@@ -708,7 +708,7 @@ class SchoolRankingApp {
                                         </div>
                                         
                                         <div class="performance-section">
-                                            <h3>Courbe de Performance</h3>
+                                            <h3>Statistiques de Performance</h3>
                                             <div class="performance-chart-container">
                                                 <div class="chart-info">
                                                     <span class="chart-scale">Échelle: ${curveData.scale}</span>
@@ -792,11 +792,11 @@ class SchoolRankingApp {
         }
 
         // Create a beautiful 6-parameter chart with icons and colors
-        const chartWidth = 600;
-        const chartHeight = 300;
-        const padding = 40;
-        const barWidth = 50;
-        const barSpacing = 15;
+        const chartWidth = 700;
+        const chartHeight = 350;
+        const padding = 50;
+        const barWidth = 60;
+        const barSpacing = 20;
         
         // Define the 6 key statistics with colors and icons
         const statistics = [
@@ -853,12 +853,7 @@ class SchoolRankingApp {
         // Add background
         svgContent += `<rect width="${chartWidth}" height="${chartHeight}" fill="#f8f9fa" rx="10"/>`;
         
-        // Add title
-        svgContent += `
-            <text x="${chartWidth/2}" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">
-                Statistiques de Performance
-            </text>
-        `;
+        // Remove title from inside chart - it's now in the section header
         
         // Calculate total width needed for all bars
         const totalBarsWidth = statistics.length * barWidth + (statistics.length - 1) * barSpacing;
