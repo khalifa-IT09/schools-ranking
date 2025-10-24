@@ -50,6 +50,10 @@ class SchoolRankingApp {
                 min_score: "Note Min",
                 ranking_score: "Score de Classement",
                 
+                // Performance curve
+                performance_statistics: "Statistiques de Performance",
+                scale: "Échelle",
+                
                 // Pagination
                 page: "Page",
                 of: "sur",
@@ -130,6 +134,10 @@ class SchoolRankingApp {
                 max_score: "الدرجة العليا",
                 min_score: "الدرجة الدنيا",
                 ranking_score: "نقاط التصنيف",
+                
+                // Performance curve
+                performance_statistics: "إحصائيات الأداء",
+                scale: "المقياس",
                 
                 // Pagination
                 page: "صفحة",
@@ -749,10 +757,10 @@ class SchoolRankingApp {
                                         </div>
                                         
                                         <div class="performance-section">
-                                            <h3>Statistiques de Performance</h3>
+                                            <h3>${this.translate('performance_statistics')}</h3>
                                             <div class="performance-chart-container">
                                                 <div class="chart-info">
-                                                    <span class="chart-scale">Échelle: ${curveData.scale}</span>
+                                                    <span class="chart-scale">${this.translate('scale')}: ${curveData.scale}</span>
                                                 </div>
                                                 <div class="performance-chart" id="performanceChart">
                                                     ${this.generateInteractivePerformanceChart(curveData, school.level)}
