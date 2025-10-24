@@ -9,7 +9,7 @@ class SchoolRankingApp {
         this.schools = [];
         this.totalSchools = 0;
         this.regions = [];
-        this.currentLanguage = 'fr'; // Default to French
+        this.currentLanguage = localStorage.getItem('preferredLanguage') || 'fr'; // Load from localStorage or default to French
         this.lastTabClick = 0; // Track last tab click time
         
         // Translation system
@@ -147,7 +147,26 @@ class SchoolRankingApp {
                 
                 // Help modal
                 help_title: "كيفية استخدام هذا التطبيق",
-                help_content: "1. اختر مستوى التعليم (ابتدائي، إعدادي، ثانوي)<br>2. فلتر حسب المنطقة إذا لزم الأمر<br>3. ابحث عن مدرسة محددة<br>4. انقر على مدرسة لرؤية تفاصيلها"
+                help_content: "1. اختر مستوى التعليم (ابتدائي، إعدادي، ثانوي)<br>2. فلتر حسب المنطقة إذا لزم الأمر<br>3. ابحث عن مدرسة محددة<br>4. انقر على مدرسة لرؤية تفاصيلها",
+                
+                // Additional keys for Arabic
+                stat_schools: "المدارس",
+                stat_students: "الطلاب", 
+                stat_success_rate: "معدل النجاح",
+                results_title: "تصنيف المدارس",
+                about_description: "يسمح هذا التطبيق للعائلات الموريتانية بإيجاد أفضل المدارس لأطفالهم بناءً على النتائج الرسمية للامتحانات.",
+                about_levels_title: "مستويات التعليم المشمولة:",
+                about_primary: "المدارس الابتدائية (CAS)",
+                about_primary_desc: "نتائج شهادة الأهلية المدرسية",
+                about_middle: "المدارس الإعدادية (Brevet)",
+                about_middle_desc: "نتائج شهادة الدراسات الإعدادية",
+                about_secondary: "المدارس الثانوية (Baccalauréat)",
+                about_secondary_desc: "نتائج البكالوريا",
+                about_criteria_title: "معايير التصنيف:",
+                about_criteria_success: "معدل النجاح (40%)",
+                about_criteria_average: "متوسط النقاط العامة (60%)",
+                about_data_source: "البيانات مقدمة من وزارة التربية في الجمهورية الإسلامية الموريتانية.",
+                about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932"
             }
         };
         
@@ -211,6 +230,14 @@ class SchoolRankingApp {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                 this.loadSchools();
+            });
+        }
+
+        // Language toggle
+        const languageToggle = document.getElementById('languageToggle');
+        if (languageToggle) {
+            languageToggle.addEventListener('click', () => {
+                this.toggleLanguage();
             });
         }
 
@@ -924,6 +951,26 @@ class SchoolRankingApp {
 
         // Update title
         document.title = this.translate('app_title');
+        
+        // Update language button text
+        const currentLangSpan = document.getElementById('currentLang');
+        if (currentLangSpan) {
+            currentLangSpan.textContent = this.currentLanguage.toUpperCase();
+        }
+        
+        // Update HTML direction and language
+        const htmlRoot = document.getElementById('htmlRoot');
+        if (htmlRoot) {
+            htmlRoot.setAttribute('lang', this.currentLanguage);
+            htmlRoot.setAttribute('dir', this.currentLanguage === 'ar' ? 'rtl' : 'ltr');
+        }
+    }
+
+    toggleLanguage() {
+        this.currentLanguage = this.currentLanguage === 'fr' ? 'ar' : 'fr';
+        localStorage.setItem('preferredLanguage', this.currentLanguage);
+        this.updateLanguage();
+        console.log(`🌐 Language switched to: ${this.currentLanguage}`);
     }
 
     translate(key) {
