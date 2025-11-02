@@ -15,6 +15,7 @@ class SchoolRankingApp {
         this.votingSchools = []; // Store voting schools
         this.votingRegions = []; // Store regions for voting
         this.selectedVotingRegion = ''; // Selected region for voting
+        this.voteStatus = null; // Store user vote status (remaining votes, etc.)
         
         // Translation system
         this.translations = {
@@ -120,7 +121,12 @@ class SchoolRankingApp {
                 voting_no_schools: "Aucune école trouvée dans cette région",
                 voting_success: "Vote enregistré avec succès!",
                 voting_error: "Erreur lors du vote",
-                voting_limit_reached: "Vous avez atteint la limite de votes pour cette école cette semaine"
+                voting_limit_reached: "Vous avez atteint la limite de votes pour cette école cette semaine",
+                voting_daily_limit: "Vous avez déjà voté aujourd'hui, veuillez revenir demain!",
+                voting_weekly_limit: "Vos votes hebdomadaires sont épuisés.",
+                voting_remaining: "Votes restants",
+                voting_counter: "⏳ Compteur de votes restants:",
+                voting_next_reset: "Prochain reset: Lundi à 00:00"
             },
             ar: {
                 // App titles and navigation
@@ -224,7 +230,12 @@ class SchoolRankingApp {
                 voting_no_schools: "لم يتم العثور على مدارس في هذه المنطقة",
                 voting_success: "تم تسجيل التصويت بنجاح!",
                 voting_error: "خطأ في التصويت",
-                voting_limit_reached: "لقد وصلت إلى الحد الأقصى من الأصوات لهذه المدرسة هذا الأسبوع"
+                voting_limit_reached: "لقد وصلت إلى الحد الأقصى من الأصوات لهذه المدرسة هذا الأسبوع",
+                voting_daily_limit: "لقد قمت بالتصويت اليوم بالفعل، يرجى العودة غداً!",
+                voting_weekly_limit: "تم استنفاد أصواتك الأسبوعية.",
+                voting_remaining: "الأصوات المتبقية",
+                voting_counter: "⏳ عداد الأصوات المتبقية:",
+                voting_next_reset: "إعادة التعيين التالية: الإثنين في 00:00"
             }
         };
         
@@ -399,6 +410,9 @@ class SchoolRankingApp {
         // Load voting regions (secondary level only)
         await this.loadVotingRegions();
         
+        // Load vote status to show counter
+        await this.loadVoteStatus();
+        
         // Setup voting region filter event listener
         const votingRegionFilter = document.getElementById('votingRegionFilter');
         if (votingRegionFilter && !votingRegionFilter.hasAttribute('data-listener-attached')) {
@@ -412,6 +426,53 @@ class SchoolRankingApp {
                 }
             });
         }
+    }
+
+    async loadVoteStatus() {
+        try {
+            const response = await fetch('/api/voting/status');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.voteStatus = data;
+                    this.updateVoteCounter();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading vote status:', error);
+        }
+    }
+
+    updateVoteCounter() {
+        if (!this.voteStatus) return;
+        
+        const counterElement = document.getElementById('votingCounter');
+        if (!counterElement) return;
+        
+        const remaining = this.voteStatus.remainingWeeklyVotes || 0;
+        const hasVotedToday = this.voteStatus.hasVotedToday || false;
+        const weeklyLimitReached = this.voteStatus.weeklyLimitReached || false;
+        
+        let counterHTML = `
+            <div class="vote-counter-display">
+                <div class="counter-label">${this.translate('voting_counter')}</div>
+                <div class="counter-value ${remaining === 0 ? 'limit-reached' : ''}">
+                    ${remaining} / 7
+                </div>
+                ${hasVotedToday ? `
+                    <div class="counter-message daily-limit">
+                        <i class="fas fa-lock"></i> ${this.translate('voting_daily_limit')}
+                    </div>
+                ` : ''}
+                ${weeklyLimitReached ? `
+                    <div class="counter-message weekly-limit">
+                        <i class="fas fa-exclamation-triangle"></i> ${this.translate('voting_weekly_limit')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        counterElement.innerHTML = counterHTML;
     }
 
     async loadVotingRegions() {
@@ -485,6 +546,9 @@ class SchoolRankingApp {
                 
                 // Get vote counts for these schools
                 await this.loadVoteCounts();
+                
+                // Refresh vote status to ensure buttons are correctly enabled/disabled
+                await this.loadVoteStatus();
                 
                 this.displayVotingSchools();
             } else {
@@ -580,12 +644,47 @@ class SchoolRankingApp {
                         </div>
                     ` : ''}
                 </div>
-                <button class="voting-vote-btn" onclick="app.voteForSchool('${schoolId}', '${schoolName}', '${schoolRegion}')" data-school-id="${schoolId}">
-                    <i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}
-                </button>
+                ${this.getVoteButtonHTML(schoolId, schoolName, schoolRegion)}
             </div>
         `;
         }).join('');
+    }
+
+    getVoteButtonHTML(schoolId, schoolName, schoolRegion) {
+        if (!this.voteStatus) {
+            // If status not loaded yet, show loading button
+            return `
+                <button class="voting-vote-btn" disabled data-school-id="${schoolId}">
+                    <i class="fas fa-spinner fa-spin"></i> ${this.translate('voting_vote_button')}
+                </button>
+            `;
+        }
+        
+        const hasVotedToday = this.voteStatus.hasVotedToday || false;
+        const weeklyLimitReached = this.voteStatus.weeklyLimitReached || false;
+        const remainingVotes = this.voteStatus.remainingWeeklyVotes || 0;
+        
+        if (hasVotedToday) {
+            return `
+                <button class="voting-vote-btn voted disabled" disabled data-school-id="${schoolId}" title="${this.translate('voting_daily_limit')}">
+                    <i class="fas fa-lock"></i> 🔒 ${this.translate('voting_daily_limit')}
+                </button>
+            `;
+        }
+        
+        if (weeklyLimitReached || remainingVotes === 0) {
+            return `
+                <button class="voting-vote-btn limit-reached disabled" disabled data-school-id="${schoolId}" title="${this.translate('voting_weekly_limit')}">
+                    <i class="fas fa-ban"></i> ${this.translate('voting_weekly_limit')}
+                </button>
+            `;
+        }
+        
+        return `
+            <button class="voting-vote-btn" onclick="app.voteForSchool('${schoolId}', '${schoolName}', '${schoolRegion}')" data-school-id="${schoolId}">
+                <i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}
+            </button>
+        `;
     }
 
     clearVotingSchools() {
@@ -644,36 +743,45 @@ class SchoolRankingApp {
             const data = await response.json();
             
             if (data.success) {
+                // Update vote status
+                await this.loadVoteStatus();
+                
                 // Show success message
                 if (voteButton) {
                     voteButton.classList.add('voted');
-                    voteButton.innerHTML = `<i class="fas fa-check"></i> ${this.translate('voting_voted')}`;
+                    voteButton.classList.add('disabled');
+                    voteButton.disabled = true;
+                    voteButton.innerHTML = `<i class="fas fa-lock"></i> 🔒 ${this.translate('voting_daily_limit')}`;
                 }
                 
-                // Show success notification
-                this.showNotification(this.translate('voting_success'), 'success');
+                // Show success notification with remaining votes
+                const remainingMsg = data.remainingVotes > 0 
+                    ? `${this.translate('voting_success')} ${this.translate('voting_remaining')}: ${data.remainingVotes}`
+                    : this.translate('voting_success');
+                this.showNotification(remainingMsg, 'success');
                 
-                // Refresh vote counts
+                // Refresh vote counts and display
                 await this.loadVoteCounts();
                 this.displayVotingSchools();
             } else {
-                // Show error message
-                if (voteButton) {
-                    voteButton.disabled = false;
-                    voteButton.innerHTML = `<i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}`;
-                }
+                // Update vote status to get latest info
+                await this.loadVoteStatus();
                 
+                // Show error message
                 const errorMessage = data.message || this.translate('voting_error');
                 this.showNotification(errorMessage, 'error');
+                
+                // Refresh display to update all buttons
+                this.displayVotingSchools();
             }
         } catch (error) {
             console.error('❌ Error voting for school:', error);
             
-            const voteButton = document.querySelector(`[data-school-id="${schoolId}"]`);
-            if (voteButton) {
-                voteButton.disabled = false;
-                voteButton.innerHTML = `<i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}`;
-            }
+            // Refresh vote status
+            await this.loadVoteStatus();
+            
+            // Refresh display to show correct button states
+            this.displayVotingSchools();
             
             this.showNotification(this.translate('voting_error'), 'error');
         }

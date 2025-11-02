@@ -1282,13 +1282,17 @@ app.post('/api/vote', async (req, res) => {
       res.json({
         success: true,
         message: result.message,
-        remainingVotes: result.remainingVotes
+        remainingVotes: result.remainingVotes,
+        hasVotedToday: result.hasVotedToday || false
       });
     } else {
       res.status(400).json({
         success: false,
         error: result.error,
-        message: result.message
+        message: result.message,
+        remainingVotes: result.remainingVotes || 0,
+        hasVotedToday: result.hasVotedToday || false,
+        weeklyLimitReached: result.weeklyLimitReached || false
       });
     }
   } catch (error) {
@@ -1386,6 +1390,31 @@ app.get('/api/voting/top', async (req, res) => {
       success: false,
       error: 'Internal server error',
       message: 'Erreur lors du chargement des écoles les plus votées'
+    });
+  }
+});
+
+// Get user vote status (remaining votes, daily limit, etc.)
+app.get('/api/voting/status', async (req, res) => {
+  try {
+    // Get user IP address
+    const voterIp = req.ip || 
+                   req.connection.remoteAddress || 
+                   req.headers['x-forwarded-for']?.split(',')[0] || 
+                   'unknown';
+    
+    const status = await dbManager.getUserVoteStatus(voterIp);
+    
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    console.error('❌ Error fetching vote status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement du statut de vote'
     });
   }
 });
