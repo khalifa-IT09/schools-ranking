@@ -45,6 +45,10 @@
                 <i class="fas fa-university"></i>
                 <span data-translate="nav_secondary">Lycées (Baccalauréat)</span>
             </button>
+            <button class="nav-tab" data-level="voting" id="votingTab">
+                <i class="fas fa-vote-yea"></i>
+                <span data-translate="nav_voting">Voter pour ton école préférée</span>
+            </button>
         </nav>
 
         <!-- Controls -->
@@ -111,6 +115,35 @@
             </div>
             <div class="schools-grid" id="schoolsGrid">
                 <!-- Schools will be populated here -->
+            </div>
+        </div>
+
+        <!-- Voting Interface -->
+        <div class="voting-container" id="votingContainer" style="display: none;">
+            <div class="voting-header">
+                <h2 data-translate="voting_title">Voter pour ton école préférée</h2>
+                <p class="voting-subtitle" data-translate="voting_subtitle">Choisissez une région pour voir les écoles éligibles au vote</p>
+            </div>
+            
+            <!-- Region Selection for Voting -->
+            <div class="voting-controls">
+                <div class="region-selection">
+                    <label for="votingRegionFilter" data-translate="voting_select_region">Sélectionnez une région:</label>
+                    <select id="votingRegionFilter" class="voting-select">
+                        <option value="" data-translate="voting_select_region_placeholder">-- Choisir une région --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Voting Results -->
+            <div class="voting-schools-container" id="votingSchoolsContainer">
+                <div class="voting-message" id="votingMessage">
+                    <i class="fas fa-info-circle"></i>
+                    <span data-translate="voting_message">Veuillez sélectionner une région pour commencer à voter</span>
+                </div>
+                <div class="voting-schools-grid" id="votingSchoolsGrid">
+                    <!-- Voting schools will be populated here -->
+                </div>
             </div>
         </div>
 

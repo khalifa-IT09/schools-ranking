@@ -125,3 +125,13 @@ Shools-Ranking/
 # Render Pro specific
 .env.local
 .env.production
+
+# Database files (generated at runtime)
+*.db
+*.sqlite
+*.sqlite3
+school_ranking.db
+
+# Voting data backups
+backups/
+voting_data.json

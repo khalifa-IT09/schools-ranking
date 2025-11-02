@@ -7,6 +7,7 @@ const fs = require('fs');
 const XLSX = require('xlsx');
 const csv = require('csv-parser');
 const analytics = require('./analytics');
+const dbManager = require('./database');
 require('dotenv').config();
 
 const app = express();
@@ -1227,6 +1228,166 @@ app.get('/api/school/:schoolId/details', (req, res) => {
 // Simple test endpoint
 app.get('/test', (req, res) => {
   res.send('<h1>Server is working!</h1><p>The Community Voting app is running correctly.</p>');
+});
+
+// ===== VOTING ENDPOINTS =====
+
+// Record a vote
+app.post('/api/vote', async (req, res) => {
+  try {
+    const { schoolId, schoolName, schoolRegion, schoolLevel } = req.body;
+    
+    if (!schoolId || !schoolName || !schoolRegion || !schoolLevel) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'Champs requis manquants'
+      });
+    }
+    
+    // Only allow voting for secondary level (BAC)
+    if (schoolLevel !== 'secondary') {
+      return res.status(400).json({
+        success: false,
+        error: 'Voting only allowed for secondary level schools',
+        message: 'Le vote n\'est autorisé que pour les lycées (BAC)'
+      });
+    }
+    
+    // Get user IP address
+    const voterIp = req.ip || 
+                   req.connection.remoteAddress || 
+                   req.headers['x-forwarded-for']?.split(',')[0] || 
+                   'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}`);
+    
+    // Record the vote using database manager
+    const result = await dbManager.recordVote(
+      schoolId,
+      schoolName,
+      schoolRegion,
+      schoolLevel,
+      voterIp,
+      userAgent
+    );
+    
+    if (result.success) {
+      // Check and award badges if applicable
+      dbManager.checkAndAwardBadges().catch(err => {
+        console.error('❌ Error checking badges:', err);
+      });
+      
+      res.json({
+        success: true,
+        message: result.message,
+        remainingVotes: result.remainingVotes
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: result.message
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error processing vote:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du traitement du vote'
+    });
+  }
+});
+
+// Get vote counts for multiple schools
+app.post('/api/voting/counts', async (req, res) => {
+  try {
+    const { schoolIds } = req.body;
+    
+    if (!schoolIds || !Array.isArray(schoolIds)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request',
+        message: 'Requête invalide'
+      });
+    }
+    
+    // Get current week start
+    const weekStart = dbManager.getCurrentWeekStart();
+    
+    // Get vote counts from weekly_stats for each school
+    const counts = {};
+    
+    // Query all schools at once for efficiency
+    if (!dbManager.db) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database not initialized'
+      });
+    }
+    
+    const placeholders = schoolIds.map(() => '?').join(',');
+    const query = `
+      SELECT school_id, SUM(vote_count) as total_votes
+      FROM weekly_stats
+      WHERE school_id IN (${placeholders}) AND week_start = ?
+      GROUP BY school_id
+    `;
+    
+    dbManager.db.all(query, [...schoolIds, weekStart], (err, rows) => {
+      if (err) {
+        console.error('❌ Error fetching vote counts:', err);
+        return res.status(500).json({
+          success: false,
+          error: 'Database error',
+          message: 'Erreur de base de données'
+        });
+      }
+      
+      rows.forEach(row => {
+        counts[row.school_id] = parseInt(row.total_votes) || 0;
+      });
+      
+      // Ensure all requested schools have a count (even if 0)
+      schoolIds.forEach(id => {
+        if (counts[id] === undefined) {
+          counts[id] = 0;
+        }
+      });
+      
+      res.json({
+        success: true,
+        counts: counts
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error fetching vote counts:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement des votes'
+    });
+  }
+});
+
+// Get top voted schools for voting display
+app.get('/api/voting/top', async (req, res) => {
+  try {
+    const { region, limit = 10 } = req.query;
+    
+    const result = await dbManager.getTopVotedSchools(region || null, 'secondary', parseInt(limit));
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching top voted schools:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement des écoles les plus votées'
+    });
+  }
 });
 
 

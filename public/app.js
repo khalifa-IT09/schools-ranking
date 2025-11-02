@@ -11,6 +11,10 @@ class SchoolRankingApp {
         this.regions = [];
         this.currentLanguage = localStorage.getItem('preferredLanguage') || 'fr'; // Load from localStorage or default to French
         this.lastTabClick = 0; // Track last tab click time
+        this.isVotingMode = false; // Track if we're in voting mode
+        this.votingSchools = []; // Store voting schools
+        this.votingRegions = []; // Store regions for voting
+        this.selectedVotingRegion = ''; // Selected region for voting
         
         // Translation system
         this.translations = {
@@ -100,7 +104,23 @@ class SchoolRankingApp {
                 about_criteria_success: "Taux de réussite (60%)",
                 about_criteria_average: "Moyenne générale des scores (40%)",
                 about_data_source: "Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.",
-                about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932"
+                about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932",
+                
+                // Voting section
+                nav_voting: "Voter pour ton école préférée",
+                voting_title: "Voter pour ton école préférée",
+                voting_subtitle: "Choisissez une région pour voir les écoles éligibles au vote",
+                voting_select_region: "Sélectionnez une région:",
+                voting_select_region_placeholder: "-- Choisir une région --",
+                voting_message: "Veuillez sélectionner une région pour commencer à voter",
+                voting_loading: "Chargement des écoles...",
+                voting_vote_button: "VOTER",
+                voting_voted: "Voté",
+                voting_vote_count: "votes",
+                voting_no_schools: "Aucune école trouvée dans cette région",
+                voting_success: "Vote enregistré avec succès!",
+                voting_error: "Erreur lors du vote",
+                voting_limit_reached: "Vous avez atteint la limite de votes pour cette école cette semaine"
             },
             ar: {
                 // App titles and navigation
@@ -188,7 +208,23 @@ class SchoolRankingApp {
                 about_criteria_success: "معدل النجاح (60%)",
                 about_criteria_average: "متوسط النقاط العامة (40%)",
                 about_data_source: "البيانات مقدمة من وزارة التربية في الجمهورية الإسلامية الموريتانية.",
-                about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932"
+                about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932",
+                
+                // Voting section (Arabic)
+                nav_voting: "صوت لمدرستك المفضلة",
+                voting_title: "صوت لمدرستك المفضلة",
+                voting_subtitle: "اختر منطقة لرؤية المدارس المؤهلة للتصويت",
+                voting_select_region: "اختر منطقة:",
+                voting_select_region_placeholder: "-- اختر منطقة --",
+                voting_message: "يرجى اختيار منطقة لبدء التصويت",
+                voting_loading: "تحميل المدارس...",
+                voting_vote_button: "صوت",
+                voting_voted: "تم التصويت",
+                voting_vote_count: "أصوات",
+                voting_no_schools: "لم يتم العثور على مدارس في هذه المنطقة",
+                voting_success: "تم تسجيل التصويت بنجاح!",
+                voting_error: "خطأ في التصويت",
+                voting_limit_reached: "لقد وصلت إلى الحد الأقصى من الأصوات لهذه المدرسة هذا الأسبوع"
             }
         };
         
@@ -219,8 +255,10 @@ class SchoolRankingApp {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
                 const level = tab.dataset.level;
-                if (level && level !== this.currentLevel) {
-                this.switchLevel(level);
+                if (level === 'voting') {
+                    this.switchToVoting();
+                } else if (level && level !== this.currentLevel) {
+                    this.switchLevel(level);
                 }
             });
         });
@@ -299,6 +337,21 @@ class SchoolRankingApp {
             return;
         }
         
+        // Hide voting interface if it's showing
+        if (this.isVotingMode) {
+            const votingContainer = document.getElementById('votingContainer');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const controls = document.querySelector('.controls');
+            const statsContainer = document.getElementById('statsContainer');
+            
+            if (votingContainer) votingContainer.style.display = 'none';
+            if (resultsContainer) resultsContainer.style.display = 'block';
+            if (controls) controls.style.display = 'flex';
+            if (statsContainer) statsContainer.style.display = 'flex';
+            
+            this.isVotingMode = false;
+        }
+        
         this.currentLevel = level;
         this.currentPage = 1;
         this.currentSearch = '';
@@ -319,6 +372,332 @@ class SchoolRankingApp {
         // Load data for new level
         await this.loadRegions();
         await this.loadSchools();
+    }
+
+    async switchToVoting() {
+        console.log('🗳️ Switching to voting mode');
+        
+        // Update active tab
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector('[data-level="voting"]').classList.add('active');
+        
+        // Hide regular results, show voting interface
+        const resultsContainer = document.getElementById('resultsContainer');
+        const votingContainer = document.getElementById('votingContainer');
+        const controls = document.querySelector('.controls');
+        const statsContainer = document.getElementById('statsContainer');
+        
+        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (controls) controls.style.display = 'none';
+        if (statsContainer) statsContainer.style.display = 'none';
+        if (votingContainer) votingContainer.style.display = 'block';
+        
+        this.isVotingMode = true;
+        
+        // Load voting regions (secondary level only)
+        await this.loadVotingRegions();
+        
+        // Setup voting region filter event listener
+        const votingRegionFilter = document.getElementById('votingRegionFilter');
+        if (votingRegionFilter && !votingRegionFilter.hasAttribute('data-listener-attached')) {
+            votingRegionFilter.setAttribute('data-listener-attached', 'true');
+            votingRegionFilter.addEventListener('change', (e) => {
+                this.selectedVotingRegion = e.target.value;
+                if (this.selectedVotingRegion) {
+                    this.loadVotingSchools(this.selectedVotingRegion);
+                } else {
+                    this.clearVotingSchools();
+                }
+            });
+        }
+    }
+
+    async loadVotingRegions() {
+        try {
+            console.log('🌍 Loading regions for voting (secondary level only)');
+            const response = await fetch('/api/regions/secondary');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.regions) {
+                this.votingRegions = data.regions;
+                console.log('✅ Voting regions loaded:', this.votingRegions.length);
+                
+                this.updateVotingRegionFilter();
+            } else {
+                console.error('❌ Failed to load voting regions:', data);
+            }
+        } catch (error) {
+            console.error('❌ Error loading voting regions:', error);
+        }
+    }
+
+    updateVotingRegionFilter() {
+        const votingRegionFilter = document.getElementById('votingRegionFilter');
+        if (!votingRegionFilter) return;
+
+        votingRegionFilter.innerHTML = `
+            <option value="">${this.translate('voting_select_region_placeholder')}</option>
+            ${this.votingRegions.map(region => 
+                `<option value="${region}">${region}</option>`
+            ).join('')}
+        `;
+    }
+
+    async loadVotingSchools(region) {
+        try {
+            console.log(`🗳️ Loading voting schools for region: ${region}`);
+            
+            const votingMessage = document.getElementById('votingMessage');
+            const votingGrid = document.getElementById('votingSchoolsGrid');
+            
+            if (votingMessage) {
+                votingMessage.style.display = 'flex';
+                votingMessage.innerHTML = `
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>${this.translate('voting_loading')}</span>
+                `;
+            }
+            
+            if (votingGrid) {
+                votingGrid.innerHTML = '';
+            }
+            
+            // Fetch schools for secondary level (BAC) in the selected region
+            const response = await fetch(`/api/schools/secondary?region=${encodeURIComponent(region)}&limit=1000`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.schools) {
+                // Limit to 503 schools as specified
+                this.votingSchools = data.schools.slice(0, 503);
+                console.log(`✅ Voting schools loaded: ${this.votingSchools.length}`);
+                
+                // Get vote counts for these schools
+                await this.loadVoteCounts();
+                
+                this.displayVotingSchools();
+            } else {
+                console.error('❌ Failed to load voting schools:', data);
+                this.showVotingError();
+            }
+        } catch (error) {
+            console.error('❌ Error loading voting schools:', error);
+            this.showVotingError();
+        }
+    }
+
+    async loadVoteCounts() {
+        try {
+            // Fetch vote counts for all voting schools
+            const schoolIds = this.votingSchools.map(s => s.id);
+            const response = await fetch('/api/voting/counts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ schoolIds })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.counts) {
+                    // Add vote counts to schools
+                    this.votingSchools.forEach(school => {
+                        school.voteCount = data.counts[school.id] || 0;
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading vote counts:', error);
+            // Continue without vote counts
+        }
+    }
+
+    displayVotingSchools() {
+        const votingMessage = document.getElementById('votingMessage');
+        const votingGrid = document.getElementById('votingSchoolsGrid');
+        
+        if (!votingGrid) return;
+        
+        if (this.votingSchools.length === 0) {
+            if (votingMessage) {
+                votingMessage.style.display = 'flex';
+                votingMessage.innerHTML = `
+                    <i class="fas fa-info-circle"></i>
+                    <span>${this.translate('voting_no_schools')}</span>
+                `;
+            }
+            votingGrid.innerHTML = '';
+            return;
+        }
+        
+        if (votingMessage) {
+            votingMessage.style.display = 'none';
+        }
+        
+        votingGrid.innerHTML = this.votingSchools.map((school, index) => {
+            // Escape quotes and special characters for safe HTML/JS
+            const escapeHtml = (str) => {
+                if (!str) return '';
+                return str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            
+            const schoolId = escapeHtml(school.id);
+            const schoolName = escapeHtml(school.name);
+            const schoolRegion = escapeHtml(school.region);
+            
+            return `
+            <div class="voting-school-card">
+                <div class="voting-school-rank">#${school.rank}</div>
+                <div class="voting-school-info">
+                    <h3 class="voting-school-name">${school.name}</h3>
+                    <div class="voting-school-details">
+                        <span class="voting-school-region"><i class="fas fa-map-marker-alt"></i> ${school.region}</span>
+                        <span class="voting-school-stats">
+                            <span class="voting-success-rate"><i class="fas fa-trophy"></i> ${school.successRate.toFixed(1)}%</span>
+                            <span class="voting-students"><i class="fas fa-users"></i> ${school.totalStudents}</span>
+                        </span>
+                    </div>
+                    ${school.voteCount !== undefined ? `
+                        <div class="voting-vote-count">
+                            <i class="fas fa-heart"></i> ${school.voteCount} ${this.translate('voting_vote_count')}
+                        </div>
+                    ` : ''}
+                </div>
+                <button class="voting-vote-btn" onclick="app.voteForSchool('${schoolId}', '${schoolName}', '${schoolRegion}')" data-school-id="${schoolId}">
+                    <i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}
+                </button>
+            </div>
+        `;
+        }).join('');
+    }
+
+    clearVotingSchools() {
+        const votingMessage = document.getElementById('votingMessage');
+        const votingGrid = document.getElementById('votingSchoolsGrid');
+        
+        if (votingMessage) {
+            votingMessage.style.display = 'flex';
+            votingMessage.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <span>${this.translate('voting_message')}</span>
+            `;
+        }
+        
+        if (votingGrid) {
+            votingGrid.innerHTML = '';
+        }
+        
+        this.votingSchools = [];
+    }
+
+    showVotingError() {
+        const votingMessage = document.getElementById('votingMessage');
+        if (votingMessage) {
+            votingMessage.style.display = 'flex';
+            votingMessage.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${this.translate('voting_error')}</span>
+            `;
+        }
+    }
+
+    async voteForSchool(schoolId, schoolName, schoolRegion) {
+        try {
+            console.log(`🗳️ Voting for school: ${schoolId}`);
+            
+            const voteButton = document.querySelector(`[data-school-id="${schoolId}"]`);
+            if (voteButton) {
+                voteButton.disabled = true;
+                voteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
+            }
+            
+            const response = await fetch('/api/vote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    schoolId: schoolId,
+                    schoolName: schoolName,
+                    schoolRegion: schoolRegion,
+                    schoolLevel: 'secondary'
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success message
+                if (voteButton) {
+                    voteButton.classList.add('voted');
+                    voteButton.innerHTML = `<i class="fas fa-check"></i> ${this.translate('voting_voted')}`;
+                }
+                
+                // Show success notification
+                this.showNotification(this.translate('voting_success'), 'success');
+                
+                // Refresh vote counts
+                await this.loadVoteCounts();
+                this.displayVotingSchools();
+            } else {
+                // Show error message
+                if (voteButton) {
+                    voteButton.disabled = false;
+                    voteButton.innerHTML = `<i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}`;
+                }
+                
+                const errorMessage = data.message || this.translate('voting_error');
+                this.showNotification(errorMessage, 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error voting for school:', error);
+            
+            const voteButton = document.querySelector(`[data-school-id="${schoolId}"]`);
+            if (voteButton) {
+                voteButton.disabled = false;
+                voteButton.innerHTML = `<i class="fas fa-vote-yea"></i> ${this.translate('voting_vote_button')}`;
+            }
+            
+            this.showNotification(this.translate('voting_error'), 'error');
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => notification.classList.add('show'), 10);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
     }
 
     async loadRegions() {
