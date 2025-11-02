@@ -111,10 +111,16 @@ class DatabaseManager {
       createBadgeIndexes.forEach(index => this.db.exec(index));
       createWeeklyStatsIndexes.forEach(index => this.db.exec(index));
 
-      // Migrate existing votes table to add vote_date column if it doesn't exist
-      this.migrateVotesTable();
-
       console.log('✅ Database tables created successfully');
+      
+      // Migrate existing votes table to add vote_date column if it doesn't exist
+      // This must complete before any queries run
+      this.migrateVotesTable().then(() => {
+        console.log('✅ Database migration completed');
+      }).catch((migrationError) => {
+        console.error('❌ Migration error (non-fatal):', migrationError);
+        // Continue anyway - we'll check before queries
+      });
     } catch (error) {
       console.error('❌ Error creating database tables:', error);
       throw error;
@@ -132,40 +138,52 @@ class DatabaseManager {
     return monday.toISOString().split('T')[0]; // Return YYYY-MM-DD format
   }
 
-  // Migrate votes table to add vote_date column
+  // Migrate votes table to add vote_date column (synchronous promise-based)
   migrateVotesTable() {
-    try {
-      // Check if vote_date column exists
-      this.db.all("PRAGMA table_info(votes)", (err, columns) => {
-        if (err) {
-          console.error('❌ Error checking votes table structure:', err);
-          return;
-        }
-        
-        const hasVoteDate = columns.some(col => col.name === 'vote_date');
-        
-        if (!hasVoteDate) {
-          console.log('🔄 Migrating votes table: adding vote_date column...');
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      try {
+        // Check if vote_date column exists
+        this.db.all("PRAGMA table_info(votes)", (err, columns) => {
+          if (err) {
+            console.error('❌ Error checking votes table structure:', err);
+            return reject(err);
+          }
           
-          // Add vote_date column and populate it from vote_timestamp
-          this.db.run(`
-            ALTER TABLE votes ADD COLUMN vote_date DATE;
-          `, (alterErr) => {
-            if (alterErr) {
-              console.error('❌ Error adding vote_date column:', alterErr);
-              return;
-            }
+          const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+          
+          if (!hasVoteDate) {
+            console.log('🔄 Migrating votes table: adding vote_date column...');
             
-            // Populate vote_date from vote_timestamp for existing rows
+            // Add vote_date column and populate it from vote_timestamp
             this.db.run(`
-              UPDATE votes 
-              SET vote_date = COALESCE(DATE(vote_timestamp), DATE('now'))
-              WHERE vote_date IS NULL;
-            `, (updateErr) => {
-              if (updateErr) {
-                console.error('❌ Error populating vote_date:', updateErr);
-              } else {
-                console.log('✅ Migration completed: vote_date column added and populated');
+              ALTER TABLE votes ADD COLUMN vote_date DATE;
+            `, (alterErr) => {
+              if (alterErr) {
+                console.error('❌ Error adding vote_date column:', alterErr);
+                // If column already exists, continue anyway
+                if (alterErr.message && alterErr.message.includes('duplicate column')) {
+                  console.log('ℹ️ Column already exists, continuing...');
+                  return resolve();
+                }
+                return reject(alterErr);
+              }
+              
+              // Populate vote_date from vote_timestamp for existing rows
+              this.db.run(`
+                UPDATE votes 
+                SET vote_date = COALESCE(DATE(vote_timestamp), DATE('now'))
+                WHERE vote_date IS NULL;
+              `, (updateErr) => {
+                if (updateErr) {
+                  console.error('❌ Error populating vote_date:', updateErr);
+                  // Don't reject, column was added successfully
+                } else {
+                  console.log('✅ Migration completed: vote_date column added and populated');
+                }
                 
                 // Create index on vote_date for better performance
                 this.db.run(`
@@ -174,15 +192,45 @@ class DatabaseManager {
                   if (indexErr) {
                     console.warn('⚠️ Could not create vote_date index:', indexErr);
                   }
+                  resolve();
                 });
-              }
+              });
             });
-          });
+          } else {
+            console.log('✅ vote_date column already exists, no migration needed');
+            resolve();
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error during migration:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Ensure vote_date column exists (safety check before queries)
+  ensureVoteDateColumn() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      this.db.all("PRAGMA table_info(votes)", (err, columns) => {
+        if (err) {
+          console.error('❌ Error checking votes table:', err);
+          return reject(err);
+        }
+        
+        const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+        if (hasVoteDate) {
+          resolve();
+        } else {
+          // Column doesn't exist, try to add it
+          console.log('⚠️ vote_date column missing, attempting to add...');
+          this.migrateVotesTable().then(resolve).catch(reject);
         }
       });
-    } catch (error) {
-      console.error('❌ Error during migration:', error);
-    }
+    });
   }
 
   // Get current date (YYYY-MM-DD format)
@@ -198,14 +246,16 @@ class DatabaseManager {
         return reject(new Error('Database not initialized'));
       }
       
-      try {
-        const weekStart = this.getCurrentWeekStart();
-        const currentDate = this.getCurrentDate();
-        
-        // Check if user has voted today
-        this.db.get(
-          'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND vote_date = ?',
-          [voterIp, currentDate],
+      // Ensure vote_date column exists before querying
+      this.ensureVoteDateColumn().then(() => {
+        try {
+          const weekStart = this.getCurrentWeekStart();
+          const currentDate = this.getCurrentDate();
+          
+          // Check if user has voted today
+          this.db.get(
+            'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND vote_date = ?',
+            [voterIp, currentDate],
           (err, dailyRow) => {
             if (err) {
               console.error('❌ Error checking daily vote:', err);
@@ -242,10 +292,11 @@ class DatabaseManager {
             );
           }
         );
-      } catch (error) {
-        console.error('❌ Error getting user vote status:', error);
-        reject(error);
-      }
+        } catch (error) {
+          console.error('❌ Error getting user vote status:', error);
+          reject(error);
+        }
+      }).catch(reject);
     });
   }
 
@@ -256,12 +307,14 @@ class DatabaseManager {
         return reject(new Error('Database not initialized'));
       }
       
-      try {
-        const weekStart = this.getCurrentWeekStart();
-        const currentDate = this.getCurrentDate();
-        
-        // First check if user can vote (daily and weekly limits)
-        this.getUserVoteStatus(voterIp).then(status => {
+      // Ensure vote_date column exists before inserting
+      this.ensureVoteDateColumn().then(() => {
+        try {
+          const weekStart = this.getCurrentWeekStart();
+          const currentDate = this.getCurrentDate();
+          
+          // First check if user can vote (daily and weekly limits)
+          this.getUserVoteStatus(voterIp).then(status => {
           // Check daily limit (1 vote per day)
           if (status.hasVotedToday) {
             return resolve({
@@ -327,14 +380,15 @@ class DatabaseManager {
               });
             }
           );
-        }).catch(statusError => {
-          console.error('❌ Error getting vote status:', statusError);
-          reject(statusError);
-        });
-      } catch (error) {
-        console.error('❌ Error recording vote:', error);
-        reject(error);
-      }
+          }).catch(statusError => {
+            console.error('❌ Error getting vote status:', statusError);
+            reject(statusError);
+          });
+        } catch (error) {
+          console.error('❌ Error recording vote:', error);
+          reject(error);
+        }
+      }).catch(reject);
     });
   }
 
