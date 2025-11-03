@@ -32,7 +32,10 @@ class DatabaseManager {
           }
         });
         
-        this.createTables();
+        // Create tables - now returns a promise
+        this.createTables().catch((err) => {
+          console.error('❌ Failed to create tables:', err);
+        });
       });
     } catch (error) {
       console.error('❌ Database initialization failed:', error);
