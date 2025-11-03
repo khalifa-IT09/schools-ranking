@@ -267,7 +267,65 @@ class DatabaseManager {
           const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
           const hasFingerprint = columns && columns.some(col => col.name === 'voter_fingerprint');
           
-          if (!hasVoteDate) {
+          // Function to create indexes
+          const createIndexes = () => {
+            console.log('🔄 Creating/updating indexes for vote tracking...');
+            // Drop old unique index if it exists (without fingerprint)
+            this.db.run('DROP INDEX IF EXISTS idx_votes_unique_daily;', () => {
+              // Create new indexes with fingerprint
+              const voteDateIndexes = [
+                'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
+                'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
+                'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
+              ];
+              
+              let indexesCreated = 0;
+              voteDateIndexes.forEach((indexQuery) => {
+                this.db.run(indexQuery, (indexErr) => {
+                  if (indexErr) {
+                    console.warn('⚠️ Could not create index:', indexErr.message);
+                  }
+                  indexesCreated++;
+                  if (indexesCreated === voteDateIndexes.length) {
+                    console.log('✅ Migration completed: all columns and indexes created');
+                    resolve();
+                  }
+                });
+              });
+              
+              if (voteDateIndexes.length === 0) {
+                resolve();
+              }
+            });
+          };
+          
+          // Add fingerprint column if missing
+          if (!hasFingerprint) {
+            console.log('🔄 Migrating votes table: adding voter_fingerprint column...');
+            this.db.run('ALTER TABLE votes ADD COLUMN voter_fingerprint TEXT;', (fingerprintErr) => {
+              if (fingerprintErr && !fingerprintErr.message.includes('duplicate column')) {
+                console.error('❌ Error adding voter_fingerprint column:', fingerprintErr);
+                return reject(fingerprintErr);
+              }
+              console.log('✅ voter_fingerprint column added');
+              
+              // Continue with vote_date migration if needed
+              if (!hasVoteDate) {
+                migrateVoteDate();
+              } else {
+                createIndexes();
+              }
+            });
+          } else if (!hasVoteDate) {
+            migrateVoteDate();
+          } else {
+            // Both columns exist, just create/update indexes
+            createIndexes();
+          }
+          
+          // Function to migrate vote_date column
+          const migrateVoteDate = () => {
             console.log('🔄 Migrating votes table: adding vote_date column...');
             
             // Add vote_date column and populate it from vote_timestamp
@@ -279,7 +337,8 @@ class DatabaseManager {
                 // If column already exists, continue anyway
                 if (alterErr.message && alterErr.message.includes('duplicate column')) {
                   console.log('ℹ️ Column already exists, continuing...');
-                  return resolve();
+                  createIndexes();
+                  return;
                 }
                 return reject(alterErr);
               }
@@ -294,42 +353,12 @@ class DatabaseManager {
                   console.error('❌ Error populating vote_date:', updateErr);
                   // Don't reject, column was added successfully
                 } else {
-                  console.log('✅ Migration completed: vote_date column added and populated');
+                  console.log('✅ vote_date column added and populated');
                 }
-                
-                // Create indexes on vote_date for better performance
-                // CRITICAL: Create unique index to prevent duplicate votes for same school on same day
-                // Use combination of IP + fingerprint for better identification
-                const voteDateIndexes = [
-                  'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
-                  'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
-                  'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
-                ];
-                
-                let indexesCreated = 0;
-                voteDateIndexes.forEach((indexQuery) => {
-                  this.db.run(indexQuery, (indexErr) => {
-                    if (indexErr) {
-                      console.warn('⚠️ Could not create vote_date index:', indexErr);
-                    }
-                    indexesCreated++;
-                    if (indexesCreated === voteDateIndexes.length) {
-                      resolve();
-                    }
-                  });
-                });
-                
-                // Handle case where no indexes need to be created
-                if (voteDateIndexes.length === 0) {
-                  resolve();
-                }
+                createIndexes();
               });
             });
-          } else {
-            console.log('✅ vote_date column already exists, no migration needed');
-            resolve();
-          }
+          };
         });
       } catch (error) {
         console.error('❌ Error during migration:', error);
