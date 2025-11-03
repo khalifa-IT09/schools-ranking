@@ -689,6 +689,12 @@ class DatabaseManager {
                         
                         console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${this.lastID}`);
                         
+                        // Update weekly stats only if vote was successfully inserted
+                        const voteId = this.lastID;
+                        if (voteId) {
+                          dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+                        }
+                        
                         // VERIFY: Check if vote was actually inserted and no duplicate exists
                         dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (verifyErr, verifyRow) => {
                           if (verifyErr) {
@@ -700,40 +706,34 @@ class DatabaseManager {
                               console.error('❌ [TRANSACTION] CRITICAL: Multiple votes found after insert! This should not happen!');
                             }
                           }
-                        });
-                      
-                      // Update weekly stats only if vote was successfully inserted
-                      const voteId = this.lastID;
-                      if (voteId) {
-                        dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
-                      }
-                      
-                      // Commit the transaction
-                      dbManager.db.run('COMMIT', (commitErr) => {
-                        if (commitErr) {
-                          console.error('❌ Error committing transaction:', commitErr);
-                          // Vote was inserted but commit failed - this is bad but vote is already in DB
-                        }
-                        
-                        // Get updated status after vote
-                        dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
-                          resolve({
-                            success: true,
-                            voteId: voteId,
-                            remainingVotes: updatedStatus.remainingWeeklyVotes,
-                            message: 'Vote enregistré avec succès',
-                            hasVotedToday: true
-                          });
-                        }).catch(updateErr => {
-                          // Still return success even if status update fails
-                          resolve({
-                            success: true,
-                            voteId: voteId,
-                            remainingVotes: Math.max(0, 7 - weeklyCount - 1),
-                            message: 'Vote enregistré avec succès',
-                            hasVotedToday: true
-                          });
-                        });
+                          
+                          // Commit the transaction after verification
+                          dbManager.db.run('COMMIT', (commitErr) => {
+                            if (commitErr) {
+                              console.error('❌ Error committing transaction:', commitErr);
+                              // Vote was inserted but commit failed - this is bad but vote is already in DB
+                            }
+                            
+                            // Get updated status after vote
+                            dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
+                              resolve({
+                                success: true,
+                                voteId: voteId,
+                                remainingVotes: updatedStatus.remainingWeeklyVotes,
+                                message: 'Vote enregistré avec succès',
+                                hasVotedToday: true
+                              });
+                            }).catch(updateErr => {
+                              // Still return success even if status update fails
+                              resolve({
+                                success: true,
+                                voteId: voteId,
+                                remainingVotes: Math.max(0, 7 - weeklyCount - 1),
+                                message: 'Vote enregistré avec succès',
+                                hasVotedToday: true
+                              });
+                            });
+                          }); // Close COMMIT callback
                         }); // Close verify callback
                       }); // Close insert function
                     }); // Close indexCheck callback
