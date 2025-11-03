@@ -451,27 +451,8 @@ class DatabaseManager {
           const weekStart = dbManager.getCurrentWeekStart();
           const currentDate = dbManager.getCurrentDate();
           
-          // Use transaction to ensure atomicity and prevent race conditions
-          // Try BEGIN IMMEDIATE first, fallback to BEGIN if not supported
-          dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
-            if (beginErr) {
-              console.warn('⚠️ BEGIN IMMEDIATE not supported, trying BEGIN:', beginErr.message);
-              // Fallback to regular BEGIN
-              dbManager.db.run('BEGIN TRANSACTION', (beginErr2) => {
-                if (beginErr2) {
-                  console.error('❌ Error beginning transaction:', beginErr2);
-                  return reject(beginErr2);
-                }
-                processVoteTransaction();
-              });
-              return;
-            }
-            processVoteTransaction();
-          });
-          
-          // Function to process vote within transaction
+          // Function to process vote within transaction (defined before use)
           function processVoteTransaction() {
-            
             // Check column existence
             dbManager.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
               if (colErr) {
@@ -608,7 +589,24 @@ class DatabaseManager {
               });
             });
           }
-          }); // Close BEGIN IMMEDIATE callback
+          
+          // Use transaction to ensure atomicity and prevent race conditions
+          // Try BEGIN IMMEDIATE first, fallback to BEGIN if not supported
+          dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
+            if (beginErr) {
+              console.warn('⚠️ BEGIN IMMEDIATE not supported, trying BEGIN:', beginErr.message);
+              // Fallback to regular BEGIN
+              dbManager.db.run('BEGIN TRANSACTION', (beginErr2) => {
+                if (beginErr2) {
+                  console.error('❌ Error beginning transaction:', beginErr2);
+                  return reject(beginErr2);
+                }
+                processVoteTransaction();
+              });
+              return;
+            }
+            processVoteTransaction();
+          });
         } catch (error) {
           dbManager.db.run('ROLLBACK', () => {});
           console.error('❌ Error recording vote:', error);
