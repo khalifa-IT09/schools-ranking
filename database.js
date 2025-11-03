@@ -612,7 +612,6 @@ class DatabaseManager {
                 });
               });
             });
-          });
           }
           
           // Use transaction to ensure atomicity and prevent race conditions
