@@ -1261,22 +1261,41 @@ app.post('/api/vote', async (req, res) => {
                    'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     
-    console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}, Fingerprint: ${voterFingerprint ? 'present' : 'missing'}`);
+    // CRITICAL: Generate fingerprint on server if not provided or invalid
+    // This ensures we NEVER have NULL fingerprints, which breaks unique constraints
+    let finalFingerprint = voterFingerprint;
     
-    // Validate fingerprint format (should be a hash string)
-    if (voterFingerprint && (typeof voterFingerprint !== 'string' || voterFingerprint.length < 10 || voterFingerprint.length > 100)) {
-      console.warn('⚠️ Invalid fingerprint format received:', voterFingerprint);
-      // Continue without fingerprint rather than rejecting
+    if (!finalFingerprint || typeof finalFingerprint !== 'string' || finalFingerprint.length < 10 || finalFingerprint.length > 100) {
+      // Generate server-side fingerprint as fallback using IP + User-Agent + other headers
+      const serverFingerprintComponents = [
+        voterIp,
+        userAgent,
+        req.headers['accept-language'] || '',
+        req.headers['accept-encoding'] || '',
+        Date.now().toString(36) // Add timestamp to make it unique per request if needed
+      ];
+      const hashString = serverFingerprintComponents.join('|');
+      // Simple hash function
+      let hash = 0;
+      for (let i = 0; i < hashString.length; i++) {
+        const char = hashString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      finalFingerprint = 'server_' + Math.abs(hash).toString(16) + voterIp.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+      console.warn('⚠️ Generated server-side fingerprint:', finalFingerprint);
     }
     
-    // Record the vote using database manager
+    console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}, Fingerprint: ${finalFingerprint}`);
+    
+    // Record the vote using database manager - ALWAYS with fingerprint
     const result = await dbManager.recordVote(
       schoolId,
       schoolName,
       schoolRegion,
       schoolLevel,
       voterIp,
-      voterFingerprint || null,
+      finalFingerprint, // NEVER null
       userAgent
     );
     

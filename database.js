@@ -277,7 +277,8 @@ class DatabaseManager {
                 'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
                 'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
                 'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, school_id, vote_date) WHERE voter_fingerprint IS NOT NULL',
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
               ];
               
               let indexesCreated = 0;
@@ -497,16 +498,11 @@ class DatabaseManager {
               
               // CRITICAL: Check if user already voted for THIS SPECIFIC school today
               // Rule: 1 vote per school per day, max 7 votes per week
-              // Use combination of IP + fingerprint for better identification
-              const checkSchoolQuery = voterFingerprint 
-                ? `SELECT COUNT(*) as count FROM votes WHERE ((voter_ip = ? AND voter_fingerprint = ?) OR (voter_ip = ? AND voter_fingerprint IS NULL)) AND school_id = ? AND ${dateColumn} = ?`
-                : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
+              // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
+              const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND ${dateColumn} = ?`;
+              const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
               
-              const checkSchoolParams = voterFingerprint 
-                ? [voterIp, voterFingerprint, voterIp, schoolId, currentDate]
-                : [voterIp, schoolId, currentDate];
-              
-              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint ? 'present' : 'missing'}, Date: ${currentDate}, Column: ${dateColumn}`);
+              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint}, Date: ${currentDate}`);
               
               dbManager.db.get(checkSchoolQuery, checkSchoolParams, (schoolErr, schoolRow) => {
                 if (schoolErr) {
@@ -532,14 +528,9 @@ class DatabaseManager {
                 }
                 
                 // Check weekly limit (max 7 votes per week)
-                // Use IP + fingerprint combination for better identification
-                const weeklyCheckQuery = voterFingerprint
-                  ? 'SELECT COUNT(*) as count FROM votes WHERE ((voter_ip = ? AND voter_fingerprint = ?) OR (voter_ip = ? AND voter_fingerprint IS NULL)) AND week_start = ?'
-                  : 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?';
-                
-                const weeklyCheckParams = voterFingerprint
-                  ? [voterIp, voterFingerprint, voterIp, weekStart]
-                  : [voterIp, weekStart];
+                // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
+                const weeklyCheckQuery = 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?';
+                const weeklyCheckParams = [voterIp, voterFingerprint, weekStart];
                 
                 dbManager.db.get(weeklyCheckQuery, weeklyCheckParams, (weeklyErr, weeklyRow) => {
                   if (weeklyErr) {
@@ -595,14 +586,20 @@ class DatabaseManager {
                       
                       // All checks passed - insert the vote
                       // ALWAYS include vote_date if column exists, never allow NULL
-                      // Include fingerprint for better user identification
+                      // ALWAYS include fingerprint (should NEVER be null - enforced by server)
+                      if (!voterFingerprint) {
+                        console.error('❌ CRITICAL: Attempting to insert vote with NULL fingerprint!');
+                        dbManager.db.run('ROLLBACK', () => {});
+                        return reject(new Error('Fingerprint is required but was null'));
+                      }
+                      
                       const insertQuery = hasVoteDateCol 
                         ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                         : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
                       
                       const insertParams = hasVoteDateCol
-                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint || null, userAgent, currentDate, weekStart]
-                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint || null, userAgent, weekStart];
+                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, currentDate, weekStart]
+                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, weekStart];
                       
                       console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
                       
