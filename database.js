@@ -113,68 +113,79 @@ class DatabaseManager {
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
       ];
 
-      // Execute table creation with callbacks to ensure completion
-      this.db.run(createVotesTable, (err) => {
-        if (err && !err.message.includes('already exists')) {
-          console.error('❌ Error creating votes table:', err);
+      // Execute table creation sequentially to ensure completion
+      // Use exec() for CREATE TABLE statements
+      this.db.exec(createVotesTable, (err) => {
+        if (err) {
+          // Ignore "table already exists" errors
+          if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
+            console.error('❌ Error creating votes table:', err);
+          }
         }
         
-        this.db.run(createBadgesTable, (err) => {
-          if (err && !err.message.includes('already exists')) {
-            console.error('❌ Error creating badges table:', err);
+        this.db.exec(createBadgesTable, (err) => {
+          if (err) {
+            if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
+              console.error('❌ Error creating badges table:', err);
+            }
           }
           
-          this.db.run(createWeeklyStatsTable, (err) => {
-            if (err && !err.message.includes('already exists')) {
-              console.error('❌ Error creating weekly_stats table:', err);
+          this.db.exec(createWeeklyStatsTable, (err) => {
+            if (err) {
+              if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
+                console.error('❌ Error creating weekly_stats table:', err);
+              }
             }
             
-            // Execute index creation after tables are created
-            let indexCount = 0;
-            const totalIndexes = createIndexes.length + createBadgeIndexes.length + createWeeklyStatsIndexes.length;
-            
-            const onIndexComplete = () => {
-              indexCount++;
-              if (indexCount === totalIndexes) {
-                console.log('✅ Database tables and indexes created successfully');
-                
-                // Now run migration after tables are confirmed created
-                this.migrateVotesTableImmediate().then(() => {
-                  console.log('✅ Database migration completed');
-                }).catch((migrationError) => {
-                  console.warn('⚠️ Migration will run on-demand:', migrationError.message);
-                  // Continue - migration will happen on-demand when needed
-                });
+            // Small delay to ensure tables are fully created before creating indexes
+            setTimeout(() => {
+              // Execute index creation after tables are created
+              let indexCount = 0;
+              const totalIndexes = createIndexes.length + createBadgeIndexes.length + createWeeklyStatsIndexes.length;
+              
+              if (totalIndexes === 0) {
+                // No indexes to create, run migration immediately
+                this.runMigrationAfterSetup();
+                return;
               }
-            };
-            
-            // Create indexes
-            createIndexes.forEach(index => {
-              this.db.run(index, (indexErr) => {
-                if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
-                  console.warn('⚠️ Index creation warning:', indexErr.message);
+              
+              const onIndexComplete = () => {
+                indexCount++;
+                if (indexCount === totalIndexes) {
+                  console.log('✅ Database tables and indexes created successfully');
+                  // Run migration after all tables and indexes are created
+                  this.runMigrationAfterSetup();
                 }
-                onIndexComplete();
+              };
+              
+              // Create indexes
+              createIndexes.forEach(index => {
+                this.db.exec(index, (indexErr) => {
+                  if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
+                    console.warn('⚠️ Index creation warning:', indexErr.message);
+                  }
+                  onIndexComplete();
+                });
               });
-            });
-            
-            createBadgeIndexes.forEach(index => {
-              this.db.run(index, (indexErr) => {
-                if (indexErr && !indexErr.message.includes('already exists')) {
-                  console.warn('⚠️ Badge index warning:', indexErr.message);
-                }
-                onIndexComplete();
+              
+              createBadgeIndexes.forEach(index => {
+                this.db.exec(index, (indexErr) => {
+                  if (indexErr && !indexErr.message.includes('already exists')) {
+                    console.warn('⚠️ Badge index warning:', indexErr.message);
+                  }
+                  onIndexComplete();
+                });
               });
-            });
-            
-            createWeeklyStatsIndexes.forEach(index => {
-              this.db.run(index, (indexErr) => {
-                if (indexErr && !indexErr.message.includes('already exists')) {
-                  console.warn('⚠️ Weekly stats index warning:', indexErr.message);
-                }
-                onIndexComplete();
+              
+              createWeeklyStatsIndexes.forEach(index => {
+                this.db.exec(index, (indexErr) => {
+                  if (indexErr && !indexErr.message.includes('already exists')) {
+                    console.warn('⚠️ Weekly stats index warning:', indexErr.message);
+                  }
+                  onIndexComplete();
+                });
               });
-            });
+            }, 100);
           });
         });
       });
@@ -193,6 +204,19 @@ class DatabaseManager {
     monday.setDate(now.getDate() + mondayOffset);
     monday.setHours(0, 0, 0, 0);
     return monday.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+  }
+
+  // Run migration after table setup is complete
+  runMigrationAfterSetup() {
+    // Small delay to ensure everything is settled
+    setTimeout(() => {
+      this.migrateVotesTableImmediate().then(() => {
+        console.log('✅ Database migration completed');
+      }).catch((migrationError) => {
+        console.warn('⚠️ Migration will run on-demand:', migrationError.message);
+        // Continue - migration will happen on-demand when needed
+      });
+    }, 50);
   }
 
   // Migrate votes table immediately (called during table creation)
