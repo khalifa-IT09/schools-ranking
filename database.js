@@ -690,17 +690,18 @@ class DatabaseManager {
       }
       
       try {
+        // weekly_stats doesn't have voter_ip - we need to join with votes table
+        // Or calculate unique_voters separately
         let query = `
           SELECT 
-            school_id,
-            school_name,
-            school_region,
-            school_level,
-            SUM(vote_count) as total_votes,
-            COUNT(DISTINCT voter_ip) as unique_voters,
-            MAX(last_updated) as last_vote_time
+            ws.school_id,
+            ws.school_name,
+            ws.school_region,
+            ws.school_level,
+            SUM(ws.vote_count) as total_votes,
+            MAX(ws.last_updated) as last_vote_time
           FROM weekly_stats ws
-          WHERE week_start = ?
+          WHERE ws.week_start = ?
         `;
 
         const params = [this.getCurrentWeekStart()];
@@ -754,9 +755,9 @@ class DatabaseManager {
       try {
         const weekStart = this.getCurrentWeekStart();
         
-        // Get current week stats
+        // Get total votes from weekly_stats
         this.db.get(
-          'SELECT SUM(vote_count) as total_votes, COUNT(DISTINCT voter_ip) as unique_voters FROM weekly_stats WHERE school_id = ? AND week_start = ?',
+          'SELECT SUM(vote_count) as total_votes FROM weekly_stats WHERE school_id = ? AND week_start = ?',
           [schoolId, weekStart],
           (err, currentWeekStats) => {
             if (err) {
