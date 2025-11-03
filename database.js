@@ -212,6 +212,7 @@ class DatabaseManager {
           });
         });
       });
+    });
     } catch (error) {
       console.error('❌ Error creating database tables:', error);
       throw error;
