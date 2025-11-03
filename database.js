@@ -18,6 +18,20 @@ class DatabaseManager {
           return;
         }
         console.log('✅ Database initialized successfully');
+        
+        // Add error handler to catch missing column errors gracefully
+        this.db.on('error', (err) => {
+          if (err && err.message && err.message.includes('no such column: vote_date')) {
+            console.log('⚠️ vote_date column not found, triggering migration...');
+            // Trigger migration if column is missing
+            this.migrateVotesTable().catch(migrationErr => {
+              console.error('❌ Migration failed after error:', migrationErr);
+            });
+          } else {
+            console.error('❌ Database error:', err);
+          }
+        });
+        
         this.createTables();
       });
     } catch (error) {
@@ -104,20 +118,29 @@ class DatabaseManager {
       this.db.exec(createBadgesTable);
       this.db.exec(createWeeklyStatsTable);
 
-      // Execute index creation
-      createIndexes.forEach(index => this.db.exec(index));
+      // Execute index creation (excluding vote_date indexes - created after migration)
+      createIndexes.forEach(index => {
+        try {
+          this.db.exec(index);
+        } catch (indexErr) {
+          // Ignore index creation errors for columns that don't exist yet
+          if (!indexErr.message || !indexErr.message.includes('no such column')) {
+            console.warn('⚠️ Index creation warning:', indexErr.message);
+          }
+        }
+      });
       createBadgeIndexes.forEach(index => this.db.exec(index));
       createWeeklyStatsIndexes.forEach(index => this.db.exec(index));
 
       console.log('✅ Database tables created successfully');
       
       // Migrate existing votes table to add vote_date column if it doesn't exist
-      // This must complete before any queries run
-      this.migrateVotesTable().then(() => {
+      // Run migration synchronously by checking immediately
+      this.migrateVotesTableImmediate().then(() => {
         console.log('✅ Database migration completed');
       }).catch((migrationError) => {
-        console.error('❌ Migration error (non-fatal):', migrationError);
-        // Continue anyway - we'll check before queries
+        console.warn('⚠️ Migration will run on-demand:', migrationError.message);
+        // Continue - migration will happen on-demand when needed
       });
     } catch (error) {
       console.error('❌ Error creating database tables:', error);
@@ -134,6 +157,35 @@ class DatabaseManager {
     monday.setDate(now.getDate() + mondayOffset);
     monday.setHours(0, 0, 0, 0);
     return monday.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+  }
+
+  // Migrate votes table immediately (called during table creation)
+  migrateVotesTableImmediate() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      // Check immediately if column exists
+      this.db.all("PRAGMA table_info(votes)", (err, columns) => {
+        if (err) {
+          // Table might not exist yet, wait a bit and try again
+          setTimeout(() => {
+            this.migrateVotesTable().then(resolve).catch(reject);
+          }, 200);
+          return;
+        }
+        
+        const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+        if (hasVoteDate) {
+          console.log('✅ vote_date column already exists');
+          resolve();
+        } else {
+          // Column doesn't exist, run migration
+          this.migrateVotesTable().then(resolve).catch(reject);
+        }
+      });
+    });
   }
 
   // Migrate votes table to add vote_date column (synchronous promise-based)
