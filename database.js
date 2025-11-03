@@ -707,18 +707,18 @@ class DatabaseManager {
         const params = [this.getCurrentWeekStart()];
 
         if (region && region !== 'all') {
-          query += ' AND school_region = ?';
+          query += ' AND ws.school_region = ?';
           params.push(region);
         }
 
         if (level && level !== 'all') {
-          query += ' AND school_level = ?';
+          query += ' AND ws.school_level = ?';
           params.push(level);
         }
 
         query += `
-          GROUP BY school_id, school_name, school_region, school_level
-          ORDER BY total_votes DESC, unique_voters DESC
+          GROUP BY ws.school_id, ws.school_name, ws.school_region, ws.school_level
+          ORDER BY total_votes DESC
           LIMIT ?
         `;
         params.push(limit);
@@ -729,17 +729,50 @@ class DatabaseManager {
             return reject(err);
           }
           
-          const schools = rows.map((school, index) => ({
-            ...school,
-            rank: index + 1,
-            total_votes: parseInt(school.total_votes),
-            unique_voters: parseInt(school.unique_voters)
-          }));
+          // Get unique voters count from votes table for each school
+          const weekStart = this.getCurrentWeekStart();
+          const schoolsWithVoters = rows.map((school, index) => {
+            // Calculate unique_voters from votes table
+            return new Promise((resolveVoters) => {
+              const dateColumn = 'vote_date'; // Use vote_date column
+              this.db.get(
+                `SELECT COUNT(DISTINCT voter_ip) as unique_voters 
+                 FROM votes 
+                 WHERE school_id = ? AND week_start = ? AND ${dateColumn} IS NOT NULL`,
+                [school.school_id, weekStart],
+                (voterErr, voterRow) => {
+                  const uniqueVoters = voterErr ? 0 : (voterRow ? parseInt(voterRow.unique_voters || 0) : 0);
+                  resolveVoters({
+                    ...school,
+                    rank: index + 1,
+                    total_votes: parseInt(school.total_votes || 0),
+                    unique_voters: uniqueVoters
+                  });
+                }
+              );
+            });
+          });
           
-          resolve({
-            success: true,
-            schools: schools,
-            week_start: this.getCurrentWeekStart()
+          // Wait for all unique_voters queries to complete
+          Promise.all(schoolsWithVoters).then(schools => {
+            resolve({
+              success: true,
+              schools: schools,
+              week_start: this.getCurrentWeekStart()
+            });
+          }).catch(rejectErr => {
+            // Fallback: return schools without unique_voters if query fails
+            const fallbackSchools = rows.map((school, index) => ({
+              ...school,
+              rank: index + 1,
+              total_votes: parseInt(school.total_votes || 0),
+              unique_voters: 0
+            }));
+            resolve({
+              success: true,
+              schools: fallbackSchools,
+              week_start: this.getCurrentWeekStart()
+            });
           });
         });
       } catch (error) {
@@ -786,6 +819,14 @@ class DatabaseManager {
                     }
 
                     let regionalRank = null;
+                    
+                    // Return current week stats with unique_voters
+                    const currentWeekData = {
+                      total_votes: totalVotes,
+                      unique_voters: uniqueVoters,
+                      week_start: weekStart
+                    };
+                    
                     if (schoolInfo) {
                       this.db.all(
                         'SELECT school_id, SUM(vote_count) as total_votes FROM weekly_stats WHERE school_region = ? AND school_level = ? AND week_start = ? GROUP BY school_id ORDER BY total_votes DESC',
