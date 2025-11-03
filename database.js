@@ -273,11 +273,12 @@ class DatabaseManager {
             // Drop old unique index if it exists (without fingerprint)
             this.db.run('DROP INDEX IF EXISTS idx_votes_unique_daily;', () => {
               // Create new indexes with fingerprint
+              // CRITICAL: Single unique index that ALWAYS includes fingerprint (fingerprint is never NULL now)
               const voteDateIndexes = [
                 'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
                 'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
                 'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, school_id, vote_date) WHERE voter_fingerprint IS NOT NULL',
+                'DROP INDEX IF EXISTS idx_votes_unique_daily', // Remove old index if exists
                 'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
               ];
               
@@ -604,20 +605,24 @@ class DatabaseManager {
                       console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
                       
                       dbManager.db.run(insertQuery, insertParams, function(insertErr) {
-                      if (insertErr) {
-                        dbManager.db.run('ROLLBACK', () => {});
-                        // Check if it's a duplicate vote error (database constraint)
-                        if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate'))) {
-                          return resolve({
-                            success: false,
-                            error: 'Duplicate vote',
-                            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                            remainingVotes: Math.max(0, 7 - weeklyCount),
-                            hasVotedToday: true
-                          });
+                        if (insertErr) {
+                          dbManager.db.run('ROLLBACK', () => {});
+                          // Check if it's a duplicate vote error (database constraint)
+                          console.error('❌ INSERT ERROR:', insertErr.message, insertErr.code);
+                          if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate') || insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE')) {
+                            console.log('🚫 Duplicate vote blocked by database constraint');
+                            return resolve({
+                              success: false,
+                              error: 'Duplicate vote',
+                              message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                              remainingVotes: Math.max(0, 7 - weeklyCount),
+                              hasVotedToday: true
+                            });
+                          }
+                          // Log the error for debugging
+                          console.error('❌ Database insert error:', insertErr);
+                          return reject(insertErr);
                         }
-                        return reject(insertErr);
-                      }
                       
                       // Update weekly stats only if vote was successfully inserted
                       const voteId = this.lastID;

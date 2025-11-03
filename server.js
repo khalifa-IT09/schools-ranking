@@ -1263,27 +1263,28 @@ app.post('/api/vote', async (req, res) => {
     
     // CRITICAL: Generate fingerprint on server if not provided or invalid
     // This ensures we NEVER have NULL fingerprints, which breaks unique constraints
+    // MUST be deterministic - same IP + User-Agent = same fingerprint (NO Date.now!)
     let finalFingerprint = voterFingerprint;
     
     if (!finalFingerprint || typeof finalFingerprint !== 'string' || finalFingerprint.length < 10 || finalFingerprint.length > 100) {
       // Generate server-side fingerprint as fallback using IP + User-Agent + other headers
+      // CRITICAL: Do NOT include Date.now() - must be deterministic for same user
       const serverFingerprintComponents = [
         voterIp,
         userAgent,
         req.headers['accept-language'] || '',
-        req.headers['accept-encoding'] || '',
-        Date.now().toString(36) // Add timestamp to make it unique per request if needed
+        req.headers['accept-encoding'] || ''
       ];
       const hashString = serverFingerprintComponents.join('|');
-      // Simple hash function
+      // Simple hash function (deterministic)
       let hash = 0;
       for (let i = 0; i < hashString.length; i++) {
         const char = hashString.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash;
       }
-      finalFingerprint = 'server_' + Math.abs(hash).toString(16) + voterIp.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-      console.warn('⚠️ Generated server-side fingerprint:', finalFingerprint);
+      finalFingerprint = 'server_' + Math.abs(hash).toString(16) + '_' + voterIp.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+      console.warn('⚠️ Generated server-side fingerprint (deterministic):', finalFingerprint);
     }
     
     console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}, Fingerprint: ${finalFingerprint}`);
