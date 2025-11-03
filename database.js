@@ -463,23 +463,33 @@ class DatabaseManager {
               const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
               const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
               
-              // ATOMIC CHECK: Check if user already voted TODAY (any school) - within transaction
+              // CRITICAL: Use explicit date comparison to ensure accuracy
+              // Check if user already voted TODAY (any school) - within transaction
+              // This query MUST see uncommitted data from other transactions
               const checkDailyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
+              
+              console.log(`🔍 Checking daily vote for IP: ${voterIp}, Date: ${currentDate}, Column: ${dateColumn}`);
               
               dbManager.db.get(checkDailyQuery, [voterIp, currentDate], (dailyErr, dailyRow) => {
                 if (dailyErr) {
+                  console.error('❌ Error in daily check:', dailyErr);
                   dbManager.db.run('ROLLBACK', () => {});
                   return reject(dailyErr);
                 }
                 
+                const voteCount = dailyRow ? (dailyRow.count || 0) : 0;
+                console.log(`📊 Daily vote count for ${voterIp}: ${voteCount}`);
+                
                 // CRITICAL: Block if user already voted today (1 vote per day limit)
-                if (dailyRow && dailyRow.count > 0) {
+                // Even if count is 0, we need to check again AFTER acquiring lock
+                if (voteCount > 0) {
+                  console.log(`🚫 Blocking vote - already voted ${voteCount} time(s) today`);
                   dbManager.db.run('ROLLBACK', () => {});
                   return resolve({
                     success: false,
                     error: 'Daily limit reached',
                     message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
-                    remainingVotes: Math.max(0, 7 - (dailyRow.count || 0)),
+                    remainingVotes: Math.max(0, 7 - voteCount),
                     hasVotedToday: true
                   });
                 }
@@ -525,16 +535,42 @@ class DatabaseManager {
                       });
                     }
                     
-                    // All checks passed - insert the vote
-                    const insertQuery = hasVoteDateCol 
-                      ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                      : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
-                    
-                    const insertParams = hasVoteDateCol
-                      ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
-                      : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
-                    
-                    dbManager.db.run(insertQuery, insertParams, function(insertErr) {
+                    // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
+                    // This prevents race conditions where multiple requests passed the initial check
+                    dbManager.db.get(checkDailyQuery, [voterIp, currentDate], (doubleCheckErr, doubleCheckRow) => {
+                      if (doubleCheckErr) {
+                        console.error('❌ Error in double check:', doubleCheckErr);
+                        dbManager.db.run('ROLLBACK', () => {});
+                        return reject(doubleCheckErr);
+                      }
+                      
+                      const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
+                      console.log(`🔍 Double check vote count: ${doubleCheckCount}`);
+                      
+                      if (doubleCheckCount > 0) {
+                        console.log(`🚫 Blocking vote after double check - already voted ${doubleCheckCount} time(s) today`);
+                        dbManager.db.run('ROLLBACK', () => {});
+                        return resolve({
+                          success: false,
+                          error: 'Daily limit reached',
+                          message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
+                          remainingVotes: Math.max(0, 7 - doubleCheckCount),
+                          hasVotedToday: true
+                        });
+                      }
+                      
+                      // All checks passed - insert the vote
+                      const insertQuery = hasVoteDateCol 
+                        ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                        : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                      
+                      const insertParams = hasVoteDateCol
+                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
+                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
+                      
+                      console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}`);
+                      
+                      dbManager.db.run(insertQuery, insertParams, function(insertErr) {
                       if (insertErr) {
                         dbManager.db.run('ROLLBACK', () => {});
                         // Check if it's a duplicate vote error (database constraint)
@@ -588,6 +624,7 @@ class DatabaseManager {
                 });
               });
             });
+          });
           }
           
           // Use transaction to ensure atomicity and prevent race conditions
