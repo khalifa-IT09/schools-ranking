@@ -452,12 +452,25 @@ class DatabaseManager {
           const currentDate = dbManager.getCurrentDate();
           
           // Use transaction to ensure atomicity and prevent race conditions
-          // BEGIN IMMEDIATE locks the database immediately for this connection
+          // Try BEGIN IMMEDIATE first, fallback to BEGIN if not supported
           dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
             if (beginErr) {
-              console.error('❌ Error beginning transaction:', beginErr);
-              return reject(beginErr);
+              console.warn('⚠️ BEGIN IMMEDIATE not supported, trying BEGIN:', beginErr.message);
+              // Fallback to regular BEGIN
+              dbManager.db.run('BEGIN TRANSACTION', (beginErr2) => {
+                if (beginErr2) {
+                  console.error('❌ Error beginning transaction:', beginErr2);
+                  return reject(beginErr2);
+                }
+                processVoteTransaction();
+              });
+              return;
             }
+            processVoteTransaction();
+          });
+          
+          // Function to process vote within transaction
+          function processVoteTransaction() {
             
             // Check column existence
             dbManager.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
@@ -594,7 +607,8 @@ class DatabaseManager {
                 });
               });
             });
-          });
+          }
+          }); // Close BEGIN IMMEDIATE callback
         } catch (error) {
           dbManager.db.run('ROLLBACK', () => {});
           console.error('❌ Error recording vote:', error);
