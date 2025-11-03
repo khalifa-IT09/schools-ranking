@@ -118,6 +118,10 @@ class SchoolRankingApp {
                 winner_history_title: "Historique des Gagnants",
                 share_school: "Partager pour soutenir ton école",
                 share_message: "Soutenez votre école la semaine prochaine!",
+                top10_weekly_title: "🏆 Top 10 des Écoles de la Semaine",
+                loading_top10: "Chargement du classement...",
+                top10_no_data: "Aucune donnée de vote disponible pour le moment",
+                votes_abbr: "votes",
                 voting_title: "Voter pour ton école préférée",
                 voting_subtitle: "Choisissez une région pour voir les écoles éligibles au vote",
                 voting_select_region: "Sélectionnez une région:",
@@ -447,6 +451,15 @@ class SchoolRankingApp {
         if (btnViewArchive) {
             btnViewArchive.addEventListener('click', () => this.showWinnerHistory());
         }
+
+        // Setup Refresh Leaderboard button
+        const btnRefreshLeaderboard = document.getElementById('btnRefreshLeaderboard');
+        if (btnRefreshLeaderboard) {
+            btnRefreshLeaderboard.addEventListener('click', () => this.loadTop10Leaderboard());
+        }
+
+        // Load Top 10 leaderboard when entering voting mode
+        this.loadTop10Leaderboard();
 
         // Check for winner announcement on page load
         this.checkWinnerAnnouncement();
@@ -796,6 +809,9 @@ class SchoolRankingApp {
                 // Refresh vote counts and display
                 await this.loadVoteCounts();
                 this.displayVotingSchools();
+                
+                // Refresh Top 10 leaderboard after vote
+                await this.loadTop10Leaderboard();
             } else {
                 // Update vote status to get latest info
                 await this.loadVoteStatus();
@@ -1037,6 +1053,93 @@ class SchoolRankingApp {
                 'info'
             );
         }, 1000);
+    }
+
+    // Load and display Top 10 leaderboard in voting interface
+    async loadTop10Leaderboard() {
+        try {
+            const container = document.getElementById('top10Container');
+            if (!container) return;
+
+            // Show loading state
+            container.innerHTML = `
+                <div class="top10-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>${this.translate('loading_top10')}</span>
+                </div>
+            `;
+
+            const response = await fetch('/api/voting/results?limit=10');
+            const data = await response.json();
+
+            if (data.success && data.schools && data.schools.length > 0) {
+                const maxVotes = data.schools[0].total_votes || 1;
+
+                container.innerHTML = `
+                    <div class="top10-list">
+                        ${data.schools.map((school, index) => {
+                            const percentage = (school.total_votes / maxVotes) * 100;
+                            const rank = index + 1;
+                            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                            
+                            return `
+                                <div class="top10-item" data-rank="${rank}">
+                                    <div class="top10-rank">${medal}</div>
+                                    <div class="top10-school-info">
+                                        <div class="top10-school-name">${this.escapeHtml(school.school_name)}</div>
+                                        <div class="top10-school-region">
+                                            <i class="fas fa-map-marker-alt"></i>
+                                            ${this.escapeHtml(school.school_region)}
+                                        </div>
+                                    </div>
+                                    <div class="top10-votes-info">
+                                        <div class="top10-votes-count">
+                                            <i class="fas fa-heart"></i>
+                                            ${school.total_votes} ${this.translate('votes_abbr')}
+                                        </div>
+                                        <div class="top10-progress-bar">
+                                            <div class="top10-progress-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="top10-footer">
+                        <p class="top10-message">
+                            <i class="fas fa-fire"></i>
+                            ${this.translate('keep_voting_message')}
+                        </p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="top10-empty">
+                        <i class="fas fa-info-circle"></i>
+                        <p>${this.translate('top10_no_data')}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('❌ Error loading Top 10 leaderboard:', error);
+            const container = document.getElementById('top10Container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="top10-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>${this.translate('error_loading')}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Helper function to escape HTML
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     async loadRegions() {
