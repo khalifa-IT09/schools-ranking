@@ -1297,10 +1297,13 @@ app.post('/api/vote', async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Error processing vote:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Erreur lors du traitement du vote'
+      message: 'Erreur lors du traitement du vote',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
