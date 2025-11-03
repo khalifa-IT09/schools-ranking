@@ -463,38 +463,36 @@ class DatabaseManager {
               const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
               const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
               
-              // CRITICAL: Use explicit date comparison to ensure accuracy
-              // Check if user already voted TODAY (any school) - within transaction
-              // This query MUST see uncommitted data from other transactions
-              const checkDailyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
+              // CRITICAL: Check if user already voted for THIS SPECIFIC school today
+              // Rule: 1 vote per school per day, max 7 votes per week
+              const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
               
-              console.log(`🔍 Checking daily vote for IP: ${voterIp}, Date: ${currentDate}, Column: ${dateColumn}`);
+              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Date: ${currentDate}, Column: ${dateColumn}`);
               
-              dbManager.db.get(checkDailyQuery, [voterIp, currentDate], (dailyErr, dailyRow) => {
-                if (dailyErr) {
-                  console.error('❌ Error in daily check:', dailyErr);
+              dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
+                if (schoolErr) {
+                  console.error('❌ Error checking school vote:', schoolErr);
                   dbManager.db.run('ROLLBACK', () => {});
-                  return reject(dailyErr);
+                  return reject(schoolErr);
                 }
                 
-                const voteCount = dailyRow ? (dailyRow.count || 0) : 0;
-                console.log(`📊 Daily vote count for ${voterIp}: ${voteCount}`);
+                const schoolVoteCount = schoolRow ? (schoolRow.count || 0) : 0;
+                console.log(`📊 Vote count for this school today: ${schoolVoteCount}`);
                 
-                // CRITICAL: Block if user already voted today (1 vote per day limit)
-                // Even if count is 0, we need to check again AFTER acquiring lock
-                if (voteCount > 0) {
-                  console.log(`🚫 Blocking vote - already voted ${voteCount} time(s) today`);
+                // CRITICAL: Block if user already voted for THIS school today (1 vote per school per day)
+                if (schoolVoteCount > 0) {
+                  console.log(`🚫 Blocking vote - already voted for this school ${schoolVoteCount} time(s) today`);
                   dbManager.db.run('ROLLBACK', () => {});
                   return resolve({
                     success: false,
-                    error: 'Daily limit reached',
-                    message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
-                    remainingVotes: Math.max(0, 7 - voteCount),
+                    error: 'Already voted for this school today',
+                    message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                    remainingVotes: 0,
                     hasVotedToday: true
                   });
                 }
                 
-                // Check weekly limit
+                // Check weekly limit (max 7 votes per week)
                 dbManager.db.get('SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?', 
                   [voterIp, weekStart], (weeklyErr, weeklyRow) => {
                   if (weeklyErr) {
@@ -503,7 +501,10 @@ class DatabaseManager {
                   }
                   
                   const weeklyCount = weeklyRow ? weeklyRow.count : 0;
+                  console.log(`📊 Weekly vote count: ${weeklyCount}/7`);
+                  
                   if (weeklyCount >= 7) {
+                    console.log(`🚫 Blocking vote - weekly limit reached (7 votes)`);
                     dbManager.db.run('ROLLBACK', () => {});
                     return resolve({
                       success: false,
@@ -514,17 +515,20 @@ class DatabaseManager {
                     });
                   }
                   
-                  // Note: We already checked daily limit above, so we don't need to check for same school again
-                  // But we'll keep it as an extra safety check
-                  const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
-                  
-                  dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
-                    if (schoolErr) {
+                  // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
+                  // This prevents race conditions where multiple requests passed the initial check
+                  dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (doubleCheckErr, doubleCheckRow) => {
+                    if (doubleCheckErr) {
+                      console.error('❌ Error in double check:', doubleCheckErr);
                       dbManager.db.run('ROLLBACK', () => {});
-                      return reject(schoolErr);
+                      return reject(doubleCheckErr);
                     }
                     
-                    if (schoolRow && schoolRow.count > 0) {
+                    const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
+                    console.log(`🔍 Double check vote count for this school: ${doubleCheckCount}`);
+                    
+                    if (doubleCheckCount > 0) {
+                      console.log(`🚫 Blocking vote after double check - already voted for this school ${doubleCheckCount} time(s) today`);
                       dbManager.db.run('ROLLBACK', () => {});
                       return resolve({
                         success: false,
@@ -534,30 +538,6 @@ class DatabaseManager {
                         hasVotedToday: true
                       });
                     }
-                    
-                    // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
-                    // This prevents race conditions where multiple requests passed the initial check
-                    dbManager.db.get(checkDailyQuery, [voterIp, currentDate], (doubleCheckErr, doubleCheckRow) => {
-                      if (doubleCheckErr) {
-                        console.error('❌ Error in double check:', doubleCheckErr);
-                        dbManager.db.run('ROLLBACK', () => {});
-                        return reject(doubleCheckErr);
-                      }
-                      
-                      const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
-                      console.log(`🔍 Double check vote count: ${doubleCheckCount}`);
-                      
-                      if (doubleCheckCount > 0) {
-                        console.log(`🚫 Blocking vote after double check - already voted ${doubleCheckCount} time(s) today`);
-                        dbManager.db.run('ROLLBACK', () => {});
-                        return resolve({
-                          success: false,
-                          error: 'Daily limit reached',
-                          message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
-                          remainingVotes: Math.max(0, 7 - doubleCheckCount),
-                          hasVotedToday: true
-                        });
-                      }
                       
                       // CRITICAL: Ensure currentDate is never null/undefined
                       if (!currentDate || currentDate === 'null' || currentDate === 'undefined') {
