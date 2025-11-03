@@ -43,7 +43,7 @@ class DatabaseManager {
         )
       `;
 
-      // Create indexes for better performance
+      // Create indexes for better performance (excluding vote_date - will be created after migration)
       const createIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_votes_school_id ON votes(school_id)',
         'CREATE INDEX IF NOT EXISTS idx_votes_week_start ON votes(week_start)',
@@ -51,8 +51,6 @@ class DatabaseManager {
         'CREATE INDEX IF NOT EXISTS idx_votes_school_region ON votes(school_region)',
         'CREATE INDEX IF NOT EXISTS idx_votes_school_level ON votes(school_level)',
         'CREATE INDEX IF NOT EXISTS idx_votes_timestamp ON votes(vote_timestamp)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
         'CREATE INDEX IF NOT EXISTS idx_votes_ip_week ON votes(voter_ip, week_start)'
       ];
 
@@ -185,15 +183,29 @@ class DatabaseManager {
                   console.log('✅ Migration completed: vote_date column added and populated');
                 }
                 
-                // Create index on vote_date for better performance
-                this.db.run(`
-                  CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date);
-                `, (indexErr) => {
-                  if (indexErr) {
-                    console.warn('⚠️ Could not create vote_date index:', indexErr);
-                  }
-                  resolve();
+                // Create indexes on vote_date for better performance
+                const voteDateIndexes = [
+                  'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
+                  'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)'
+                ];
+                
+                let indexesCreated = 0;
+                voteDateIndexes.forEach((indexQuery) => {
+                  this.db.run(indexQuery, (indexErr) => {
+                    if (indexErr) {
+                      console.warn('⚠️ Could not create vote_date index:', indexErr);
+                    }
+                    indexesCreated++;
+                    if (indexesCreated === voteDateIndexes.length) {
+                      resolve();
+                    }
+                  });
                 });
+                
+                // Handle case where no indexes need to be created
+                if (voteDateIndexes.length === 0) {
+                  resolve();
+                }
               });
             });
           } else {
@@ -248,15 +260,24 @@ class DatabaseManager {
       
       // Ensure vote_date column exists before querying
       this.ensureVoteDateColumn().then(() => {
-        try {
-          const weekStart = this.getCurrentWeekStart();
-          const currentDate = this.getCurrentDate();
+        // Double-check column exists after migration attempt
+        this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
+          if (colErr) {
+            return reject(colErr);
+          }
           
-          // Check if user has voted today
-          this.db.get(
-            'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND vote_date = ?',
-            [voterIp, currentDate],
-          (err, dailyRow) => {
+          const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+          const dateColumn = hasVoteDate ? 'vote_date' : 'DATE(vote_timestamp)';
+          
+          try {
+            const weekStart = this.getCurrentWeekStart();
+            const currentDate = this.getCurrentDate();
+            
+            // Check if user has voted today (using vote_date or DATE(vote_timestamp) as fallback)
+            this.db.get(
+              `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`,
+              [voterIp, currentDate],
+            (err, dailyRow) => {
             if (err) {
               console.error('❌ Error checking daily vote:', err);
               return reject(err);
@@ -292,10 +313,11 @@ class DatabaseManager {
             );
           }
         );
-        } catch (error) {
-          console.error('❌ Error getting user vote status:', error);
-          reject(error);
-        }
+          } catch (error) {
+            console.error('❌ Error getting user vote status:', error);
+            reject(error);
+          }
+        });
       }).catch(reject);
     });
   }
@@ -337,10 +359,26 @@ class DatabaseManager {
             });
           }
 
-          // Insert the vote with current date
-          this.db.run(
-            'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart],
+          // Check if vote_date column exists before inserting
+          this.ensureVoteDateColumn().then(() => {
+            // Check column existence after migration
+            this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
+              if (colErr) {
+                return reject(colErr);
+              }
+              
+              const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
+              
+              // Insert the vote with current date
+              const insertQuery = hasVoteDateCol 
+                ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
+              
+              const insertParams = hasVoteDateCol
+                ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
+                : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
+              
+              this.db.run(insertQuery, insertParams,
             function(err) {
               if (err) {
                 console.error('❌ Error recording vote:', err);
