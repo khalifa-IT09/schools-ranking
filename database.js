@@ -449,87 +449,90 @@ class DatabaseManager {
           
           // First check if user can vote (daily and weekly limits)
           this.getUserVoteStatus(voterIp).then(status => {
-          // Check daily limit (1 vote per day)
-          if (status.hasVotedToday) {
-            return resolve({
-              success: false,
-              error: 'Daily limit reached',
-              message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
-              remainingVotes: status.remainingWeeklyVotes,
-              hasVotedToday: true
-            });
-          }
-          
-          // Check weekly limit (7 votes per week total)
-          if (status.weeklyLimitReached) {
-            return resolve({
-              success: false,
-              error: 'Weekly limit reached',
-              message: 'Vos votes hebdomadaires sont épuisés.',
-              remainingVotes: 0,
-              weeklyLimitReached: true
-            });
-          }
-
-          // Check if vote_date column exists before inserting
-          this.ensureVoteDateColumn().then(() => {
-            // Check column existence after migration
-            this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
-              if (colErr) {
-                return reject(colErr);
-              }
-              
-              const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
-              
-              // Insert the vote with current date
-              const insertQuery = hasVoteDateCol 
-                ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
-              
-              const insertParams = hasVoteDateCol
-                ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
-                : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
-              
-              this.db.run(insertQuery, insertParams,
-            function(err) {
-              if (err) {
-                console.error('❌ Error recording vote:', err);
-                // Check if it's a duplicate vote error
-                if (err.message && err.message.includes('UNIQUE')) {
-                  return resolve({
-                    success: false,
-                    error: 'Duplicate vote',
-                    message: 'Vous avez déjà voté pour cette école',
-                    remainingVotes: status.remainingWeeklyVotes
-                  });
-                }
-                return reject(err);
-              }
-              
-              // Update weekly stats
-              dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
-
-              // Get updated status after vote
-              dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
-                resolve({
-                  success: true,
-                  voteId: this.lastID,
-                  remainingVotes: updatedStatus.remainingWeeklyVotes,
-                  message: 'Vote enregistré avec succès',
-                  hasVotedToday: true
-                });
-              }).catch(updateErr => {
-                // Still return success even if status update fails
-                resolve({
-                  success: true,
-                  voteId: this.lastID,
-                  remainingVotes: status.remainingWeeklyVotes - 1,
-                  message: 'Vote enregistré avec succès',
-                  hasVotedToday: true
-                });
+            // Check daily limit (1 vote per day)
+            if (status.hasVotedToday) {
+              return resolve({
+                success: false,
+                error: 'Daily limit reached',
+                message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
+                remainingVotes: status.remainingWeeklyVotes,
+                hasVotedToday: true
               });
             }
-          );
+            
+            // Check weekly limit (7 votes per week total)
+            if (status.weeklyLimitReached) {
+              return resolve({
+                success: false,
+                error: 'Weekly limit reached',
+                message: 'Vos votes hebdomadaires sont épuisés.',
+                remainingVotes: 0,
+                weeklyLimitReached: true
+              });
+            }
+
+            // Check if vote_date column exists before inserting
+            this.ensureVoteDateColumn().then(() => {
+              // Check column existence after migration
+              this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
+                if (colErr) {
+                  return reject(colErr);
+                }
+                
+                const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
+                
+                // Insert the vote with current date
+                const insertQuery = hasVoteDateCol 
+                  ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                  : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                
+                const insertParams = hasVoteDateCol
+                  ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
+                  : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
+                
+                this.db.run(insertQuery, insertParams, function(err) {
+                  if (err) {
+                    console.error('❌ Error recording vote:', err);
+                    // Check if it's a duplicate vote error
+                    if (err.message && err.message.includes('UNIQUE')) {
+                      return resolve({
+                        success: false,
+                        error: 'Duplicate vote',
+                        message: 'Vous avez déjà voté pour cette école',
+                        remainingVotes: status.remainingWeeklyVotes
+                      });
+                    }
+                    return reject(err);
+                  }
+                  
+                  // Update weekly stats
+                  dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+
+                  // Get updated status after vote
+                  dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
+                    resolve({
+                      success: true,
+                      voteId: this.lastID,
+                      remainingVotes: updatedStatus.remainingWeeklyVotes,
+                      message: 'Vote enregistré avec succès',
+                      hasVotedToday: true
+                    });
+                  }).catch(updateErr => {
+                    // Still return success even if status update fails
+                    resolve({
+                      success: true,
+                      voteId: this.lastID,
+                      remainingVotes: status.remainingWeeklyVotes - 1,
+                      message: 'Vote enregistré avec succès',
+                      hasVotedToday: true
+                    });
+                  });
+                });
+              });
+            }).catch(colError => {
+              console.error('❌ Error ensuring vote_date column:', colError);
+              return reject(colError);
+            });
           }).catch(statusError => {
             console.error('❌ Error getting vote status:', statusError);
             reject(statusError);
