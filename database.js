@@ -479,7 +479,7 @@ class DatabaseManager {
                 
                 // CRITICAL: Block if user already voted today (1 vote per day limit)
                 if (dailyRow && dailyRow.count > 0) {
-                  this.db.run('ROLLBACK');
+                  this.db.run('ROLLBACK', () => {});
                   return resolve({
                     success: false,
                     error: 'Daily limit reached',
