@@ -451,8 +451,8 @@ class DatabaseManager {
           const weekStart = dbManager.getCurrentWeekStart();
           const currentDate = dbManager.getCurrentDate();
           
-          // Use BEGIN IMMEDIATE to lock the database and prevent concurrent votes
-          // This ensures atomicity - only one vote can be processed at a time per user
+          // Use transaction to ensure atomicity and prevent race conditions
+          // BEGIN IMMEDIATE locks the database immediately for this connection
           dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
             if (beginErr) {
               console.error('❌ Error beginning transaction:', beginErr);
