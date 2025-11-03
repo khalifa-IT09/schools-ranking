@@ -842,10 +842,7 @@ class DatabaseManager {
 
                           resolve({
                             success: true,
-                            current_week: {
-                              total_votes: parseInt(currentWeekStats.total_votes) || 0,
-                              unique_voters: parseInt(currentWeekStats.unique_voters) || 0
-                            },
+                            current_week: currentWeekData,
                             all_time: {
                               total_votes: parseInt(allTimeStats.total_votes) || 0,
                               unique_voters: parseInt(allTimeStats.unique_voters) || 0,
@@ -858,10 +855,7 @@ class DatabaseManager {
                     } else {
                       resolve({
                         success: true,
-                        current_week: {
-                          total_votes: parseInt(currentWeekStats.total_votes) || 0,
-                          unique_voters: parseInt(currentWeekStats.unique_voters) || 0
-                        },
+                        current_week: currentWeekData,
                         all_time: {
                           total_votes: parseInt(allTimeStats.total_votes) || 0,
                           unique_voters: parseInt(allTimeStats.unique_voters) || 0,
