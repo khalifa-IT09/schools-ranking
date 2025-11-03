@@ -1235,7 +1235,7 @@ app.get('/test', (req, res) => {
 // Record a vote
 app.post('/api/vote', async (req, res) => {
   try {
-    const { schoolId, schoolName, schoolRegion, schoolLevel } = req.body;
+    const { schoolId, schoolName, schoolRegion, schoolLevel, voterFingerprint } = req.body;
     
     if (!schoolId || !schoolName || !schoolRegion || !schoolLevel) {
       return res.status(400).json({
@@ -1261,7 +1261,13 @@ app.post('/api/vote', async (req, res) => {
                    'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     
-    console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}`);
+    console.log(`🗳️ Recording vote: ${schoolId} from IP: ${voterIp}, Fingerprint: ${voterFingerprint ? 'present' : 'missing'}`);
+    
+    // Validate fingerprint format (should be a hash string)
+    if (voterFingerprint && (typeof voterFingerprint !== 'string' || voterFingerprint.length < 10 || voterFingerprint.length > 100)) {
+      console.warn('⚠️ Invalid fingerprint format received:', voterFingerprint);
+      // Continue without fingerprint rather than rejecting
+    }
     
     // Record the vote using database manager
     const result = await dbManager.recordVote(
@@ -1270,6 +1276,7 @@ app.post('/api/vote', async (req, res) => {
       schoolRegion,
       schoolLevel,
       voterIp,
+      voterFingerprint || null,
       userAgent
     );
     

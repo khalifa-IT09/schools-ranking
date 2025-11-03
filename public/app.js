@@ -17,6 +17,9 @@ class SchoolRankingApp {
         this.selectedVotingRegion = ''; // Selected region for voting
         this.voteStatus = null; // Store user vote status (remaining votes, etc.)
         
+        // Initialize browser fingerprint
+        this.browserFingerprint = this.getOrCreateBrowserFingerprint();
+        
         // Translation system
         this.translations = {
             fr: {
@@ -777,6 +780,51 @@ class SchoolRankingApp {
         }
     }
 
+    // Generate browser fingerprint for better user identification
+    getOrCreateBrowserFingerprint() {
+        // Check if fingerprint already exists in localStorage
+        let fingerprint = localStorage.getItem('browser_fingerprint');
+        
+        if (!fingerprint) {
+            // Generate a unique fingerprint based on browser characteristics
+            const components = [
+                navigator.userAgent,
+                navigator.language,
+                navigator.platform,
+                screen.width + 'x' + screen.height,
+                screen.colorDepth,
+                new Date().getTimezoneOffset(),
+                navigator.hardwareConcurrency || 'unknown',
+                navigator.deviceMemory || 'unknown',
+                navigator.maxTouchPoints || '0'
+            ];
+            
+            // Create a simple hash from components
+            const hashString = components.join('|');
+            fingerprint = this.simpleHash(hashString);
+            
+            // Store in localStorage for persistence
+            localStorage.setItem('browser_fingerprint', fingerprint);
+            console.log('✅ Generated new browser fingerprint:', fingerprint);
+        } else {
+            console.log('✅ Using existing browser fingerprint:', fingerprint);
+        }
+        
+        return fingerprint;
+    }
+    
+    // Simple hash function for fingerprint generation
+    simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        // Convert to positive hex string
+        return Math.abs(hash).toString(16) + Date.now().toString(36).substring(0, 8);
+    }
+
     async voteForSchool(schoolId, schoolName, schoolRegion) {
         try {
             console.log(`🗳️ Voting for school: ${schoolId}`);
@@ -787,6 +835,9 @@ class SchoolRankingApp {
                 voteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
             }
             
+            // Get or refresh browser fingerprint
+            const fingerprint = this.getOrCreateBrowserFingerprint();
+            
             const response = await fetch('/api/vote', {
                 method: 'POST',
                 headers: {
@@ -796,7 +847,8 @@ class SchoolRankingApp {
                     schoolId: schoolId,
                     schoolName: schoolName,
                     schoolRegion: schoolRegion,
-                    schoolLevel: 'secondary'
+                    schoolLevel: 'secondary',
+                    voterFingerprint: fingerprint
                 })
             });
             

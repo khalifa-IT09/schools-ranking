@@ -249,7 +249,7 @@ class DatabaseManager {
     });
   }
 
-  // Migrate votes table to add vote_date column (synchronous promise-based)
+  // Migrate votes table to add vote_date column and voter_fingerprint (synchronous promise-based)
   migrateVotesTable() {
     return new Promise((resolve, reject) => {
       if (!this.db) {
@@ -257,7 +257,7 @@ class DatabaseManager {
       }
       
       try {
-        // Check if vote_date column exists
+        // Check if vote_date and voter_fingerprint columns exist
         this.db.all("PRAGMA table_info(votes)", (err, columns) => {
           if (err) {
             console.error('❌ Error checking votes table structure:', err);
@@ -265,6 +265,7 @@ class DatabaseManager {
           }
           
           const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+          const hasFingerprint = columns && columns.some(col => col.name === 'voter_fingerprint');
           
           if (!hasVoteDate) {
             console.log('🔄 Migrating votes table: adding vote_date column...');
@@ -298,10 +299,12 @@ class DatabaseManager {
                 
                 // Create indexes on vote_date for better performance
                 // CRITICAL: Create unique index to prevent duplicate votes for same school on same day
+                // Use combination of IP + fingerprint for better identification
                 const voteDateIndexes = [
                   'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
                   'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
-                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, school_id, vote_date)'
+                  'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
+                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
                 ];
                 
                 let indexesCreated = 0;
@@ -438,7 +441,7 @@ class DatabaseManager {
   }
 
   // Record a vote (with atomic transaction to prevent race conditions)
-  recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent) {
+  recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent) {
     const dbManager = this; // Capture context for nested callbacks
     return new Promise((resolve, reject) => {
       if (!dbManager.db) {
@@ -465,11 +468,18 @@ class DatabaseManager {
               
               // CRITICAL: Check if user already voted for THIS SPECIFIC school today
               // Rule: 1 vote per school per day, max 7 votes per week
-              const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
+              // Use combination of IP + fingerprint for better identification
+              const checkSchoolQuery = voterFingerprint 
+                ? `SELECT COUNT(*) as count FROM votes WHERE ((voter_ip = ? AND voter_fingerprint = ?) OR (voter_ip = ? AND voter_fingerprint IS NULL)) AND school_id = ? AND ${dateColumn} = ?`
+                : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
               
-              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Date: ${currentDate}, Column: ${dateColumn}`);
+              const checkSchoolParams = voterFingerprint 
+                ? [voterIp, voterFingerprint, voterIp, schoolId, currentDate]
+                : [voterIp, schoolId, currentDate];
               
-              dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
+              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint ? 'present' : 'missing'}, Date: ${currentDate}, Column: ${dateColumn}`);
+              
+              dbManager.db.get(checkSchoolQuery, checkSchoolParams, (schoolErr, schoolRow) => {
                 if (schoolErr) {
                   console.error('❌ Error checking school vote:', schoolErr);
                   dbManager.db.run('ROLLBACK', () => {});
@@ -493,8 +503,16 @@ class DatabaseManager {
                 }
                 
                 // Check weekly limit (max 7 votes per week)
-                dbManager.db.get('SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?', 
-                  [voterIp, weekStart], (weeklyErr, weeklyRow) => {
+                // Use IP + fingerprint combination for better identification
+                const weeklyCheckQuery = voterFingerprint
+                  ? 'SELECT COUNT(*) as count FROM votes WHERE ((voter_ip = ? AND voter_fingerprint = ?) OR (voter_ip = ? AND voter_fingerprint IS NULL)) AND week_start = ?'
+                  : 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?';
+                
+                const weeklyCheckParams = voterFingerprint
+                  ? [voterIp, voterFingerprint, voterIp, weekStart]
+                  : [voterIp, weekStart];
+                
+                dbManager.db.get(weeklyCheckQuery, weeklyCheckParams, (weeklyErr, weeklyRow) => {
                   if (weeklyErr) {
                     dbManager.db.run('ROLLBACK', () => {});
                     return reject(weeklyErr);
@@ -517,7 +535,7 @@ class DatabaseManager {
                   
                   // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
                   // This prevents race conditions where multiple requests passed the initial check
-                  dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (doubleCheckErr, doubleCheckRow) => {
+                  dbManager.db.get(checkSchoolQuery, checkSchoolParams, (doubleCheckErr, doubleCheckRow) => {
                     if (doubleCheckErr) {
                       console.error('❌ Error in double check:', doubleCheckErr);
                       dbManager.db.run('ROLLBACK', () => {});
@@ -548,13 +566,14 @@ class DatabaseManager {
                       
                       // All checks passed - insert the vote
                       // ALWAYS include vote_date if column exists, never allow NULL
+                      // Include fingerprint for better user identification
                       const insertQuery = hasVoteDateCol 
-                        ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                        : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                        ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                        : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
                       
                       const insertParams = hasVoteDateCol
-                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
-                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
+                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint || null, userAgent, currentDate, weekStart]
+                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint || null, userAgent, weekStart];
                       
                       console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
                       
