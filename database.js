@@ -559,7 +559,15 @@ class DatabaseManager {
                         });
                       }
                       
+                      // CRITICAL: Ensure currentDate is never null/undefined
+                      if (!currentDate || currentDate === 'null' || currentDate === 'undefined') {
+                        console.error('❌ Invalid currentDate:', currentDate);
+                        dbManager.db.run('ROLLBACK', () => {});
+                        return reject(new Error('Invalid date for vote'));
+                      }
+                      
                       // All checks passed - insert the vote
+                      // ALWAYS include vote_date if column exists, never allow NULL
                       const insertQuery = hasVoteDateCol 
                         ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                         : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
@@ -568,7 +576,7 @@ class DatabaseManager {
                         ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
                         : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
                       
-                      console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}`);
+                      console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
                       
                       dbManager.db.run(insertQuery, insertParams, function(insertErr) {
                       if (insertErr) {
