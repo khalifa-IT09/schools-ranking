@@ -118,6 +118,10 @@ class SchoolRankingApp {
                 winner_history_title: "Historique des Gagnants",
                 share_school: "Partager pour soutenir ton école",
                 share_message: "Soutenez votre école la semaine prochaine!",
+                share_button: "Partager",
+                share_on_facebook: "Partager sur Facebook",
+                share_on_whatsapp: "Partager sur WhatsApp",
+                share_text: "Votez pour cette école avec moi!",
                 top10_weekly_title: "🏆 Top 10 des Écoles de la Semaine",
                 loading_top10: "Chargement du classement...",
                 top10_no_data: "Aucune donnée de vote disponible pour le moment",
@@ -684,6 +688,22 @@ class SchoolRankingApp {
                         </div>
                     ` : ''}
                 </div>
+                <div class="voting-card-actions">
+                    <div class="share-buttons-container">
+                        <button class="btn-share-social btn-share-facebook" 
+                                onclick="app.shareOnFacebook('${schoolName}', '${schoolRegion}')"
+                                title="${this.translate('share_on_facebook')}">
+                            <i class="fab fa-facebook-f"></i>
+                            <span>Facebook</span>
+                        </button>
+                        <button class="btn-share-social btn-share-whatsapp" 
+                                onclick="app.shareOnWhatsApp('${schoolName}', '${schoolRegion}')"
+                                title="${this.translate('share_on_whatsapp')}">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>WhatsApp</span>
+                        </button>
+                    </div>
+                </div>
                 ${this.getVoteButtonHTML(schoolId, schoolName, schoolRegion)}
             </div>
         `;
@@ -991,6 +1011,31 @@ class SchoolRankingApp {
         } else {
             this.copyToClipboard(url);
         }
+    }
+
+    // Share on Facebook
+    shareOnFacebook(schoolName, schoolRegion) {
+        const link = this.generateSchoolVotingLink(schoolName);
+        const text = encodeURIComponent(`${this.translate('share_text')}\n\n${schoolName} (${schoolRegion})\n\nVotez ici: ${link}`);
+        const url = encodeURIComponent(link);
+        
+        // Facebook Share Dialog
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
+        window.open(facebookUrl, 'facebook-share-dialog', 'width=626,height=436,menubar=no,toolbar=no,resizable=yes,scrollbars=yes');
+        
+        this.showNotification(`${this.translate('share_button')} sur Facebook`, 'success');
+    }
+
+    // Share on WhatsApp
+    shareOnWhatsApp(schoolName, schoolRegion) {
+        const link = this.generateSchoolVotingLink(schoolName);
+        const text = encodeURIComponent(`${this.translate('share_text')}\n\n🏫 ${schoolName}\n📍 ${schoolRegion}\n\n🗳️ Votez ici: ${link}`);
+        
+        // WhatsApp share URL (works on mobile and desktop)
+        const whatsappUrl = `https://wa.me/?text=${text}`;
+        window.open(whatsappUrl, '_blank');
+        
+        this.showNotification(`${this.translate('share_button')} sur WhatsApp`, 'success');
     }
 
     // Copy to clipboard
