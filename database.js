@@ -617,6 +617,31 @@ class DatabaseManager {
                         return reject(new Error('Fingerprint is required but was null'));
                       }
                       
+                      // FINAL CHECK: Query database one more time with EXACT same conditions as INSERT
+                      // This is the absolute last check before insert to catch any race conditions
+                      const finalCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND ${dateColumn} = ?`;
+                      dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (finalCheckErr, finalCheckRow) => {
+                        if (finalCheckErr) {
+                          console.error('❌ [TRANSACTION] Final check error:', finalCheckErr);
+                          dbManager.db.run('ROLLBACK', () => {});
+                          return reject(finalCheckErr);
+                        }
+                        
+                        const finalCheckCount = finalCheckRow ? (finalCheckRow.count || 0) : 0;
+                        console.log(`🔍 [TRANSACTION] FINAL CHECK before insert: ${finalCheckCount} existing votes`);
+                        
+                        if (finalCheckCount > 0) {
+                          console.log(`🚫 [TRANSACTION] FINAL CHECK BLOCKED - Found ${finalCheckCount} existing vote(s) before insert`);
+                          dbManager.db.run('ROLLBACK', () => {});
+                          return resolve({
+                            success: false,
+                            error: 'Already voted for this school today',
+                            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                            remainingVotes: 0,
+                            hasVotedToday: true
+                          });
+                        }
+                      
                       const insertQuery = hasVoteDateCol 
                         ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                         : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
@@ -629,7 +654,19 @@ class DatabaseManager {
                       console.log(`✅ [TRANSACTION] Insert Query: ${insertQuery}`);
                       console.log(`✅ [TRANSACTION] Insert Params: [${schoolId}, ${schoolName.substring(0, 20)}..., ${schoolRegion}, ${schoolLevel}, ${voterIp}, ${voterFingerprint.substring(0, 20)}..., ..., ${currentDate}, ${weekStart}]`);
                       
-                      dbManager.db.run(insertQuery, insertParams, function(insertErr) {
+                      // Verify unique index exists before insert
+                      dbManager.db.all("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='idx_votes_unique_daily_with_fingerprint'", (indexCheckErr, indexes) => {
+                        if (indexCheckErr) {
+                          console.error('❌ [TRANSACTION] Error checking unique index:', indexCheckErr);
+                        } else {
+                          if (indexes.length === 0) {
+                            console.error('❌ [TRANSACTION] CRITICAL: Unique index does not exist! This will allow duplicates!');
+                          } else {
+                            console.log('✅ [TRANSACTION] Unique index verified:', indexes[0].name);
+                          }
+                        }
+                        
+                        dbManager.db.run(insertQuery, insertParams, function(insertErr) {
                         if (insertErr) {
                           dbManager.db.run('ROLLBACK', () => {});
                           // Check if it's a duplicate vote error (database constraint)
@@ -651,6 +688,19 @@ class DatabaseManager {
                         }
                         
                         console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${this.lastID}`);
+                        
+                        // VERIFY: Check if vote was actually inserted and no duplicate exists
+                        dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (verifyErr, verifyRow) => {
+                          if (verifyErr) {
+                            console.error('❌ [TRANSACTION] Verification error:', verifyErr);
+                          } else {
+                            const verifyCount = verifyRow ? (verifyRow.count || 0) : 0;
+                            console.log(`🔍 [TRANSACTION] Post-insert verification: ${verifyCount} vote(s) found`);
+                            if (verifyCount > 1) {
+                              console.error('❌ [TRANSACTION] CRITICAL: Multiple votes found after insert! This should not happen!');
+                            }
+                          }
+                        });
                       
                       // Update weekly stats only if vote was successfully inserted
                       const voteId = this.lastID;
@@ -684,12 +734,14 @@ class DatabaseManager {
                             hasVotedToday: true
                           });
                         });
-                      });
-                    });
-                  });
-                });
-              });
-            });
+                        }); // Close verify callback
+                      }); // Close insert function
+                    }); // Close indexCheck callback
+                  }); // Close finalCheck callback
+                }); // Close double check
+              }); // Close weekly check
+            }); // Close school check
+          }); // Close PRAGMA table_info
           }
           
           // Use transaction to ensure atomicity and prevent race conditions
