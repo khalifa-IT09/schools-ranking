@@ -814,6 +814,7 @@ class SchoolRankingApp {
     }
     
     // Simple hash function for fingerprint generation
+    // CRITICAL: Must be deterministic - NO Date.now() or random values!
     simpleHash(str) {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
@@ -821,8 +822,11 @@ class SchoolRankingApp {
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash; // Convert to 32-bit integer
         }
-        // Convert to positive hex string
-        return Math.abs(hash).toString(16) + Date.now().toString(36).substring(0, 8);
+        // Convert to positive hex string - NO timestamp, must be deterministic
+        // Add a fixed suffix based on hash to ensure uniqueness while staying deterministic
+        const hashStr = Math.abs(hash).toString(16);
+        const suffix = hashStr.substring(Math.max(0, hashStr.length - 8)).padStart(8, '0');
+        return hashStr + '_' + suffix;
     }
 
     async voteForSchool(schoolId, schoolName, schoolRegion) {

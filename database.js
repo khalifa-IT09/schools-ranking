@@ -54,6 +54,7 @@ class DatabaseManager {
             school_region TEXT NOT NULL,
             school_level TEXT NOT NULL,
             voter_ip TEXT NOT NULL,
+            voter_fingerprint TEXT NOT NULL,
             voter_user_agent TEXT,
             vote_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             vote_date DATE,
@@ -270,35 +271,47 @@ class DatabaseManager {
           // Function to create indexes
           const createIndexes = () => {
             console.log('🔄 Creating/updating indexes for vote tracking...');
-            // Drop old unique index if it exists (without fingerprint)
+            // Drop ALL old unique indexes first
             this.db.run('DROP INDEX IF EXISTS idx_votes_unique_daily;', () => {
-              // Create new indexes with fingerprint
-              // CRITICAL: Single unique index that ALWAYS includes fingerprint (fingerprint is never NULL now)
-              const voteDateIndexes = [
-                'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
-                'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
-                'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                'DROP INDEX IF EXISTS idx_votes_unique_daily', // Remove old index if exists
-                'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)'
-              ];
-              
-              let indexesCreated = 0;
-              voteDateIndexes.forEach((indexQuery) => {
-                this.db.run(indexQuery, (indexErr) => {
-                  if (indexErr) {
-                    console.warn('⚠️ Could not create index:', indexErr.message);
-                  }
-                  indexesCreated++;
-                  if (indexesCreated === voteDateIndexes.length) {
-                    console.log('✅ Migration completed: all columns and indexes created');
-                    resolve();
-                  }
+              this.db.run('DROP INDEX IF EXISTS idx_votes_unique_daily_with_fingerprint;', () => {
+                // Create new indexes with fingerprint
+                // CRITICAL: Single unique index that ALWAYS includes fingerprint (fingerprint is never NULL now)
+                const voteDateIndexes = [
+                  'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
+                  'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
+                  'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
+                  'CREATE UNIQUE INDEX idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)' // Remove IF NOT EXISTS to force recreation
+                ];
+                
+                let indexesCreated = 0;
+                const totalIndexes = voteDateIndexes.length;
+                voteDateIndexes.forEach((indexQuery) => {
+                  this.db.run(indexQuery, (indexErr) => {
+                    if (indexErr) {
+                      console.error('❌ Could not create index:', indexQuery, indexErr.message);
+                    } else {
+                      console.log('✅ Created index:', indexQuery);
+                    }
+                    indexesCreated++;
+                    if (indexesCreated === totalIndexes) {
+                      console.log('✅ Migration completed: all columns and indexes created');
+                      // Verify index exists
+                      this.db.all("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_votes_unique_daily_with_fingerprint'", (verifyErr, indexes) => {
+                        if (verifyErr) {
+                          console.error('❌ Error verifying index:', verifyErr);
+                        } else {
+                          console.log('✅ Verified unique index exists:', indexes.length > 0 ? 'YES' : 'NO');
+                        }
+                        resolve();
+                      });
+                    }
+                  });
                 });
+                
+                if (totalIndexes === 0) {
+                  resolve();
+                }
               });
-              
-              if (voteDateIndexes.length === 0) {
-                resolve();
-              }
             });
           };
           
@@ -487,6 +500,13 @@ class DatabaseManager {
           
           // Function to process vote within transaction (defined before use)
           function processVoteTransaction() {
+            // CRITICAL: Validate fingerprint is present BEFORE any database operations
+            if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
+              console.error('❌ CRITICAL: voterFingerprint is missing or invalid:', voterFingerprint);
+              dbManager.db.run('ROLLBACK', () => {});
+              return reject(new Error('Fingerprint is required but was null or invalid'));
+            }
+            
             // Check column existence
             dbManager.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
               if (colErr) {
@@ -500,10 +520,11 @@ class DatabaseManager {
               // CRITICAL: Check if user already voted for THIS SPECIFIC school today
               // Rule: 1 vote per school per day, max 7 votes per week
               // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
+              // Use exact match with proper date comparison
               const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND ${dateColumn} = ?`;
               const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
               
-              console.log(`🔍 Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint}, Date: ${currentDate}`);
+              console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
               
               dbManager.db.get(checkSchoolQuery, checkSchoolParams, (schoolErr, schoolRow) => {
                 if (schoolErr) {
@@ -513,11 +534,13 @@ class DatabaseManager {
                 }
                 
                 const schoolVoteCount = schoolRow ? (schoolRow.count || 0) : 0;
-                console.log(`📊 Vote count for this school today: ${schoolVoteCount}`);
+                console.log(`📊 [TRANSACTION] Vote count for this school today: ${schoolVoteCount}`);
                 
                 // CRITICAL: Block if user already voted for THIS school today (1 vote per school per day)
                 if (schoolVoteCount > 0) {
-                  console.log(`🚫 Blocking vote - already voted for this school ${schoolVoteCount} time(s) today`);
+                  console.log(`🚫 [TRANSACTION] BLOCKING VOTE - Already voted for this school ${schoolVoteCount} time(s) today`);
+                  console.log(`🚫 [TRANSACTION] Query: ${checkSchoolQuery}`);
+                  console.log(`🚫 [TRANSACTION] Params: IP=${voterIp}, FP=${voterFingerprint.substring(0, 20)}..., School=${schoolId}, Date=${currentDate}`);
                   dbManager.db.run('ROLLBACK', () => {});
                   return resolve({
                     success: false,
@@ -602,15 +625,18 @@ class DatabaseManager {
                         ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, currentDate, weekStart]
                         : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, weekStart];
                       
-                      console.log(`✅ Inserting vote for school ${schoolId}, IP: ${voterIp}, Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
+                      console.log(`✅ [TRANSACTION] Inserting vote for school ${schoolId}, IP: ${voterIp}, FP: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
+                      console.log(`✅ [TRANSACTION] Insert Query: ${insertQuery}`);
+                      console.log(`✅ [TRANSACTION] Insert Params: [${schoolId}, ${schoolName.substring(0, 20)}..., ${schoolRegion}, ${schoolLevel}, ${voterIp}, ${voterFingerprint.substring(0, 20)}..., ..., ${currentDate}, ${weekStart}]`);
                       
                       dbManager.db.run(insertQuery, insertParams, function(insertErr) {
                         if (insertErr) {
                           dbManager.db.run('ROLLBACK', () => {});
                           // Check if it's a duplicate vote error (database constraint)
-                          console.error('❌ INSERT ERROR:', insertErr.message, insertErr.code);
-                          if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate') || insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE')) {
-                            console.log('🚫 Duplicate vote blocked by database constraint');
+                          console.error('❌ [TRANSACTION] INSERT ERROR:', insertErr.message, insertErr.code);
+                          console.error('❌ [TRANSACTION] Full error:', JSON.stringify(insertErr));
+                          if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate') || insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' || insertErr.code === 'SQLITE_CONSTRAINT')) {
+                            console.log('🚫 [TRANSACTION] Duplicate vote blocked by database UNIQUE constraint');
                             return resolve({
                               success: false,
                               error: 'Duplicate vote',
@@ -620,9 +646,11 @@ class DatabaseManager {
                             });
                           }
                           // Log the error for debugging
-                          console.error('❌ Database insert error:', insertErr);
+                          console.error('❌ [TRANSACTION] Database insert error (not duplicate):', insertErr);
                           return reject(insertErr);
                         }
+                        
+                        console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${this.lastID}`);
                       
                       // Update weekly stats only if vote was successfully inserted
                       const voteId = this.lastID;
