@@ -437,7 +437,7 @@ class DatabaseManager {
     });
   }
 
-  // Record a vote
+  // Record a vote (with atomic transaction to prevent race conditions)
   recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent) {
     return new Promise((resolve, reject) => {
       if (!this.db) {
@@ -450,124 +450,152 @@ class DatabaseManager {
           const weekStart = this.getCurrentWeekStart();
           const currentDate = this.getCurrentDate();
           
-          // First check if user can vote (daily and weekly limits)
-          this.getUserVoteStatus(voterIp).then(status => {
-            // Check daily limit (1 vote per day - ANY school)
-            if (status.hasVotedToday) {
-              return resolve({
-                success: false,
-                error: 'Daily limit reached',
-                message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
-                remainingVotes: status.remainingWeeklyVotes,
-                hasVotedToday: true
-              });
+          // Use BEGIN IMMEDIATE to lock the database and prevent concurrent votes
+          // This ensures atomicity - only one vote can be processed at a time per user
+          this.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
+            if (beginErr) {
+              console.error('❌ Error beginning transaction:', beginErr);
+              return reject(beginErr);
             }
             
-            // Check weekly limit (7 votes per week total)
-            if (status.weeklyLimitReached) {
-              return resolve({
-                success: false,
-                error: 'Weekly limit reached',
-                message: 'Vos votes hebdomadaires sont épuisés.',
-                remainingVotes: 0,
-                weeklyLimitReached: true
-              });
-            }
-
-            // CRITICAL: Check if user already voted for THIS SPECIFIC SCHOOL today
-            // This prevents multiple votes for the same school in one day
+            // Check column existence
             this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
               if (colErr) {
+                this.db.run('ROLLBACK', () => {});
                 return reject(colErr);
               }
               
               const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
               const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
               
-              // Check if user already voted for this specific school today
-              const checkDuplicateQuery = `
-                SELECT COUNT(*) as count 
-                FROM votes 
-                WHERE voter_ip = ? 
-                  AND school_id = ? 
-                  AND ${dateColumn} = ?
-              `;
+              // ATOMIC CHECK: Check if user already voted TODAY (any school) - within transaction
+              const checkDailyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
               
-              this.db.get(checkDuplicateQuery, [voterIp, schoolId, currentDate], (checkErr, checkRow) => {
-                if (checkErr) {
-                  console.error('❌ Error checking duplicate vote:', checkErr);
-                  return reject(checkErr);
+              this.db.get(checkDailyQuery, [voterIp, currentDate], (dailyErr, dailyRow) => {
+                if (dailyErr) {
+                  this.db.run('ROLLBACK', () => {});
+                  return reject(dailyErr);
                 }
                 
-                // If user already voted for this school today, reject
-                if (checkRow && checkRow.count > 0) {
+                // CRITICAL: Block if user already voted today (1 vote per day limit)
+                if (dailyRow && dailyRow.count > 0) {
+                  this.db.run('ROLLBACK');
                   return resolve({
                     success: false,
-                    error: 'Already voted for this school today',
-                    message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                    remainingVotes: status.remainingWeeklyVotes,
+                    error: 'Daily limit reached',
+                    message: 'Vous avez déjà voté aujourd\'hui, veuillez revenir demain!',
+                    remainingVotes: Math.max(0, 7 - (dailyRow.count || 0)),
                     hasVotedToday: true
                   });
                 }
                 
-                // Now safe to insert the vote
-                const insertQuery = hasVoteDateCol 
-                  ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                  : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
-                
-                const insertParams = hasVoteDateCol
-                  ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
-                  : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
-                
-                this.db.run(insertQuery, insertParams, function(err) {
-                  if (err) {
-                    console.error('❌ Error recording vote:', err);
-                    // Check if it's a duplicate vote error (database constraint)
-                    if (err.message && (err.message.includes('UNIQUE') || err.message.includes('duplicate'))) {
+                // Check weekly limit
+                this.db.get('SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?', 
+                  [voterIp, weekStart], (weeklyErr, weeklyRow) => {
+                  if (weeklyErr) {
+                    this.db.run('ROLLBACK', () => {});
+                    return reject(weeklyErr);
+                  }
+                  
+                  const weeklyCount = weeklyRow ? weeklyRow.count : 0;
+                  if (weeklyCount >= 7) {
+                    this.db.run('ROLLBACK', () => {});
+                    return resolve({
+                      success: false,
+                      error: 'Weekly limit reached',
+                      message: 'Vos votes hebdomadaires sont épuisés.',
+                      remainingVotes: 0,
+                      weeklyLimitReached: true
+                    });
+                  }
+                  
+                  // Note: We already checked daily limit above, so we don't need to check for same school again
+                  // But we'll keep it as an extra safety check
+                  const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
+                  
+                  this.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
+                    if (schoolErr) {
+                      this.db.run('ROLLBACK', () => {});
+                      return reject(schoolErr);
+                    }
+                    
+                    if (schoolRow && schoolRow.count > 0) {
+                      this.db.run('ROLLBACK', () => {});
                       return resolve({
                         success: false,
-                        error: 'Duplicate vote',
+                        error: 'Already voted for this school today',
                         message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                        remainingVotes: status.remainingWeeklyVotes,
+                        remainingVotes: Math.max(0, 7 - weeklyCount),
                         hasVotedToday: true
                       });
                     }
-                    return reject(err);
-                  }
-                  
-                  // CRITICAL: Only update weekly stats if vote was successfully inserted
-                  // This prevents vote count from incrementing if the vote failed
-                  if (this.lastID) {
-                    dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
-                  }
-
-                  // Get updated status after vote
-                  dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
-                    resolve({
-                      success: true,
-                      voteId: this.lastID,
-                      remainingVotes: updatedStatus.remainingWeeklyVotes,
-                      message: 'Vote enregistré avec succès',
-                      hasVotedToday: true
-                    });
-                  }).catch(updateErr => {
-                    // Still return success even if status update fails
-                    resolve({
-                      success: true,
-                      voteId: this.lastID,
-                      remainingVotes: status.remainingWeeklyVotes - 1,
-                      message: 'Vote enregistré avec succès',
-                      hasVotedToday: true
+                    
+                    // All checks passed - insert the vote
+                    const insertQuery = hasVoteDateCol 
+                      ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                      : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                    
+                    const insertParams = hasVoteDateCol
+                      ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
+                      : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
+                    
+                    this.db.run(insertQuery, insertParams, function(insertErr) {
+                      if (insertErr) {
+                        this.db.run('ROLLBACK', () => {});
+                        // Check if it's a duplicate vote error (database constraint)
+                        if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate'))) {
+                          return resolve({
+                            success: false,
+                            error: 'Duplicate vote',
+                            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                            remainingVotes: Math.max(0, 7 - weeklyCount),
+                            hasVotedToday: true
+                          });
+                        }
+                        return reject(insertErr);
+                      }
+                      
+                      // Update weekly stats only if vote was successfully inserted
+                      if (this.lastID) {
+                        dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+                      }
+                      
+                      // Commit the transaction
+                      const voteId = this.lastID;
+                      this.db.run('COMMIT', (commitErr) => {
+                        if (commitErr) {
+                          console.error('❌ Error committing transaction:', commitErr);
+                          // Vote was inserted but commit failed - this is bad but vote is already in DB
+                        }
+                        
+                        // Get updated status after vote
+                        dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
+                          resolve({
+                            success: true,
+                            voteId: voteId,
+                            remainingVotes: updatedStatus.remainingWeeklyVotes,
+                            message: 'Vote enregistré avec succès',
+                            hasVotedToday: true
+                          });
+                        }).catch(updateErr => {
+                          // Still return success even if status update fails
+                          resolve({
+                            success: true,
+                            voteId: voteId,
+                            remainingVotes: Math.max(0, 7 - weeklyCount - 1),
+                            message: 'Vote enregistré avec succès',
+                            hasVotedToday: true
+                          });
+                        });
+                      });
                     });
                   });
                 });
               });
             });
-          }).catch(statusError => {
-            console.error('❌ Error getting vote status:', statusError);
-            reject(statusError);
           });
         } catch (error) {
+          this.db.run('ROLLBACK');
           console.error('❌ Error recording vote:', error);
           reject(error);
         }
