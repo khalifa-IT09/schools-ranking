@@ -439,29 +439,30 @@ class DatabaseManager {
 
   // Record a vote (with atomic transaction to prevent race conditions)
   recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent) {
+    const dbManager = this; // Capture context for nested callbacks
     return new Promise((resolve, reject) => {
-      if (!this.db) {
+      if (!dbManager.db) {
         return reject(new Error('Database not initialized'));
       }
       
       // Ensure vote_date column exists before inserting
-      this.ensureVoteDateColumn().then(() => {
+      dbManager.ensureVoteDateColumn().then(() => {
         try {
-          const weekStart = this.getCurrentWeekStart();
-          const currentDate = this.getCurrentDate();
+          const weekStart = dbManager.getCurrentWeekStart();
+          const currentDate = dbManager.getCurrentDate();
           
           // Use BEGIN IMMEDIATE to lock the database and prevent concurrent votes
           // This ensures atomicity - only one vote can be processed at a time per user
-          this.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
+          dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
             if (beginErr) {
               console.error('❌ Error beginning transaction:', beginErr);
               return reject(beginErr);
             }
             
             // Check column existence
-            this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
+            dbManager.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
               if (colErr) {
-                this.db.run('ROLLBACK', () => {});
+                dbManager.db.run('ROLLBACK', () => {});
                 return reject(colErr);
               }
               
@@ -471,15 +472,15 @@ class DatabaseManager {
               // ATOMIC CHECK: Check if user already voted TODAY (any school) - within transaction
               const checkDailyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
               
-              this.db.get(checkDailyQuery, [voterIp, currentDate], (dailyErr, dailyRow) => {
+              dbManager.db.get(checkDailyQuery, [voterIp, currentDate], (dailyErr, dailyRow) => {
                 if (dailyErr) {
-                  this.db.run('ROLLBACK', () => {});
+                  dbManager.db.run('ROLLBACK', () => {});
                   return reject(dailyErr);
                 }
                 
                 // CRITICAL: Block if user already voted today (1 vote per day limit)
                 if (dailyRow && dailyRow.count > 0) {
-                  this.db.run('ROLLBACK', () => {});
+                  dbManager.db.run('ROLLBACK', () => {});
                   return resolve({
                     success: false,
                     error: 'Daily limit reached',
@@ -490,16 +491,16 @@ class DatabaseManager {
                 }
                 
                 // Check weekly limit
-                this.db.get('SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?', 
+                dbManager.db.get('SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?', 
                   [voterIp, weekStart], (weeklyErr, weeklyRow) => {
                   if (weeklyErr) {
-                    this.db.run('ROLLBACK', () => {});
+                    dbManager.db.run('ROLLBACK', () => {});
                     return reject(weeklyErr);
                   }
                   
                   const weeklyCount = weeklyRow ? weeklyRow.count : 0;
                   if (weeklyCount >= 7) {
-                    this.db.run('ROLLBACK', () => {});
+                    dbManager.db.run('ROLLBACK', () => {});
                     return resolve({
                       success: false,
                       error: 'Weekly limit reached',
@@ -513,14 +514,14 @@ class DatabaseManager {
                   // But we'll keep it as an extra safety check
                   const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND ${dateColumn} = ?`;
                   
-                  this.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
+                  dbManager.db.get(checkSchoolQuery, [voterIp, schoolId, currentDate], (schoolErr, schoolRow) => {
                     if (schoolErr) {
-                      this.db.run('ROLLBACK', () => {});
+                      dbManager.db.run('ROLLBACK', () => {});
                       return reject(schoolErr);
                     }
                     
                     if (schoolRow && schoolRow.count > 0) {
-                      this.db.run('ROLLBACK', () => {});
+                      dbManager.db.run('ROLLBACK', () => {});
                       return resolve({
                         success: false,
                         error: 'Already voted for this school today',
@@ -539,9 +540,9 @@ class DatabaseManager {
                       ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, currentDate, weekStart]
                       : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, userAgent, weekStart];
                     
-                    this.db.run(insertQuery, insertParams, function(insertErr) {
+                    dbManager.db.run(insertQuery, insertParams, function(insertErr) {
                       if (insertErr) {
-                        this.db.run('ROLLBACK', () => {});
+                        dbManager.db.run('ROLLBACK', () => {});
                         // Check if it's a duplicate vote error (database constraint)
                         if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate'))) {
                           return resolve({
@@ -556,13 +557,13 @@ class DatabaseManager {
                       }
                       
                       // Update weekly stats only if vote was successfully inserted
-                      if (this.lastID) {
+                      const voteId = this.lastID;
+                      if (voteId) {
                         dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
                       }
                       
                       // Commit the transaction
-                      const voteId = this.lastID;
-                      this.db.run('COMMIT', (commitErr) => {
+                      dbManager.db.run('COMMIT', (commitErr) => {
                         if (commitErr) {
                           console.error('❌ Error committing transaction:', commitErr);
                           // Vote was inserted but commit failed - this is bad but vote is already in DB
@@ -595,7 +596,7 @@ class DatabaseManager {
             });
           });
         } catch (error) {
-          this.db.run('ROLLBACK');
+          dbManager.db.run('ROLLBACK', () => {});
           console.error('❌ Error recording vote:', error);
           reject(error);
         }
