@@ -113,34 +113,70 @@ class DatabaseManager {
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
       ];
 
-      // Execute table creation
-      this.db.exec(createVotesTable);
-      this.db.exec(createBadgesTable);
-      this.db.exec(createWeeklyStatsTable);
-
-      // Execute index creation (excluding vote_date indexes - created after migration)
-      createIndexes.forEach(index => {
-        try {
-          this.db.exec(index);
-        } catch (indexErr) {
-          // Ignore index creation errors for columns that don't exist yet
-          if (!indexErr.message || !indexErr.message.includes('no such column')) {
-            console.warn('⚠️ Index creation warning:', indexErr.message);
-          }
+      // Execute table creation with callbacks to ensure completion
+      this.db.run(createVotesTable, (err) => {
+        if (err && !err.message.includes('already exists')) {
+          console.error('❌ Error creating votes table:', err);
         }
-      });
-      createBadgeIndexes.forEach(index => this.db.exec(index));
-      createWeeklyStatsIndexes.forEach(index => this.db.exec(index));
-
-      console.log('✅ Database tables created successfully');
-      
-      // Migrate existing votes table to add vote_date column if it doesn't exist
-      // Run migration synchronously by checking immediately
-      this.migrateVotesTableImmediate().then(() => {
-        console.log('✅ Database migration completed');
-      }).catch((migrationError) => {
-        console.warn('⚠️ Migration will run on-demand:', migrationError.message);
-        // Continue - migration will happen on-demand when needed
+        
+        this.db.run(createBadgesTable, (err) => {
+          if (err && !err.message.includes('already exists')) {
+            console.error('❌ Error creating badges table:', err);
+          }
+          
+          this.db.run(createWeeklyStatsTable, (err) => {
+            if (err && !err.message.includes('already exists')) {
+              console.error('❌ Error creating weekly_stats table:', err);
+            }
+            
+            // Execute index creation after tables are created
+            let indexCount = 0;
+            const totalIndexes = createIndexes.length + createBadgeIndexes.length + createWeeklyStatsIndexes.length;
+            
+            const onIndexComplete = () => {
+              indexCount++;
+              if (indexCount === totalIndexes) {
+                console.log('✅ Database tables and indexes created successfully');
+                
+                // Now run migration after tables are confirmed created
+                this.migrateVotesTableImmediate().then(() => {
+                  console.log('✅ Database migration completed');
+                }).catch((migrationError) => {
+                  console.warn('⚠️ Migration will run on-demand:', migrationError.message);
+                  // Continue - migration will happen on-demand when needed
+                });
+              }
+            };
+            
+            // Create indexes
+            createIndexes.forEach(index => {
+              this.db.run(index, (indexErr) => {
+                if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
+                  console.warn('⚠️ Index creation warning:', indexErr.message);
+                }
+                onIndexComplete();
+              });
+            });
+            
+            createBadgeIndexes.forEach(index => {
+              this.db.run(index, (indexErr) => {
+                if (indexErr && !indexErr.message.includes('already exists')) {
+                  console.warn('⚠️ Badge index warning:', indexErr.message);
+                }
+                onIndexComplete();
+              });
+            });
+            
+            createWeeklyStatsIndexes.forEach(index => {
+              this.db.run(index, (indexErr) => {
+                if (indexErr && !indexErr.message.includes('already exists')) {
+                  console.warn('⚠️ Weekly stats index warning:', indexErr.message);
+                }
+                onIndexComplete();
+              });
+            });
+          });
+        });
       });
     } catch (error) {
       console.error('❌ Error creating database tables:', error);
