@@ -108,7 +108,7 @@ class SchoolRankingApp {
                 about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932",
                 
                 // Voting section
-                nav_voting: "Voter pour ton école préférée",
+                nav_voting: "Voter pour votre école préférée",
                 view_results: "Voir les résultats",
                 results_modal_title: "🏆 Top 10 des Écoles de la Semaine",
                 keep_voting_message: "Continuez à voter, ce n'est pas encore fini!",
@@ -126,7 +126,7 @@ class SchoolRankingApp {
                 loading_top10: "Chargement du classement...",
                 top10_no_data: "Aucune donnée de vote disponible pour le moment",
                 votes_abbr: "votes",
-                voting_title: "Voter pour ton école préférée",
+                voting_title: "Voter pour votre école préférée",
                 voting_subtitle: "Choisissez une région pour voir les écoles éligibles au vote",
                 voting_select_region: "Sélectionnez une région:",
                 voting_select_region_placeholder: "-- Choisir une région --",
