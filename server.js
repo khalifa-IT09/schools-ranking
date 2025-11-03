@@ -1419,6 +1419,70 @@ app.get('/api/voting/status', async (req, res) => {
   }
 });
 
+// Get live results leaderboard (Top 10)
+app.get('/api/voting/results', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const result = await dbManager.getTopVotedSchools(null, 'secondary', parseInt(limit));
+    
+    // Calculate percentages for visualization
+    if (result.success && result.schools && result.schools.length > 0) {
+      const maxVotes = result.schools[0].total_votes || 1;
+      result.schools = result.schools.map(school => ({
+        ...school,
+        percentage: maxVotes > 0 ? Math.round((school.total_votes / maxVotes) * 100) : 0
+      }));
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching live results:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement des résultats'
+    });
+  }
+});
+
+// Get current week winner (for announcements)
+app.get('/api/voting/winner', async (req, res) => {
+  try {
+    const result = await dbManager.getCurrentWeekWinner('secondary');
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching week winner:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement du gagnant'
+    });
+  }
+});
+
+// Get winner history (archive)
+app.get('/api/voting/winners/history', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const result = await dbManager.getWinnerHistory(parseInt(limit));
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching winner history:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Erreur lors du chargement de l\'historique'
+    });
+  }
+});
+
+// Route for unique school voting links (e.g., /vote/lycee-espoir)
+app.get('/vote/:schoolSlug', (req, res) => {
+  const { schoolSlug } = req.params;
+  // Redirect to main page with voting mode and school pre-selected
+  res.redirect(`/?voting=true&school=${encodeURIComponent(schoolSlug)}`);
+});
+
 
 
 

@@ -106,6 +106,22 @@ class DatabaseManager {
         )
       `;
 
+      // Create weekly_winners table for tracking weekly winners
+      const createWeeklyWinnersTable = `
+        CREATE TABLE IF NOT EXISTS weekly_winners (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          school_id TEXT NOT NULL,
+          school_name TEXT NOT NULL,
+          school_region TEXT NOT NULL,
+          school_level TEXT NOT NULL,
+          week_start DATE NOT NULL,
+          total_votes INTEGER NOT NULL,
+          unique_voters INTEGER NOT NULL,
+          announcement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(week_start, school_level)
+        )
+      `;
+
       const createWeeklyStatsIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
@@ -137,8 +153,15 @@ class DatabaseManager {
               }
             }
             
-            // Small delay to ensure tables are fully created before creating indexes
-            setTimeout(() => {
+            this.db.exec(createWeeklyWinnersTable, (err) => {
+              if (err) {
+                if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
+                  console.error('❌ Error creating weekly_winners table:', err);
+                }
+              }
+              
+              // Small delay to ensure tables are fully created before creating indexes
+              setTimeout(() => {
               // Execute index creation after tables are created
               let indexCount = 0;
               const totalIndexes = createIndexes.length + createBadgeIndexes.length + createWeeklyStatsIndexes.length;
@@ -916,6 +939,149 @@ class DatabaseManager {
         reject(error);
       }
     });
+  }
+
+  // Get current week's winner (for Sunday announcements)
+  getCurrentWeekWinner(level = 'secondary') {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      try {
+        const weekStart = this.getCurrentWeekStart();
+        
+        // Get winner from weekly_winners table first
+        this.db.get(
+          'SELECT * FROM weekly_winners WHERE week_start = ? AND school_level = ?',
+          [weekStart, level],
+          (err, winner) => {
+            if (err) {
+              console.error('❌ Error fetching week winner:', err);
+              return reject(err);
+            }
+            
+            if (winner) {
+              return resolve({
+                success: true,
+                winner: winner,
+                week_start: weekStart
+              });
+            }
+            
+            // If no winner recorded yet, get from current stats
+            this.getTopVotedSchools(null, level, 1).then(result => {
+              if (result.success && result.schools && result.schools.length > 0) {
+                resolve({
+                  success: true,
+                  winner: result.schools[0],
+                  week_start: weekStart,
+                  isProvisional: true
+                });
+              } else {
+                resolve({
+                  success: true,
+                  winner: null,
+                  week_start: weekStart
+                });
+              }
+            }).catch(reject);
+          }
+        );
+      } catch (error) {
+        console.error('❌ Error getting week winner:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Record weekly winner (called on Sunday evening)
+  recordWeeklyWinner(level = 'secondary') {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      try {
+        const weekStart = this.getCurrentWeekStart();
+        
+        // Get top school for this week
+        this.getTopVotedSchools(null, level, 1).then(result => {
+          if (!result.success || !result.schools || result.schools.length === 0) {
+            return resolve({
+              success: false,
+              message: 'No votes recorded this week'
+            });
+          }
+          
+          const winner = result.schools[0];
+          
+          // Insert or update winner record
+          this.db.run(
+            `INSERT OR REPLACE INTO weekly_winners 
+             (school_id, school_name, school_region, school_level, week_start, total_votes, unique_voters, announcement_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [winner.school_id, winner.school_name, winner.school_region, level, weekStart, winner.total_votes, winner.unique_voters],
+            function(err) {
+              if (err) {
+                console.error('❌ Error recording weekly winner:', err);
+                return reject(err);
+              }
+              
+              resolve({
+                success: true,
+                winner: winner,
+                week_start: weekStart
+              });
+            }
+          );
+        }).catch(reject);
+      } catch (error) {
+        console.error('❌ Error recording weekly winner:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Get winner history (archive)
+  getWinnerHistory(limit = 10) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+      
+      try {
+        this.db.all(
+          'SELECT * FROM weekly_winners ORDER BY week_start DESC, announcement_date DESC LIMIT ?',
+          [limit],
+          (err, winners) => {
+            if (err) {
+              console.error('❌ Error fetching winner history:', err);
+              return reject(err);
+            }
+            
+            resolve({
+              success: true,
+              winners: winners || [],
+              total: winners ? winners.length : 0
+            });
+          }
+        );
+      } catch (error) {
+        console.error('❌ Error getting winner history:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Generate unique voting link slug from school name
+  generateSchoolSlug(schoolName) {
+    return schoolName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
   }
 
   // Close database connection

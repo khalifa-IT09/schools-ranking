@@ -109,6 +109,15 @@ class SchoolRankingApp {
                 
                 // Voting section
                 nav_voting: "Voter pour ton école préférée",
+                view_results: "Voir les résultats",
+                results_modal_title: "🏆 Top 10 des Écoles de la Semaine",
+                keep_voting_message: "Continuez à voter, ce n'est pas encore fini!",
+                winner_title: "🏆 École Gagnante de la Semaine",
+                winner_message: "Félicitations à toute la communauté!",
+                view_history: "Voir l'historique",
+                winner_history_title: "Historique des Gagnants",
+                share_school: "Partager pour soutenir ton école",
+                share_message: "Soutenez votre école la semaine prochaine!",
                 voting_title: "Voter pour ton école préférée",
                 voting_subtitle: "Choisissez une région pour voir les écoles éligibles au vote",
                 voting_select_region: "Sélectionnez une région:",
@@ -426,6 +435,24 @@ class SchoolRankingApp {
                 }
             });
         }
+
+        // Setup View Results button
+        const btnViewResults = document.getElementById('btnViewResults');
+        if (btnViewResults) {
+            btnViewResults.addEventListener('click', () => this.showLiveResults());
+        }
+
+        // Setup View Archive button
+        const btnViewArchive = document.getElementById('btnViewArchive');
+        if (btnViewArchive) {
+            btnViewArchive.addEventListener('click', () => this.showWinnerHistory());
+        }
+
+        // Check for winner announcement on page load
+        this.checkWinnerAnnouncement();
+
+        // Check for unique voting link in URL
+        this.handleVotingLink();
     }
 
     async loadVoteStatus() {
@@ -760,6 +787,12 @@ class SchoolRankingApp {
                     : this.translate('voting_success');
                 this.showNotification(remainingMsg, 'success');
                 
+                // Add share button after successful vote
+                const school = this.votingSchools.find(s => s.id === schoolId || s.school_id === schoolId);
+                if (school) {
+                    this.addShareButtonAfterVote(school.name || school.school_name, school.region || school.school_region);
+                }
+                
                 // Refresh vote counts and display
                 await this.loadVoteCounts();
                 this.displayVotingSchools();
@@ -806,6 +839,204 @@ class SchoolRankingApp {
             notification.classList.remove('show');
             setTimeout(() => notification.remove(), 300);
         }, 3000);
+    }
+
+    // Show live results leaderboard
+    async showLiveResults() {
+        try {
+            const response = await fetch('/api/voting/results?limit=10');
+            const data = await response.json();
+            
+            if (data.success && data.schools) {
+                const modal = document.getElementById('resultsModal');
+                const body = document.getElementById('leaderboardContainer');
+                
+                if (modal && body) {
+                    const maxVotes = data.schools[0]?.total_votes || 1;
+                    
+                    body.innerHTML = data.schools.map((school, index) => {
+                        const percentage = (school.total_votes / maxVotes) * 100;
+                        const rank = index + 1;
+                        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+                        
+                        return `
+                            <div class="leaderboard-item">
+                                <div class="leaderboard-rank">${medal}</div>
+                                <div class="leaderboard-school">
+                                    <div class="leaderboard-school-name">${school.school_name}</div>
+                                    <div class="leaderboard-school-region">${school.school_region}</div>
+                                </div>
+                                <div class="leaderboard-votes">
+                                    <div class="leaderboard-vote-count">${school.total_votes} ${this.translate('votes')}</div>
+                                    <div class="leaderboard-progress-bar">
+                                        <div class="leaderboard-progress-fill" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    modal.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading live results:', error);
+            this.showNotification(this.translate('error_loading'), 'error');
+        }
+    }
+
+    // Check for Sunday winner announcement
+    async checkWinnerAnnouncement() {
+        try {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+            
+            // Show announcement on Sunday (or after 6 PM Saturday)
+            if (dayOfWeek === 0 || (dayOfWeek === 6 && today.getHours() >= 18)) {
+                const response = await fetch('/api/voting/winner');
+                const data = await response.json();
+                
+                if (data.success && data.winner) {
+                    const announcement = document.getElementById('winnerAnnouncement');
+                    const winnerName = document.getElementById('winnerName');
+                    
+                    if (announcement && winnerName) {
+                        winnerName.textContent = data.winner.school_name || data.winner.name;
+                        announcement.style.display = 'block';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error checking winner announcement:', error);
+        }
+    }
+
+    // Show winner history
+    async showWinnerHistory() {
+        try {
+            const response = await fetch('/api/voting/winners/history?limit=20');
+            const data = await response.json();
+            
+            if (data.success && data.winners) {
+                const modal = document.getElementById('winnerHistoryModal');
+                const body = document.getElementById('winnerHistoryBody');
+                
+                if (modal && body) {
+                    body.innerHTML = data.winners.map(winner => {
+                        const date = new Date(winner.week_start);
+                        const weekStr = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+                        
+                        return `
+                            <div class="winner-history-item">
+                                <div class="winner-history-week">Semaine du ${weekStr}</div>
+                                <div class="winner-history-school">${winner.school_name}</div>
+                                <div class="winner-history-region">${winner.school_region}</div>
+                                <div class="winner-history-votes">${winner.total_votes} votes</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    modal.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading winner history:', error);
+            this.showNotification(this.translate('error_loading'), 'error');
+        }
+    }
+
+    // Generate unique voting link for a school
+    generateSchoolVotingLink(schoolName) {
+        const slug = schoolName
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        
+        return `${window.location.origin}/vote/${slug}`;
+    }
+
+    // Share school voting link
+    shareSchoolLink(schoolName, schoolRegion) {
+        const link = this.generateSchoolVotingLink(schoolName);
+        const text = `${this.translate('share_message')} - ${schoolName} (${schoolRegion})`;
+        const url = link;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: schoolName,
+                text: text,
+                url: url
+            }).catch(err => {
+                console.log('Error sharing:', err);
+                this.copyToClipboard(url);
+            });
+        } else {
+            this.copyToClipboard(url);
+        }
+    }
+
+    // Copy to clipboard
+    copyToClipboard(text) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showNotification('Lien copié dans le presse-papier!', 'success');
+            });
+        } else {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            this.showNotification('Lien copié dans le presse-papier!', 'success');
+        }
+    }
+
+    // Handle unique voting link from URL
+    handleVotingLink() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const voting = urlParams.get('voting');
+        const school = urlParams.get('school');
+        
+        if (voting === 'true') {
+            // Switch to voting mode
+            setTimeout(() => {
+                const votingTab = document.getElementById('votingTab');
+                if (votingTab) {
+                    votingTab.click();
+                    
+                    // If school slug provided, try to find and highlight it
+                    if (school) {
+                        setTimeout(() => {
+                            // Search for school in the voting list
+                            const searchInput = document.getElementById('searchInput');
+                            if (searchInput) {
+                                searchInput.value = school;
+                                searchInput.dispatchEvent(new Event('input'));
+                            }
+                        }, 1000);
+                    }
+                }
+            }, 500);
+        }
+    }
+
+    // Add share button to vote success
+    addShareButtonAfterVote(schoolName, schoolRegion) {
+        // This will be called after successful vote
+        const shareText = `${this.translate('share_school')}: ${schoolName}`;
+        const shareLink = this.generateSchoolVotingLink(schoolName);
+        
+        // Show share notification
+        setTimeout(() => {
+            this.showNotification(
+                `<button onclick="app.shareSchoolLink('${schoolName.replace(/'/g, "\\'")}', '${schoolRegion.replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-left: 10px;">${this.translate('share_school')}</button>`,
+                'info'
+            );
+        }, 1000);
     }
 
     async loadRegions() {
@@ -1504,6 +1735,27 @@ function closeModal() {
     const modal = document.getElementById('schoolModal');
     if (modal) {
         modal.style.display = 'none';
+    }
+}
+
+function closeResultsModal() {
+    const modal = document.getElementById('resultsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function closeWinnerHistoryModal() {
+    const modal = document.getElementById('winnerHistoryModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function closeWinnerAnnouncement() {
+    const announcement = document.getElementById('winnerAnnouncement');
+    if (announcement) {
+        announcement.style.display = 'none';
     }
 }
 

@@ -118,6 +118,22 @@
             </div>
         </div>
 
+        <!-- Weekend Winner Announcement Banner -->
+        <div class="winner-announcement" id="winnerAnnouncement" style="display: none;">
+            <div class="winner-announcement-content">
+                <div class="winner-trophy">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="winner-text">
+                    <h3 data-translate="winner_title">🏆 École Gagnante de la Semaine</h3>
+                    <p class="winner-name" id="winnerName"></p>
+                    <p class="winner-message" data-translate="winner_message">Félicitations à toute la communauté!</p>
+                    <button class="btn-view-archive" id="btnViewArchive" data-translate="view_history">Voir l'historique</button>
+                </div>
+                <button class="winner-close" onclick="closeWinnerAnnouncement()">&times;</button>
+            </div>
+        </div>
+
         <!-- Voting Interface -->
         <div class="voting-container" id="votingContainer" style="display: none;">
             <div class="voting-header">
@@ -125,9 +141,15 @@
                 <p class="voting-subtitle" data-translate="voting_subtitle">Choisissez une région pour voir les écoles éligibles au vote</p>
             </div>
             
-            <!-- Vote Counter -->
-            <div class="voting-counter-container" id="votingCounter">
-                <!-- Vote counter will be populated here -->
+            <!-- Vote Counter and View Results Button -->
+            <div class="voting-actions">
+                <div class="voting-counter-container" id="votingCounter">
+                    <!-- Vote counter will be populated here -->
+                </div>
+                <button class="btn-view-results" id="btnViewResults" data-translate="view_results">
+                    <i class="fas fa-chart-bar"></i>
+                    <span data-translate="view_results">Voir les résultats</span>
+                </button>
             </div>
 
             <!-- Region Selection for Voting -->
@@ -180,6 +202,38 @@
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- School details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Results Modal -->
+    <div class="modal" id="resultsModal" style="display: none;">
+        <div class="modal-content results-modal-content">
+            <div class="modal-header">
+                <h3 data-translate="results_modal_title">🏆 Top 10 des Écoles de la Semaine</h3>
+                <button class="close" onclick="closeResultsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="resultsModalBody">
+                <div class="motivational-message">
+                    <i class="fas fa-fire"></i>
+                    <p data-translate="keep_voting_message">Continuez à voter, ce n'est pas encore fini!</p>
+                </div>
+                <div class="leaderboard-container" id="leaderboardContainer">
+                    <!-- Leaderboard will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Winner History Modal -->
+    <div class="modal" id="winnerHistoryModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-translate="winner_history_title">Historique des Gagnants</h3>
+                <button class="close" onclick="closeWinnerHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="winnerHistoryBody">
+                <!-- Winner history will be populated here -->
             </div>
         </div>
     </div>
