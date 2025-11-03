@@ -43,183 +43,157 @@ class DatabaseManager {
   }
 
   createTables() {
-    try {
-      // Create votes table
-      const createVotesTable = `
-        CREATE TABLE IF NOT EXISTS votes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          school_id TEXT NOT NULL,
-          school_name TEXT NOT NULL,
-          school_region TEXT NOT NULL,
-          school_level TEXT NOT NULL,
-          voter_ip TEXT NOT NULL,
-          voter_user_agent TEXT,
-          vote_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-          vote_date DATE,
-          week_start DATE NOT NULL
-        )
-      `;
+    return new Promise((resolve, reject) => {
+      try {
+        // Create votes table
+        const createVotesTable = `
+          CREATE TABLE IF NOT EXISTS votes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_id TEXT NOT NULL,
+            school_name TEXT NOT NULL,
+            school_region TEXT NOT NULL,
+            school_level TEXT NOT NULL,
+            voter_ip TEXT NOT NULL,
+            voter_user_agent TEXT,
+            vote_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            vote_date DATE,
+            week_start DATE NOT NULL
+          )
+        `;
 
-      // Create indexes for better performance (excluding vote_date - will be created after migration)
-      const createIndexes = [
-        'CREATE INDEX IF NOT EXISTS idx_votes_school_id ON votes(school_id)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_week_start ON votes(week_start)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_voter_ip ON votes(voter_ip)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_school_region ON votes(school_region)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_school_level ON votes(school_level)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_timestamp ON votes(vote_timestamp)',
-        'CREATE INDEX IF NOT EXISTS idx_votes_ip_week ON votes(voter_ip, week_start)'
-      ];
+        // Create indexes for better performance (excluding vote_date - will be created after migration)
+        const createIndexes = [
+          'CREATE INDEX IF NOT EXISTS idx_votes_school_id ON votes(school_id)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_week_start ON votes(week_start)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_voter_ip ON votes(voter_ip)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_school_region ON votes(school_region)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_school_level ON votes(school_level)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_timestamp ON votes(vote_timestamp)',
+          'CREATE INDEX IF NOT EXISTS idx_votes_ip_week ON votes(voter_ip, week_start)'
+        ];
 
-      // Create school_badges table for achievements
-      const createBadgesTable = `
-        CREATE TABLE IF NOT EXISTS school_badges (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          school_id TEXT NOT NULL,
-          school_name TEXT NOT NULL,
-          badge_type TEXT NOT NULL,
-          badge_name TEXT NOT NULL,
-          badge_description TEXT,
-          earned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-          is_active BOOLEAN DEFAULT 1,
-          UNIQUE(school_id, badge_type)
-        )
-      `;
+        // Create school_badges table for achievements
+        const createBadgesTable = `
+          CREATE TABLE IF NOT EXISTS school_badges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_id TEXT NOT NULL,
+            school_name TEXT NOT NULL,
+            badge_type TEXT NOT NULL,
+            badge_name TEXT NOT NULL,
+            badge_description TEXT,
+            earned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1,
+            UNIQUE(school_id, badge_type)
+          )
+        `;
 
-      // Create indexes for badges
-      const createBadgeIndexes = [
-        'CREATE INDEX IF NOT EXISTS idx_badges_school_id ON school_badges(school_id)',
-        'CREATE INDEX IF NOT EXISTS idx_badges_badge_type ON school_badges(badge_type)',
-        'CREATE INDEX IF NOT EXISTS idx_badges_earned_date ON school_badges(earned_date)',
-        'CREATE INDEX IF NOT EXISTS idx_badges_is_active ON school_badges(is_active)'
-      ];
+        // Create indexes for badges
+        const createBadgeIndexes = [
+          'CREATE INDEX IF NOT EXISTS idx_badges_school_id ON school_badges(school_id)',
+          'CREATE INDEX IF NOT EXISTS idx_badges_badge_type ON school_badges(badge_type)',
+          'CREATE INDEX IF NOT EXISTS idx_badges_earned_date ON school_badges(earned_date)',
+          'CREATE INDEX IF NOT EXISTS idx_badges_is_active ON school_badges(is_active)'
+        ];
 
-      // Create weekly_stats table for caching weekly vote counts
-      const createWeeklyStatsTable = `
-        CREATE TABLE IF NOT EXISTS weekly_stats (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          school_id TEXT NOT NULL,
-          school_name TEXT NOT NULL,
-          school_region TEXT NOT NULL,
-          school_level TEXT NOT NULL,
-          week_start DATE NOT NULL,
-          vote_count INTEGER DEFAULT 0,
-          last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(school_id, week_start)
-        )
-      `;
+        // Create weekly_stats table for caching weekly vote counts
+        const createWeeklyStatsTable = `
+          CREATE TABLE IF NOT EXISTS weekly_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_id TEXT NOT NULL,
+            school_name TEXT NOT NULL,
+            school_region TEXT NOT NULL,
+            school_level TEXT NOT NULL,
+            week_start DATE NOT NULL,
+            vote_count INTEGER DEFAULT 0,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(school_id, week_start)
+          )
+        `;
 
-      // Create weekly_winners table for tracking weekly winners
-      const createWeeklyWinnersTable = `
-        CREATE TABLE IF NOT EXISTS weekly_winners (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          school_id TEXT NOT NULL,
-          school_name TEXT NOT NULL,
-          school_region TEXT NOT NULL,
-          school_level TEXT NOT NULL,
-          week_start DATE NOT NULL,
-          total_votes INTEGER NOT NULL,
-          unique_voters INTEGER NOT NULL,
-          announcement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(week_start, school_level)
-        )
-      `;
+        // Create weekly_winners table for tracking weekly winners
+        const createWeeklyWinnersTable = `
+          CREATE TABLE IF NOT EXISTS weekly_winners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_id TEXT NOT NULL,
+            school_name TEXT NOT NULL,
+            school_region TEXT NOT NULL,
+            school_level TEXT NOT NULL,
+            week_start DATE NOT NULL,
+            total_votes INTEGER NOT NULL,
+            unique_voters INTEGER NOT NULL,
+            announcement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(week_start, school_level)
+          )
+        `;
 
-      const createWeeklyStatsIndexes = [
-        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
-        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
-        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_region ON weekly_stats(school_region)',
-        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
-      ];
+        const createWeeklyStatsIndexes = [
+          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
+          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
+          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_region ON weekly_stats(school_region)',
+          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
+        ];
 
-      // Execute table creation sequentially to ensure completion
-      // Use exec() for CREATE TABLE statements
-      this.db.exec(createVotesTable, (err) => {
-        if (err) {
-          // Ignore "table already exists" errors
-          if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
-            console.error('❌ Error creating votes table:', err);
-          }
-        }
-        
-        this.db.exec(createBadgesTable, (err) => {
-          if (err) {
-            if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
-              console.error('❌ Error creating badges table:', err);
-            }
-          }
-          
-          this.db.exec(createWeeklyStatsTable, (err) => {
-            if (err) {
-              if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
-                console.error('❌ Error creating weekly_stats table:', err);
-              }
-            }
-            
-            this.db.exec(createWeeklyWinnersTable, (err) => {
+        // Helper function to safely execute SQL (prevents nested callback hell)
+        const safeExec = (sql, tableName) => {
+          return new Promise((resolveExec, rejectExec) => {
+            this.db.exec(sql, (err) => {
               if (err) {
+                // Ignore "table already exists" errors
                 if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
-                  console.error('❌ Error creating weekly_winners table:', err);
+                  console.error(`❌ Error creating ${tableName} table:`, err);
+                  return rejectExec(err);
                 }
               }
-              
-              // Small delay to ensure tables are fully created before creating indexes
-              setTimeout(() => {
-              // Execute index creation after tables are created
-              let indexCount = 0;
-              const totalIndexes = createIndexes.length + createBadgeIndexes.length + createWeeklyStatsIndexes.length;
-              
-              if (totalIndexes === 0) {
-                // No indexes to create, run migration immediately
-                this.runMigrationAfterSetup();
-                return;
-              }
-              
-              const onIndexComplete = () => {
-                indexCount++;
-                if (indexCount === totalIndexes) {
-                  console.log('✅ Database tables and indexes created successfully');
-                  // Run migration after all tables and indexes are created
-                  this.runMigrationAfterSetup();
-                }
-              };
-              
-              // Create indexes
-              createIndexes.forEach(index => {
-                this.db.exec(index, (indexErr) => {
-                  if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
-                    console.warn('⚠️ Index creation warning:', indexErr.message);
-                  }
-                  onIndexComplete();
-                });
-              });
-              
-              createBadgeIndexes.forEach(index => {
-                this.db.exec(index, (indexErr) => {
-                  if (indexErr && !indexErr.message.includes('already exists')) {
-                    console.warn('⚠️ Badge index warning:', indexErr.message);
-                  }
-                  onIndexComplete();
-                });
-              });
-              
-              createWeeklyStatsIndexes.forEach(index => {
-                this.db.exec(index, (indexErr) => {
-                  if (indexErr && !indexErr.message.includes('already exists')) {
-                    console.warn('⚠️ Weekly stats index warning:', indexErr.message);
-                  }
-                  onIndexComplete();
-                });
-              });
-            }, 100);
+              resolveExec();
+            });
           });
-        });
-      });
+        };
+
+        // Helper function to create all indexes
+        const createAllIndexes = () => {
+          return new Promise((resolveIndexes) => {
+            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes];
+            let completed = 0;
+
+            if (allIndexes.length === 0) {
+              return resolveIndexes();
+            }
+
+            allIndexes.forEach(index => {
+              this.db.exec(index, (indexErr) => {
+                completed++;
+                if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
+                  console.warn('⚠️ Index creation warning:', indexErr.message);
+                }
+                if (completed === allIndexes.length) {
+                  resolveIndexes();
+                }
+              });
+            });
+          });
+        };
+
+        // Execute table creation sequentially using promises (much cleaner than nested callbacks)
+        safeExec(createVotesTable, 'votes')
+          .then(() => safeExec(createBadgesTable, 'badges'))
+          .then(() => safeExec(createWeeklyStatsTable, 'weekly_stats'))
+          .then(() => safeExec(createWeeklyWinnersTable, 'weekly_winners'))
+          .then(() => new Promise(resolveDelay => setTimeout(resolveDelay, 100)))
+          .then(() => createAllIndexes())
+          .then(() => {
+            console.log('✅ Database tables and indexes created successfully');
+            this.runMigrationAfterSetup();
+            resolve();
+          })
+          .catch((error) => {
+            console.error('❌ Error creating database tables:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('❌ Error creating database tables:', error);
+        reject(error);
+      }
     });
-    } catch (error) {
-      console.error('❌ Error creating database tables:', error);
-      throw error;
-    }
   }
 
   // Get current week start (Monday)
