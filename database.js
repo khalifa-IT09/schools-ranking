@@ -297,9 +297,11 @@ class DatabaseManager {
                 }
                 
                 // Create indexes on vote_date for better performance
+                // CRITICAL: Create unique index to prevent duplicate votes for same school on same day
                 const voteDateIndexes = [
                   'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
-                  'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)'
+                  'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
+                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily ON votes(voter_ip, school_id, vote_date)'
                 ];
                 
                 let indexesCreated = 0;
@@ -450,7 +452,7 @@ class DatabaseManager {
           
           // First check if user can vote (daily and weekly limits)
           this.getUserVoteStatus(voterIp).then(status => {
-            // Check daily limit (1 vote per day)
+            // Check daily limit (1 vote per day - ANY school)
             if (status.hasVotedToday) {
               return resolve({
                 success: false,
@@ -472,17 +474,43 @@ class DatabaseManager {
               });
             }
 
-            // Check if vote_date column exists before inserting
-            this.ensureVoteDateColumn().then(() => {
-              // Check column existence after migration
-              this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
-                if (colErr) {
-                  return reject(colErr);
+            // CRITICAL: Check if user already voted for THIS SPECIFIC SCHOOL today
+            // This prevents multiple votes for the same school in one day
+            this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
+              if (colErr) {
+                return reject(colErr);
+              }
+              
+              const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
+              const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
+              
+              // Check if user already voted for this specific school today
+              const checkDuplicateQuery = `
+                SELECT COUNT(*) as count 
+                FROM votes 
+                WHERE voter_ip = ? 
+                  AND school_id = ? 
+                  AND ${dateColumn} = ?
+              `;
+              
+              this.db.get(checkDuplicateQuery, [voterIp, schoolId, currentDate], (checkErr, checkRow) => {
+                if (checkErr) {
+                  console.error('❌ Error checking duplicate vote:', checkErr);
+                  return reject(checkErr);
                 }
                 
-                const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
+                // If user already voted for this school today, reject
+                if (checkRow && checkRow.count > 0) {
+                  return resolve({
+                    success: false,
+                    error: 'Already voted for this school today',
+                    message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                    remainingVotes: status.remainingWeeklyVotes,
+                    hasVotedToday: true
+                  });
+                }
                 
-                // Insert the vote with current date
+                // Now safe to insert the vote
                 const insertQuery = hasVoteDateCol 
                   ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                   : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?)';
@@ -494,20 +522,24 @@ class DatabaseManager {
                 this.db.run(insertQuery, insertParams, function(err) {
                   if (err) {
                     console.error('❌ Error recording vote:', err);
-                    // Check if it's a duplicate vote error
-                    if (err.message && err.message.includes('UNIQUE')) {
+                    // Check if it's a duplicate vote error (database constraint)
+                    if (err.message && (err.message.includes('UNIQUE') || err.message.includes('duplicate'))) {
                       return resolve({
                         success: false,
                         error: 'Duplicate vote',
-                        message: 'Vous avez déjà voté pour cette école',
-                        remainingVotes: status.remainingWeeklyVotes
+                        message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                        remainingVotes: status.remainingWeeklyVotes,
+                        hasVotedToday: true
                       });
                     }
                     return reject(err);
                   }
                   
-                  // Update weekly stats
-                  dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+                  // CRITICAL: Only update weekly stats if vote was successfully inserted
+                  // This prevents vote count from incrementing if the vote failed
+                  if (this.lastID) {
+                    dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+                  }
 
                   // Get updated status after vote
                   dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
@@ -530,9 +562,6 @@ class DatabaseManager {
                   });
                 });
               });
-            }).catch(colError => {
-              console.error('❌ Error ensuring vote_date column:', colError);
-              return reject(colError);
             });
           }).catch(statusError => {
             console.error('❌ Error getting vote status:', statusError);
