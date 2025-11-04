@@ -765,8 +765,8 @@ class DatabaseManager {
                               // Vote was inserted but commit failed - this is bad but vote is already in DB
                             }
                             
-                            // Get updated status after vote
-                            dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
+                        // Get updated status after vote - CRITICAL: Pass fingerprint!
+                        dbManager.getUserVoteStatus(voterIp, voterFingerprint).then(updatedStatus => {
                 resolve({
                   success: true,
                                 voteId: voteId,
