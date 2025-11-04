@@ -1080,29 +1080,95 @@ class SchoolRankingApp {
         }
     }
 
+    // Detect if device is mobile
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+    }
+
     // Share on Facebook
     shareOnFacebook(schoolName, schoolRegion) {
         const link = this.generateSchoolVotingLink(schoolName);
-        const text = encodeURIComponent(`${this.translate('share_text')}\n\n${schoolName} (${schoolRegion})\n\nVotez ici: ${link}`);
+        const shareText = `${this.translate('share_text')}\n\n${schoolName} (${schoolRegion})\n\nVotez ici: ${link}`;
         const url = encodeURIComponent(link);
+        const text = encodeURIComponent(shareText);
         
-        // Facebook Share Dialog
+        // Check if native share API is available (mobile browsers)
+        if (this.isMobileDevice() && navigator.share) {
+            navigator.share({
+                title: schoolName,
+                text: shareText,
+                url: link
+            }).then(() => {
+                this.showNotification(`${this.translate('share_button')} sur Facebook`, 'success');
+            }).catch((err) => {
+                console.log('Error using native share:', err);
+                // Fallback to Facebook URL
+                this.openFacebookShare(url, text);
+            });
+        } else {
+            // Desktop or mobile without native share
+            this.openFacebookShare(url, text);
+        }
+    }
+
+    // Helper to open Facebook share
+    openFacebookShare(url, text) {
         const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
-        window.open(facebookUrl, 'facebook-share-dialog', 'width=626,height=436,menubar=no,toolbar=no,resizable=yes,scrollbars=yes');
         
-        this.showNotification(`${this.translate('share_button')} sur Facebook`, 'success');
+        if (this.isMobileDevice()) {
+            // On mobile, use location.href instead of window.open (popup blockers)
+            window.location.href = facebookUrl;
+        } else {
+            // Desktop: use popup window
+            window.open(facebookUrl, 'facebook-share-dialog', 'width=626,height=436,menubar=no,toolbar=no,resizable=yes,scrollbars=yes');
+            this.showNotification(`${this.translate('share_button')} sur Facebook`, 'success');
+        }
+        // Note: On mobile, we don't show notification immediately as page will redirect
     }
 
     // Share on WhatsApp
     shareOnWhatsApp(schoolName, schoolRegion) {
         const link = this.generateSchoolVotingLink(schoolName);
-        const text = encodeURIComponent(`${this.translate('share_text')}\n\n🏫 ${schoolName}\n📍 ${schoolRegion}\n\n🗳️ Votez ici: ${link}`);
+        const shareText = `${this.translate('share_text')}\n\n🏫 ${schoolName}\n📍 ${schoolRegion}\n\n🗳️ Votez ici: ${link}`;
+        const text = encodeURIComponent(shareText);
         
-        // WhatsApp share URL (works on mobile and desktop)
-        const whatsappUrl = `https://wa.me/?text=${text}`;
-        window.open(whatsappUrl, '_blank');
+        // Check if native share API is available (mobile browsers)
+        if (this.isMobileDevice() && navigator.share) {
+            navigator.share({
+                title: schoolName,
+                text: shareText,
+                url: link
+            }).then(() => {
+                this.showNotification(`${this.translate('share_button')} sur WhatsApp`, 'success');
+            }).catch((err) => {
+                console.log('Error using native share:', err);
+                // Fallback to WhatsApp URL
+                this.openWhatsAppShare(text);
+            });
+        } else {
+            // Desktop or mobile without native share
+            this.openWhatsAppShare(text);
+        }
+    }
+
+    // Helper to open WhatsApp share
+    openWhatsAppShare(text) {
+        // Use different WhatsApp URL format for mobile vs desktop
+        let whatsappUrl;
         
-        this.showNotification(`${this.translate('share_button')} sur WhatsApp`, 'success');
+        if (this.isMobileDevice()) {
+            // Mobile: use api.whatsapp.com which works better on mobile
+            whatsappUrl = `https://api.whatsapp.com/send?text=${text}`;
+            // On mobile, use location.href instead of window.open
+            window.location.href = whatsappUrl;
+            // Note: No notification on mobile as page will redirect
+        } else {
+            // Desktop: use wa.me
+            whatsappUrl = `https://wa.me/?text=${text}`;
+            window.open(whatsappUrl, '_blank');
+            this.showNotification(`${this.translate('share_button')} sur WhatsApp`, 'success');
+        }
     }
 
     // Copy to clipboard
