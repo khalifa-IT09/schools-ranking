@@ -1425,7 +1425,8 @@ app.get('/api/voting/top', async (req, res) => {
 });
 
 // Get user vote status (remaining votes, daily limit, etc.)
-app.get('/api/voting/status', async (req, res) => {
+// CRITICAL: Changed to POST to accept fingerprint for proper user identification
+app.post('/api/voting/status', async (req, res) => {
   try {
     // Get user IP address
     const voterIp = req.ip || 
@@ -1433,7 +1434,34 @@ app.get('/api/voting/status', async (req, res) => {
                    req.headers['x-forwarded-for']?.split(',')[0] || 
                    'unknown';
     
-    const status = await dbManager.getUserVoteStatus(voterIp);
+    // CRITICAL: Get fingerprint from request body to correctly identify user
+    const { voterFingerprint } = req.body;
+    
+    // Generate server-side fingerprint if not provided (same logic as vote endpoint)
+    let finalFingerprint = voterFingerprint;
+    if (!finalFingerprint || typeof finalFingerprint !== 'string' || finalFingerprint.length < 10 || finalFingerprint.length > 100) {
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      const serverFingerprintComponents = [
+        voterIp,
+        userAgent,
+        req.headers['accept-language'] || '',
+        req.headers['accept-encoding'] || ''
+      ];
+      const hashString = serverFingerprintComponents.join('|');
+      let hash = 0;
+      for (let i = 0; i < hashString.length; i++) {
+        const char = hashString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      finalFingerprint = 'server_' + Math.abs(hash).toString(16) + '_' + voterIp.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+      console.warn('⚠️ Generated server-side fingerprint for status check:', finalFingerprint);
+    }
+    
+    console.log(`📊 Getting vote status for IP: ${voterIp}, Fingerprint: ${finalFingerprint?.substring(0, 20)}...`);
+    
+    // Pass both IP and fingerprint to getUserVoteStatus
+    const status = await dbManager.getUserVoteStatus(voterIp, finalFingerprint);
     
     res.json({
       success: true,

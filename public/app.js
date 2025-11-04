@@ -477,12 +477,23 @@ class SchoolRankingApp {
 
     async loadVoteStatus() {
         try {
-            const response = await fetch('/api/voting/status');
+            // CRITICAL: Send fingerprint to correctly identify user after refresh
+            const fingerprint = this.getOrCreateBrowserFingerprint();
+            const response = await fetch('/api/voting/status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    voterFingerprint: fingerprint
+                })
+            });
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
                     this.voteStatus = data;
                     this.updateVoteCounter();
+                    console.log('✅ Vote status loaded:', data);
                 }
             }
         } catch (error) {

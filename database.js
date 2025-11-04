@@ -414,10 +414,16 @@ class DatabaseManager {
   }
 
   // Get user vote status (daily and weekly limits)
-  getUserVoteStatus(voterIp) {
+  // CRITICAL: Now accepts fingerprint to correctly identify user after refresh
+  getUserVoteStatus(voterIp, voterFingerprint) {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         return reject(new Error('Database not initialized'));
+      }
+      
+      // CRITICAL: Fingerprint is required for proper user identification
+      if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
+        console.warn('⚠️ getUserVoteStatus: No fingerprint provided, using IP only (may be inaccurate)');
       }
       
       // Ensure vote_date column exists before querying
@@ -431,36 +437,48 @@ class DatabaseManager {
           const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
           const dateColumn = hasVoteDate ? 'vote_date' : 'DATE(vote_timestamp)';
       
-      try {
-        const weekStart = this.getCurrentWeekStart();
+          try {
+            const weekStart = this.getCurrentWeekStart();
             const currentDate = this.getCurrentDate();
-        
-            // Check if user has voted today (using vote_date or DATE(vote_timestamp) as fallback)
-        this.db.get(
-              `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`,
-              [voterIp, currentDate],
-            (err, dailyRow) => {
-            if (err) {
-              console.error('❌ Error checking daily vote:', err);
-              return reject(err);
-            }
-
-            const hasVotedToday = dailyRow.count > 0;
-            const lastVoteDate = hasVotedToday ? currentDate : null;
             
-            // Check total weekly votes
-            this.db.get(
-              'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?',
-              [voterIp, weekStart],
-              (err, weeklyRow) => {
+            // CRITICAL: Use fingerprint in queries to correctly identify user
+            // Use same query format as recordVote for consistency
+            const dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+              ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND ${dateColumn} = ?`
+              : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
+            const dailyParams = voterFingerprint && voterFingerprint.trim() !== ''
+              ? [voterIp, voterFingerprint, currentDate]
+              : [voterIp, currentDate];
+            
+            // Check if user has voted today (using vote_date or DATE(vote_timestamp) as fallback)
+            this.db.get(dailyQuery, dailyParams, (err, dailyRow) => {
+              if (err) {
+                console.error('❌ Error checking daily vote:', err);
+                return reject(err);
+              }
+
+              const hasVotedToday = dailyRow ? (dailyRow.count > 0) : false;
+              const lastVoteDate = hasVotedToday ? currentDate : null;
+              
+              // Check total weekly votes - also use fingerprint
+              const weeklyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+                ? 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?'
+                : 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?';
+              const weeklyParams = voterFingerprint && voterFingerprint.trim() !== ''
+                ? [voterIp, voterFingerprint, weekStart]
+                : [voterIp, weekStart];
+              
+              this.db.get(weeklyQuery, weeklyParams, (err, weeklyRow) => {
                 if (err) {
                   console.error('❌ Error checking weekly vote:', err);
                   return reject(err);
                 }
                 
-                const weeklyVoteCount = weeklyRow.count || 0;
+                const weeklyVoteCount = weeklyRow ? (weeklyRow.count || 0) : 0;
                 const remainingWeeklyVotes = Math.max(0, 7 - weeklyVoteCount);
                 const weeklyLimitReached = weeklyVoteCount >= 7;
+                
+                console.log(`📊 Vote status for IP: ${voterIp}, FP: ${voterFingerprint?.substring(0, 20)}..., Daily: ${hasVotedToday}, Weekly: ${weeklyVoteCount}/7`);
                 
                 resolve({
                   hasVotedToday,
@@ -471,10 +489,8 @@ class DatabaseManager {
                   currentDate,
                   weekStart
                 });
-              }
-            );
-          }
-        );
+              });
+            });
           } catch (error) {
             console.error('❌ Error getting user vote status:', error);
             reject(error);
