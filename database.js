@@ -685,25 +685,38 @@ class DatabaseManager {
                         }
                         
                         dbManager.db.run(insertQuery, insertParams, function(insertErr) {
-                        if (insertErr) {
-                          dbManager.db.run('ROLLBACK', () => {});
-                          // Check if it's a duplicate vote error (database constraint)
-                          console.error('❌ [TRANSACTION] INSERT ERROR:', insertErr.message, insertErr.code);
-                          console.error('❌ [TRANSACTION] Full error:', JSON.stringify(insertErr));
-                          if (insertErr.message && (insertErr.message.includes('UNIQUE') || insertErr.message.includes('duplicate') || insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' || insertErr.code === 'SQLITE_CONSTRAINT')) {
-                            console.log('🚫 [TRANSACTION] Duplicate vote blocked by database UNIQUE constraint');
-                            return resolve({
-                              success: false,
-                              error: 'Duplicate vote',
-                              message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                              remainingVotes: Math.max(0, 7 - weeklyCount),
-                              hasVotedToday: true
-                            });
+                          if (insertErr) {
+                            dbManager.db.run('ROLLBACK', () => {});
+                            // Check if it's a duplicate vote error (database constraint)
+                            console.error('❌ [TRANSACTION] INSERT ERROR:', insertErr.message, insertErr.code);
+                            console.error('❌ [TRANSACTION] Full error:', JSON.stringify(insertErr));
+                            console.error('❌ [TRANSACTION] Error toString:', insertErr.toString());
+                            
+                            // SQLite constraint error codes: SQLITE_CONSTRAINT = 19, SQLITE_CONSTRAINT_UNIQUE = 2067
+                            const isConstraintError = insertErr.code === 'SQLITE_CONSTRAINT' || 
+                                                      insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+                                                      insertErr.code === 19 ||
+                                                      insertErr.code === 2067 ||
+                                                      (insertErr.message && (
+                                                        insertErr.message.includes('UNIQUE') || 
+                                                        insertErr.message.includes('duplicate') ||
+                                                        insertErr.message.includes('constraint')
+                                                      ));
+                            
+                            if (isConstraintError) {
+                              console.log('🚫 [TRANSACTION] Duplicate vote blocked by database UNIQUE constraint');
+                              return resolve({
+                                success: false,
+                                error: 'Duplicate vote',
+                                message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                                remainingVotes: Math.max(0, 7 - weeklyCount),
+                                hasVotedToday: true
+                              });
+                            }
+                            // Log the error for debugging
+                            console.error('❌ [TRANSACTION] Database insert error (not duplicate):', insertErr);
+                            return reject(insertErr);
                           }
-                          // Log the error for debugging
-                          console.error('❌ [TRANSACTION] Database insert error (not duplicate):', insertErr);
-                          return reject(insertErr);
-                        }
                         
                         console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${this.lastID}`);
                         
