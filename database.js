@@ -44,72 +44,72 @@ class DatabaseManager {
 
   createTables() {
     return new Promise((resolve, reject) => {
-      try {
-        // Create votes table
-        const createVotesTable = `
-          CREATE TABLE IF NOT EXISTS votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            school_id TEXT NOT NULL,
-            school_name TEXT NOT NULL,
-            school_region TEXT NOT NULL,
-            school_level TEXT NOT NULL,
-            voter_ip TEXT NOT NULL,
+    try {
+      // Create votes table
+      const createVotesTable = `
+        CREATE TABLE IF NOT EXISTS votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          school_id TEXT NOT NULL,
+          school_name TEXT NOT NULL,
+          school_region TEXT NOT NULL,
+          school_level TEXT NOT NULL,
+          voter_ip TEXT NOT NULL,
             voter_fingerprint TEXT NOT NULL,
-            voter_user_agent TEXT,
-            vote_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          voter_user_agent TEXT,
+          vote_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             vote_date DATE,
             week_start DATE NOT NULL
-          )
-        `;
+        )
+      `;
 
         // Create indexes for better performance (excluding vote_date - will be created after migration)
-        const createIndexes = [
-          'CREATE INDEX IF NOT EXISTS idx_votes_school_id ON votes(school_id)',
-          'CREATE INDEX IF NOT EXISTS idx_votes_week_start ON votes(week_start)',
-          'CREATE INDEX IF NOT EXISTS idx_votes_voter_ip ON votes(voter_ip)',
-          'CREATE INDEX IF NOT EXISTS idx_votes_school_region ON votes(school_region)',
-          'CREATE INDEX IF NOT EXISTS idx_votes_school_level ON votes(school_level)',
+      const createIndexes = [
+        'CREATE INDEX IF NOT EXISTS idx_votes_school_id ON votes(school_id)',
+        'CREATE INDEX IF NOT EXISTS idx_votes_week_start ON votes(week_start)',
+        'CREATE INDEX IF NOT EXISTS idx_votes_voter_ip ON votes(voter_ip)',
+        'CREATE INDEX IF NOT EXISTS idx_votes_school_region ON votes(school_region)',
+        'CREATE INDEX IF NOT EXISTS idx_votes_school_level ON votes(school_level)',
           'CREATE INDEX IF NOT EXISTS idx_votes_timestamp ON votes(vote_timestamp)',
           'CREATE INDEX IF NOT EXISTS idx_votes_ip_week ON votes(voter_ip, week_start)'
-        ];
+      ];
 
-        // Create school_badges table for achievements
-        const createBadgesTable = `
-          CREATE TABLE IF NOT EXISTS school_badges (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            school_id TEXT NOT NULL,
-            school_name TEXT NOT NULL,
-            badge_type TEXT NOT NULL,
-            badge_name TEXT NOT NULL,
-            badge_description TEXT,
-            earned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1,
-            UNIQUE(school_id, badge_type)
-          )
-        `;
+      // Create school_badges table for achievements
+      const createBadgesTable = `
+        CREATE TABLE IF NOT EXISTS school_badges (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          school_id TEXT NOT NULL,
+          school_name TEXT NOT NULL,
+          badge_type TEXT NOT NULL,
+          badge_name TEXT NOT NULL,
+          badge_description TEXT,
+          earned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          is_active BOOLEAN DEFAULT 1,
+          UNIQUE(school_id, badge_type)
+        )
+      `;
 
-        // Create indexes for badges
-        const createBadgeIndexes = [
-          'CREATE INDEX IF NOT EXISTS idx_badges_school_id ON school_badges(school_id)',
-          'CREATE INDEX IF NOT EXISTS idx_badges_badge_type ON school_badges(badge_type)',
-          'CREATE INDEX IF NOT EXISTS idx_badges_earned_date ON school_badges(earned_date)',
-          'CREATE INDEX IF NOT EXISTS idx_badges_is_active ON school_badges(is_active)'
-        ];
+      // Create indexes for badges
+      const createBadgeIndexes = [
+        'CREATE INDEX IF NOT EXISTS idx_badges_school_id ON school_badges(school_id)',
+        'CREATE INDEX IF NOT EXISTS idx_badges_badge_type ON school_badges(badge_type)',
+        'CREATE INDEX IF NOT EXISTS idx_badges_earned_date ON school_badges(earned_date)',
+        'CREATE INDEX IF NOT EXISTS idx_badges_is_active ON school_badges(is_active)'
+      ];
 
-        // Create weekly_stats table for caching weekly vote counts
-        const createWeeklyStatsTable = `
-          CREATE TABLE IF NOT EXISTS weekly_stats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            school_id TEXT NOT NULL,
-            school_name TEXT NOT NULL,
-            school_region TEXT NOT NULL,
-            school_level TEXT NOT NULL,
-            week_start DATE NOT NULL,
-            vote_count INTEGER DEFAULT 0,
-            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(school_id, week_start)
-          )
-        `;
+      // Create weekly_stats table for caching weekly vote counts
+      const createWeeklyStatsTable = `
+        CREATE TABLE IF NOT EXISTS weekly_stats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          school_id TEXT NOT NULL,
+          school_name TEXT NOT NULL,
+          school_region TEXT NOT NULL,
+          school_level TEXT NOT NULL,
+          week_start DATE NOT NULL,
+          vote_count INTEGER DEFAULT 0,
+          last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(school_id, week_start)
+        )
+      `;
 
         // Create weekly_winners table for tracking weekly winners
         const createWeeklyWinnersTable = `
@@ -127,12 +127,12 @@ class DatabaseManager {
           )
         `;
 
-        const createWeeklyStatsIndexes = [
-          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
-          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
-          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_region ON weekly_stats(school_region)',
-          'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
-        ];
+      const createWeeklyStatsIndexes = [
+        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
+        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
+        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_region ON weekly_stats(school_region)',
+        'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
+      ];
 
         // Helper function to safely execute SQL (prevents nested callback hell)
         const safeExec = (sql, tableName) => {
@@ -190,10 +190,10 @@ class DatabaseManager {
             console.error('❌ Error creating database tables:', error);
             reject(error);
           });
-      } catch (error) {
-        console.error('❌ Error creating database tables:', error);
+    } catch (error) {
+      console.error('❌ Error creating database tables:', error);
         reject(error);
-      }
+    }
     });
   }
 
@@ -430,13 +430,13 @@ class DatabaseManager {
           
           const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
           const dateColumn = hasVoteDate ? 'vote_date' : 'DATE(vote_timestamp)';
-          
-          try {
-            const weekStart = this.getCurrentWeekStart();
+      
+      try {
+        const weekStart = this.getCurrentWeekStart();
             const currentDate = this.getCurrentDate();
-            
+        
             // Check if user has voted today (using vote_date or DATE(vote_timestamp) as fallback)
-            this.db.get(
+        this.db.get(
               `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`,
               [voterIp, currentDate],
             (err, dailyRow) => {
@@ -444,7 +444,7 @@ class DatabaseManager {
               console.error('❌ Error checking daily vote:', err);
               return reject(err);
             }
-            
+
             const hasVotedToday = dailyRow.count > 0;
             const lastVoteDate = hasVotedToday ? currentDate : null;
             
@@ -520,11 +520,20 @@ class DatabaseManager {
               // CRITICAL: Check if user already voted for THIS SPECIFIC school today
               // Rule: 1 vote per school per day, max 7 votes per week
               // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
-              // Use exact match with proper date comparison
-              const checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND ${dateColumn} = ?`;
+              // Use exact match with proper date comparison - use CAST to ensure date comparison works
+              const checkSchoolQuery = hasVoteDateCol 
+                ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+                : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
               const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
               
               console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
+              
+              // DEBUG: Query to see what's actually in the database
+              dbManager.db.all(`SELECT id, voter_ip, voter_fingerprint, school_id, ${dateColumn} as vote_date FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? LIMIT 5`, [voterIp, voterFingerprint, schoolId], (debugErr, debugRows) => {
+                if (!debugErr && debugRows) {
+                  console.log(`🔍 [DEBUG] Existing votes in DB for this IP+FP+School:`, JSON.stringify(debugRows, null, 2));
+                }
+              });
               
               dbManager.db.get(checkSchoolQuery, checkSchoolParams, (schoolErr, schoolRow) => {
                 if (schoolErr) {
@@ -542,8 +551,8 @@ class DatabaseManager {
                   console.log(`🚫 [TRANSACTION] Query: ${checkSchoolQuery}`);
                   console.log(`🚫 [TRANSACTION] Params: IP=${voterIp}, FP=${voterFingerprint.substring(0, 20)}..., School=${schoolId}, Date=${currentDate}`);
                   dbManager.db.run('ROLLBACK', () => {});
-                  return resolve({
-                    success: false,
+              return resolve({
+                success: false,
                     error: 'Already voted for this school today',
                     message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
                     remainingVotes: 0,
@@ -579,7 +588,11 @@ class DatabaseManager {
                   
                   // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
                   // This prevents race conditions where multiple requests passed the initial check
-                  dbManager.db.get(checkSchoolQuery, checkSchoolParams, (doubleCheckErr, doubleCheckRow) => {
+                  // Use same query format as initial check
+                  const doubleCheckQuery = hasVoteDateCol 
+                    ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+                    : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+                  dbManager.db.get(doubleCheckQuery, checkSchoolParams, (doubleCheckErr, doubleCheckRow) => {
                     if (doubleCheckErr) {
                       console.error('❌ Error in double check:', doubleCheckErr);
                       dbManager.db.run('ROLLBACK', () => {});
@@ -619,7 +632,10 @@ class DatabaseManager {
                       
                       // FINAL CHECK: Query database one more time with EXACT same conditions as INSERT
                       // This is the absolute last check before insert to catch any race conditions
-                      const finalCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND ${dateColumn} = ?`;
+                      // Use CAST to ensure date comparison works correctly
+                      const finalCheckQuery = hasVoteDateCol 
+                        ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+                        : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
                       dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (finalCheckErr, finalCheckRow) => {
                         if (finalCheckErr) {
                           console.error('❌ [TRANSACTION] Final check error:', finalCheckErr);
@@ -642,6 +658,8 @@ class DatabaseManager {
                           });
                         }
                       
+                      // Use INSERT OR IGNORE to rely on UNIQUE constraint - if duplicate exists, it will be silently ignored
+                      // But we still want to catch the error, so use regular INSERT and handle the constraint error
                       const insertQuery = hasVoteDateCol 
                         ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                         : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
@@ -692,11 +710,15 @@ class DatabaseManager {
                         // Update weekly stats only if vote was successfully inserted
                         const voteId = this.lastID;
                         if (voteId) {
-                          dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
+                dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
                         }
                         
                         // VERIFY: Check if vote was actually inserted and no duplicate exists
-                        dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (verifyErr, verifyRow) => {
+                        // Use same query format as finalCheckQuery
+                        const verifyQuery = hasVoteDateCol 
+                          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+                          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+                        dbManager.db.get(verifyQuery, [voterIp, voterFingerprint, schoolId, currentDate], (verifyErr, verifyRow) => {
                           if (verifyErr) {
                             console.error('❌ [TRANSACTION] Verification error:', verifyErr);
                           } else {
@@ -716,8 +738,8 @@ class DatabaseManager {
                             
                             // Get updated status after vote
                             dbManager.getUserVoteStatus(voterIp).then(updatedStatus => {
-                              resolve({
-                                success: true,
+                resolve({
+                  success: true,
                                 voteId: voteId,
                                 remainingVotes: updatedStatus.remainingWeeklyVotes,
                                 message: 'Vote enregistré avec succès',
@@ -761,11 +783,11 @@ class DatabaseManager {
             }
             processVoteTransaction();
           });
-        } catch (error) {
+      } catch (error) {
           dbManager.db.run('ROLLBACK', () => {});
-          console.error('❌ Error recording vote:', error);
-          reject(error);
-        }
+        console.error('❌ Error recording vote:', error);
+        reject(error);
+      }
       }).catch(reject);
     });
   }
@@ -852,8 +874,8 @@ class DatabaseManager {
                 (voterErr, voterRow) => {
                   const uniqueVoters = voterErr ? 0 : (voterRow ? parseInt(voterRow.unique_voters || 0) : 0);
                   resolveVoters({
-                    ...school,
-                    rank: index + 1,
+            ...school,
+            rank: index + 1,
                     total_votes: parseInt(school.total_votes || 0),
                     unique_voters: uniqueVoters
                   });
@@ -864,10 +886,10 @@ class DatabaseManager {
           
           // Wait for all unique_voters queries to complete
           Promise.all(schoolsWithVoters).then(schools => {
-            resolve({
-              success: true,
-              schools: schools,
-              week_start: this.getCurrentWeekStart()
+          resolve({
+            success: true,
+            schools: schools,
+            week_start: this.getCurrentWeekStart()
             });
           }).catch(rejectErr => {
             // Fallback: return schools without unique_voters if query fails
