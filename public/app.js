@@ -1050,14 +1050,19 @@ class SchoolRankingApp {
 
     // Generate unique voting link for a school
     generateSchoolVotingLink(schoolName) {
+        // Format: rim-schools.com/vote/Lycée-Excellence-1
+        // Replace spaces with hyphens, keep special characters (they'll be URL-encoded)
         const slug = schoolName
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+            .trim()
+            .replace(/\s+/g, '-')  // Replace spaces with hyphens
+            .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
         
-        return `${window.location.origin}/vote/${slug}`;
+        // Always use rim-schools.com domain for shared links
+        // This ensures links work correctly when shared on social media
+        const domain = 'rim-schools.com';
+        const protocol = 'https://'; // Always use HTTPS for production domain
+        
+        return `${protocol}${domain}/vote/${slug}`;
     }
 
     // Share school voting link

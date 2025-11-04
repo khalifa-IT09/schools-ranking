@@ -1534,11 +1534,17 @@ app.get('/api/voting/winners/history', async (req, res) => {
   }
 });
 
-// Route for unique school voting links (e.g., /vote/lycee-espoir)
+// Route for unique school voting links (e.g., /vote/Lycée-Excellence-1)
 app.get('/vote/:schoolSlug', (req, res) => {
   const { schoolSlug } = req.params;
+  
+  // Decode the school name (replace hyphens with spaces for search)
+  // The slug format is like "Lycée-Excellence-1", we want to search for "Lycée Excellence 1"
+  const schoolNameForSearch = decodeURIComponent(schoolSlug).replace(/-/g, ' ');
+  
   // Redirect to main page with voting mode and school pre-selected
-  res.redirect(`/?voting=true&school=${encodeURIComponent(schoolSlug)}`);
+  // The frontend will search for the school name in voting mode
+  res.redirect(`/?voting=true&school=${encodeURIComponent(schoolNameForSearch)}`);
 });
 
 
