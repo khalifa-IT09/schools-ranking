@@ -296,32 +296,49 @@ class SchoolRankingApp {
             // Immediately lock scroll position
             window.scrollTo(0, 0);
             document.documentElement.style.scrollBehavior = 'auto';
-            document.body.style.overflow = 'hidden';
-            document.documentElement.style.overflow = 'hidden';
+            // Use position:fixed instead of overflow:hidden to prevent scroll but allow clicks
+            const originalBodyStyle = {
+                position: document.body.style.position,
+                top: document.body.style.top,
+                width: document.body.style.width
+            };
             
-            // Prevent scroll events temporarily
+            // Temporarily fix body position to prevent scroll while allowing clicks
+            document.body.style.position = 'fixed';
+            document.body.style.top = '0';
+            document.body.style.width = '100%';
+            
             let scrollPrevented = true;
-            const preventScroll = (e) => {
+            let lastScrollY = 0;
+            
+            // Prevent scroll but allow clicks
+            const preventScroll = () => {
                 if (scrollPrevented) {
-                    e.preventDefault();
                     window.scrollTo(0, 0);
                 }
             };
             
-            window.addEventListener('scroll', preventScroll, { passive: false, capture: true });
-            document.addEventListener('scroll', preventScroll, { passive: false, capture: true });
+            // Use a more targeted approach - only prevent scroll, not other events
+            window.addEventListener('scroll', preventScroll, { passive: false });
             
             // Release after page fully loads
-            window.addEventListener('load', () => {
+            const releaseScroll = () => {
                 setTimeout(() => {
                     scrollPrevented = false;
-                    document.body.style.overflow = '';
-                    document.documentElement.style.overflow = '';
-                    window.removeEventListener('scroll', preventScroll, { capture: true });
-                    document.removeEventListener('scroll', preventScroll, { capture: true });
+                    document.body.style.position = originalBodyStyle.position || '';
+                    document.body.style.top = originalBodyStyle.top || '';
+                    document.body.style.width = originalBodyStyle.width || '';
+                    window.removeEventListener('scroll', preventScroll);
                     document.documentElement.style.scrollBehavior = '';
-                }, 1500);
-            }, { once: true });
+                    window.scrollTo(0, 0); // Ensure we're at top
+                }, 1000);
+            };
+            
+            if (document.readyState === 'complete') {
+                releaseScroll();
+            } else {
+                window.addEventListener('load', releaseScroll, { once: true });
+            }
         }
     }
 
@@ -1261,8 +1278,17 @@ class SchoolRankingApp {
             // Prevent any automatic scrolling - lock scroll position
             window.scrollTo(0, 0);
             document.documentElement.style.scrollBehavior = 'auto'; // Disable smooth scroll
-            document.body.style.overflow = 'hidden'; // Temporarily prevent scrolling
-            document.documentElement.style.overflow = 'hidden';
+            
+            // Use position:fixed instead of overflow:hidden to prevent scroll but allow clicks
+            const originalBodyStyle = {
+                position: document.body.style.position,
+                top: document.body.style.top,
+                width: document.body.style.width
+            };
+            
+            document.body.style.position = 'fixed';
+            document.body.style.top = '0';
+            document.body.style.width = '100%';
             
             // Switch to voting mode without triggering scroll
             setTimeout(() => {
@@ -1271,8 +1297,9 @@ class SchoolRankingApp {
                     // Keep scroll locked for a bit longer to ensure no auto-scroll
                     setTimeout(() => {
                         // Re-enable scrolling
-                        document.body.style.overflow = '';
-                        document.documentElement.style.overflow = '';
+                        document.body.style.position = originalBodyStyle.position || '';
+                        document.body.style.top = originalBodyStyle.top || '';
+                        document.body.style.width = originalBodyStyle.width || '';
                         document.documentElement.style.scrollBehavior = '';
                         window.scrollTo(0, 0); // Ensure we're at the top
                         
@@ -1293,8 +1320,9 @@ class SchoolRankingApp {
                     }, 300);
                 }).catch(() => {
                     // Re-enable scrolling on error
-                    document.body.style.overflow = '';
-                    document.documentElement.style.overflow = '';
+                    document.body.style.position = originalBodyStyle.position || '';
+                    document.body.style.top = originalBodyStyle.top || '';
+                    document.body.style.width = originalBodyStyle.width || '';
                     document.documentElement.style.scrollBehavior = '';
                     this._handlingVotingLink = false;
                 });
