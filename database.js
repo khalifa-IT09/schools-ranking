@@ -279,9 +279,55 @@ class DatabaseManager {
                 const voteDateIndexes = [
                   'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
                   'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
-                  'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)' // Use IF NOT EXISTS to avoid errors
+                  'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)'
                 ];
+                
+                // Create supporting indexes first
+                let regularIndexesCreated = 0;
+                voteDateIndexes.forEach((indexQuery) => {
+                  this.db.run(indexQuery, (indexErr) => {
+                    if (indexErr) {
+                      console.error('❌ Could not create regular index:', indexQuery, indexErr.message);
+                    } else {
+                      console.log('✅ Created regular index:', indexQuery.substring(0, 60));
+                    }
+                    regularIndexesCreated++;
+                    if (regularIndexesCreated === voteDateIndexes.length) {
+                      // Now force-create unique index (DROP and CREATE to ensure it's correct)
+                      console.log('🔄 Force-creating UNIQUE index (dropping if exists first)...');
+                      this.db.run('DROP INDEX IF EXISTS idx_votes_unique_daily_with_fingerprint;', () => {
+                        this.db.run(
+                          'CREATE UNIQUE INDEX idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)',
+                          (uniqueErr) => {
+                            if (uniqueErr) {
+                              console.error('❌ CRITICAL: Failed to create unique index:', uniqueErr.message);
+                              console.error('   This may be because duplicate votes already exist in the database.');
+                              console.error('   Error code:', uniqueErr.code);
+                            } else {
+                              console.log('✅ UNIQUE INDEX CREATED SUCCESSFULLY');
+                            }
+                            
+                            // Verify index exists
+                            this.db.all("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='idx_votes_unique_daily_with_fingerprint'", (verifyErr, indexes) => {
+                              if (verifyErr) {
+                                console.error('❌ Error verifying index:', verifyErr);
+                              } else {
+                                if (indexes.length > 0) {
+                                  console.log('✅ VERIFIED: Unique index exists!');
+                                  console.log('   Name:', indexes[0].name);
+                                  console.log('   SQL:', indexes[0].sql);
+                                } else {
+                                  console.error('❌ CRITICAL: Unique index verification FAILED - index does not exist!');
+                                }
+                              }
+                              resolve();
+                            });
+                          }
+                        );
+                      });
+                    }
+                  });
+                });
                 
                 let indexesCreated = 0;
                 const totalIndexes = voteDateIndexes.length;
