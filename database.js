@@ -280,7 +280,7 @@ class DatabaseManager {
                   'CREATE INDEX IF NOT EXISTS idx_votes_date ON votes(vote_date)',
                   'CREATE INDEX IF NOT EXISTS idx_votes_ip_date ON votes(voter_ip, vote_date)',
                   'CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON votes(voter_fingerprint)',
-                  'CREATE UNIQUE INDEX idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)' // Remove IF NOT EXISTS to force recreation
+                  'CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_daily_with_fingerprint ON votes(voter_ip, voter_fingerprint, school_id, vote_date)' // Use IF NOT EXISTS to avoid errors
                 ];
                 
                 let indexesCreated = 0;
