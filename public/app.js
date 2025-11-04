@@ -272,12 +272,57 @@ class SchoolRankingApp {
         this.updateLanguage();
         console.log('✅ App initialization complete');
         
+        // Prevent scroll issues when loading from shared links (Facebook, etc.)
+        this.preventScrollIssues();
+        
         // Make search test function globally available for debugging
         window.testSearch = (query) => {
             console.log(`🧪 Testing search with query: "${query}"`);
             this.currentSearch = query;
             this.loadSchools();
         };
+    }
+
+    // Prevent scroll issues when accessing via shared links
+    preventScrollIssues() {
+        // Check if we have Facebook or other sharing parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasSharingParams = urlParams.has('voting') || 
+                                 urlParams.has('fbclid') || 
+                                 urlParams.has('utm_source') ||
+                                 window.location.hash;
+        
+        if (hasSharingParams) {
+            // Immediately lock scroll position
+            window.scrollTo(0, 0);
+            document.documentElement.style.scrollBehavior = 'auto';
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            
+            // Prevent scroll events temporarily
+            let scrollPrevented = true;
+            const preventScroll = (e) => {
+                if (scrollPrevented) {
+                    e.preventDefault();
+                    window.scrollTo(0, 0);
+                }
+            };
+            
+            window.addEventListener('scroll', preventScroll, { passive: false, capture: true });
+            document.addEventListener('scroll', preventScroll, { passive: false, capture: true });
+            
+            // Release after page fully loads
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    scrollPrevented = false;
+                    document.body.style.overflow = '';
+                    document.documentElement.style.overflow = '';
+                    window.removeEventListener('scroll', preventScroll, { capture: true });
+                    document.removeEventListener('scroll', preventScroll, { capture: true });
+                    document.documentElement.style.scrollBehavior = '';
+                }, 1500);
+            }, { once: true });
+        }
     }
 
     setupEventListeners() {
@@ -405,14 +450,20 @@ class SchoolRankingApp {
         await this.loadSchools();
     }
 
-    async switchToVoting() {
+    async switchToVoting(skipHandleVotingLink = false) {
         console.log('🗳️ Switching to voting mode');
+        
+        // Prevent scrolling when switching programmatically
+        const currentScrollY = window.scrollY;
         
         // Update active tab
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.classList.remove('active');
         });
-        document.querySelector('[data-level="voting"]').classList.add('active');
+        const votingTabElement = document.querySelector('[data-level="voting"]');
+        if (votingTabElement) {
+            votingTabElement.classList.add('active');
+        }
         
         // Hide regular results, show voting interface
         const resultsContainer = document.getElementById('resultsContainer');
@@ -471,8 +522,13 @@ class SchoolRankingApp {
         // Check for winner announcement on page load
         this.checkWinnerAnnouncement();
 
-        // Check for unique voting link in URL
-        this.handleVotingLink();
+        // Restore scroll position (prevent auto-scroll)
+        window.scrollTo(0, currentScrollY);
+        
+        // Only check for voting link if not called from handleVotingLink
+        if (!skipHandleVotingLink) {
+            this.handleVotingLink();
+        }
     }
 
     async loadVoteStatus() {
@@ -1191,30 +1247,68 @@ class SchoolRankingApp {
 
     // Handle unique voting link from URL
     handleVotingLink() {
+        // Prevent multiple calls
+        if (this._handlingVotingLink) {
+            return;
+        }
+        this._handlingVotingLink = true;
+        
         const urlParams = new URLSearchParams(window.location.search);
         const voting = urlParams.get('voting');
         const school = urlParams.get('school');
         
         if (voting === 'true') {
-            // Switch to voting mode
+            // Prevent any automatic scrolling - lock scroll position
+            window.scrollTo(0, 0);
+            document.documentElement.style.scrollBehavior = 'auto'; // Disable smooth scroll
+            document.body.style.overflow = 'hidden'; // Temporarily prevent scrolling
+            document.documentElement.style.overflow = 'hidden';
+            
+            // Switch to voting mode without triggering scroll
             setTimeout(() => {
-                const votingTab = document.getElementById('votingTab');
-                if (votingTab) {
-                    votingTab.click();
-                    
-                    // If school slug provided, try to find and highlight it
-                    if (school) {
-                        setTimeout(() => {
-                            // Search for school in the voting list
-                            const searchInput = document.getElementById('searchInput');
-                            if (searchInput) {
-                                searchInput.value = school;
-                                searchInput.dispatchEvent(new Event('input'));
-                            }
-                        }, 1000);
-                    }
+                // Use switchToVoting method with skipHandleVotingLink flag to prevent recursion
+                this.switchToVoting(true).then(() => {
+                    // Keep scroll locked for a bit longer to ensure no auto-scroll
+                    setTimeout(() => {
+                        // Re-enable scrolling
+                        document.body.style.overflow = '';
+                        document.documentElement.style.overflow = '';
+                        document.documentElement.style.scrollBehavior = '';
+                        window.scrollTo(0, 0); // Ensure we're at the top
+                        
+                        // If school slug provided, try to find and highlight it
+                        if (school) {
+                            setTimeout(() => {
+                                // Search for school in the voting list
+                                const searchInput = document.getElementById('searchInput');
+                                if (searchInput) {
+                                    searchInput.value = school;
+                                    searchInput.dispatchEvent(new Event('input'));
+                                }
+                            }, 500);
+                        }
+                        
+                        // Reset flag after handling
+                        this._handlingVotingLink = false;
+                    }, 300);
+                }).catch(() => {
+                    // Re-enable scrolling on error
+                    document.body.style.overflow = '';
+                    document.documentElement.style.overflow = '';
+                    document.documentElement.style.scrollBehavior = '';
+                    this._handlingVotingLink = false;
+                });
+            }, 300);
+            
+            // Clear URL parameters to prevent re-triggering on page interactions
+            setTimeout(() => {
+                if (window.history && window.history.replaceState) {
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
                 }
-            }, 500);
+            }, 1500);
+        } else {
+            this._handlingVotingLink = false;
         }
     }
 
