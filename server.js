@@ -1846,6 +1846,11 @@ app.get('/admin/tutor-requests', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-tutor-requests.html'));
 });
 
+// Serve teachers management admin page
+app.get('/admin/teachers', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-teachers.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
