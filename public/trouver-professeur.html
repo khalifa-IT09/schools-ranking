@@ -209,8 +209,13 @@
 
                 <form id="tutorRequestForm">
                     <div class="form-group">
-                        <label for="studentName">Nom complet de l'élève *</label>
+                        <label for="studentName">Nom de l'élève *</label>
                         <input type="text" id="studentName" name="studentName" placeholder="Ex: Mohamed Ahmed" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentPhone">Numéro de téléphone de l'élève *</label>
+                        <input type="tel" id="studentPhone" name="studentPhone" placeholder="Ex: +222 12 34 56 78" required>
                     </div>
 
                     <div class="form-group">
@@ -267,13 +272,13 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="suggestedTeacher">Nom du professeur suggéré (optionnel)</label>
-                        <input type="text" id="suggestedTeacher" name="suggestedTeacher" placeholder="Si vous avez un professeur en tête">
+                        <label for="teacherName">Nom du professeur *</label>
+                        <input type="text" id="teacherName" name="teacherName" placeholder="Ex: Ahmed Ould Mohamed" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="phoneNumber">Numéro de téléphone *</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="Ex: +222 12 34 56 78" required>
+                        <label for="teacherPhone">Numéro du professeur *</label>
+                        <input type="tel" id="teacherPhone" name="teacherPhone" placeholder="Ex: +222 12 34 56 78" required>
                     </div>
 
                     <button type="submit" class="submit-btn" id="submitBtn">
@@ -306,17 +311,19 @@
             // Get form data
             const formData = {
                 student_name: document.getElementById('studentName').value.trim(),
+                student_phone: document.getElementById('studentPhone').value.trim(),
                 subject: document.getElementById('subject').value,
                 level: document.getElementById('level').value,
                 city: document.getElementById('city').value,
                 preferred_schedule: document.getElementById('schedule').value,
-                suggested_teacher: document.getElementById('suggestedTeacher').value.trim() || null,
-                phone_number: document.getElementById('phoneNumber').value.trim()
+                teacher_name: document.getElementById('teacherName').value.trim(),
+                teacher_phone: document.getElementById('teacherPhone').value.trim()
             };
 
             // Validate required fields
-            if (!formData.student_name || !formData.subject || !formData.level || 
-                !formData.city || !formData.preferred_schedule || !formData.phone_number) {
+            if (!formData.student_name || !formData.student_phone || !formData.subject || 
+                !formData.level || !formData.city || !formData.preferred_schedule || 
+                !formData.teacher_name || !formData.teacher_phone) {
                 showError('Veuillez remplir tous les champs obligatoires.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer la demande';

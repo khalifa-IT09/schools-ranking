@@ -1554,16 +1554,18 @@ app.post('/api/tutor-request', async (req, res) => {
   try {
     const {
       student_name,
+      student_phone,
       subject,
       level,
       city,
       preferred_schedule,
-      suggested_teacher,
-      phone_number
+      teacher_name,
+      teacher_phone
     } = req.body;
 
     // Validate required fields
-    if (!student_name || !subject || !level || !city || !preferred_schedule || !phone_number) {
+    if (!student_name || !student_phone || !subject || !level || !city || 
+        !preferred_schedule || !teacher_name || !teacher_phone) {
       return res.status(400).json({
         success: false,
         message: 'Tous les champs obligatoires doivent être remplis.'
@@ -1573,12 +1575,13 @@ app.post('/api/tutor-request', async (req, res) => {
     // Save to database
     const result = await dbManager.saveTutorRequest({
       student_name,
+      student_phone,
       subject,
       level,
       city,
       preferred_schedule,
-      suggested_teacher,
-      phone_number
+      teacher_name,
+      teacher_phone
     });
 
     if (result.success) {

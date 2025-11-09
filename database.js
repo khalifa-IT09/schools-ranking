@@ -132,12 +132,13 @@ class DatabaseManager {
           CREATE TABLE IF NOT EXISTS tutor_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_name TEXT NOT NULL,
+            student_phone TEXT NOT NULL,
             subject TEXT NOT NULL,
             level TEXT NOT NULL,
             city TEXT NOT NULL,
             preferred_schedule TEXT NOT NULL,
-            suggested_teacher TEXT,
-            phone_number TEXT NOT NULL,
+            teacher_name TEXT NOT NULL,
+            teacher_phone TEXT NOT NULL,
             request_status TEXT DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -238,12 +239,127 @@ class DatabaseManager {
     // Small delay to ensure everything is settled
     setTimeout(() => {
       this.migrateVotesTableImmediate().then(() => {
+        return this.migrateTutorRequestsTable();
+      }).then(() => {
         console.log('✅ Database migration completed');
       }).catch((migrationError) => {
         console.warn('⚠️ Migration will run on-demand:', migrationError.message);
         // Continue - migration will happen on-demand when needed
       });
     }, 50);
+  }
+
+  // Migrate tutor_requests table to add new columns
+  migrateTutorRequestsTable() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        // Check if table exists and what columns it has
+        this.db.all("PRAGMA table_info(tutor_requests)", (err, columns) => {
+          if (err) {
+            // Table might not exist yet, which is fine
+            console.log('ℹ️ tutor_requests table does not exist yet, will be created with new schema');
+            return resolve();
+          }
+
+          const columnNames = columns.map(col => col.name);
+          const migrations = [];
+
+          // Add student_phone if missing
+          if (!columnNames.includes('student_phone')) {
+            migrations.push(() => {
+              return new Promise((resolveMig, rejectMig) => {
+                this.db.run('ALTER TABLE tutor_requests ADD COLUMN student_phone TEXT;', (err) => {
+                  if (err && !err.message.includes('duplicate column')) {
+                    console.error('❌ Error adding student_phone column:', err);
+                    return rejectMig(err);
+                  }
+                  console.log('✅ student_phone column added');
+                  resolveMig();
+                });
+              });
+            });
+          }
+
+          // Rename suggested_teacher to teacher_name if needed
+          if (columnNames.includes('suggested_teacher') && !columnNames.includes('teacher_name')) {
+            migrations.push(() => {
+              return new Promise((resolveMig, rejectMig) => {
+                // SQLite doesn't support RENAME COLUMN directly, so we'll add new column and update
+                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name TEXT;', (err) => {
+                  if (err && !err.message.includes('duplicate column')) {
+                    console.error('❌ Error adding teacher_name column:', err);
+                    return rejectMig(err);
+                  }
+                  // Copy data from suggested_teacher to teacher_name
+                  this.db.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;', (updateErr) => {
+                    if (updateErr) {
+                      console.warn('⚠️ Error copying suggested_teacher to teacher_name:', updateErr);
+                    }
+                  });
+                  console.log('✅ teacher_name column added');
+                  resolveMig();
+                });
+              });
+            });
+          } else if (!columnNames.includes('teacher_name')) {
+            // Add teacher_name if it doesn't exist at all
+            migrations.push(() => {
+              return new Promise((resolveMig, rejectMig) => {
+                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name TEXT NOT NULL DEFAULT "";', (err) => {
+                  if (err && !err.message.includes('duplicate column')) {
+                    console.error('❌ Error adding teacher_name column:', err);
+                    return rejectMig(err);
+                  }
+                  console.log('✅ teacher_name column added');
+                  resolveMig();
+                });
+              });
+            });
+          }
+
+          // Add teacher_phone if missing
+          if (!columnNames.includes('teacher_phone')) {
+            migrations.push(() => {
+              return new Promise((resolveMig, rejectMig) => {
+                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_phone TEXT NOT NULL DEFAULT "";', (err) => {
+                  if (err && !err.message.includes('duplicate column')) {
+                    console.error('❌ Error adding teacher_phone column:', err);
+                    return rejectMig(err);
+                  }
+                  console.log('✅ teacher_phone column added');
+                  resolveMig();
+                });
+              });
+            });
+          }
+
+          // Execute all migrations sequentially
+          if (migrations.length === 0) {
+            console.log('✅ tutor_requests table is up to date');
+            return resolve();
+          }
+
+          let migrationPromise = Promise.resolve();
+          migrations.forEach(migration => {
+            migrationPromise = migrationPromise.then(() => migration());
+          });
+
+          migrationPromise
+            .then(() => {
+              console.log('✅ tutor_requests table migration completed');
+              resolve();
+            })
+            .catch(reject);
+        });
+      } catch (error) {
+        console.error('❌ Error during tutor_requests migration:', error);
+        reject(error);
+      }
+    });
   }
 
   // Migrate votes table immediately (called during table creation)
@@ -1454,24 +1570,25 @@ class DatabaseManager {
       try {
         const {
           student_name,
+          student_phone,
           subject,
           level,
           city,
           preferred_schedule,
-          suggested_teacher,
-          phone_number
+          teacher_name,
+          teacher_phone
         } = requestData;
 
         const query = `
           INSERT INTO tutor_requests (
-            student_name, subject, level, city, preferred_schedule,
-            suggested_teacher, phone_number, request_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+            student_name, student_phone, subject, level, city, preferred_schedule,
+            teacher_name, teacher_phone, request_status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         `;
 
         this.db.run(
           query,
-          [student_name, subject, level, city, preferred_schedule, suggested_teacher || null, phone_number],
+          [student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone],
           function(err) {
             if (err) {
               console.error('❌ Error saving tutor request:', err);
