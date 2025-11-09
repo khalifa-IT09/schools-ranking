@@ -152,6 +152,30 @@ class DatabaseManager {
           'CREATE INDEX IF NOT EXISTS idx_tutor_requests_created_at ON tutor_requests(created_at)'
         ];
 
+        // Create teachers table for storing all teachers
+        const createTeachersTable = `
+          CREATE TABLE IF NOT EXISTS teachers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_name TEXT NOT NULL,
+            teacher_phone TEXT NOT NULL,
+            subjects TEXT,
+            cities TEXT,
+            levels TEXT,
+            total_requests INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'active',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(teacher_name, teacher_phone)
+          )
+        `;
+
+        const createTeachersIndexes = [
+          'CREATE INDEX IF NOT EXISTS idx_teachers_name ON teachers(teacher_name)',
+          'CREATE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(teacher_phone)',
+          'CREATE INDEX IF NOT EXISTS idx_teachers_status ON teachers(status)',
+          'CREATE INDEX IF NOT EXISTS idx_teachers_created_at ON teachers(created_at)'
+        ];
+
       const createWeeklyStatsIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
@@ -178,7 +202,7 @@ class DatabaseManager {
         // Helper function to create all indexes
         const createAllIndexes = () => {
           return new Promise((resolveIndexes) => {
-            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes, ...createTutorRequestsIndexes];
+            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes, ...createTutorRequestsIndexes, ...createTeachersIndexes];
             let completed = 0;
 
             if (allIndexes.length === 0) {
@@ -205,6 +229,7 @@ class DatabaseManager {
           .then(() => safeExec(createWeeklyStatsTable, 'weekly_stats'))
           .then(() => safeExec(createWeeklyWinnersTable, 'weekly_winners'))
           .then(() => safeExec(createTutorRequestsTable, 'tutor_requests'))
+          .then(() => safeExec(createTeachersTable, 'teachers'))
           .then(() => new Promise(resolveDelay => setTimeout(resolveDelay, 100)))
           .then(() => createAllIndexes())
           .then(() => {
@@ -1688,6 +1713,242 @@ class DatabaseManager {
         });
       } catch (error) {
         console.error('❌ Error updating tutor request status:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Save or update teacher in database
+  saveOrUpdateTeacher(teacherData) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const {
+          teacher_name,
+          teacher_phone,
+          subject,
+          city,
+          level
+        } = teacherData;
+
+        // First, check if teacher exists
+        this.db.get(
+          'SELECT * FROM teachers WHERE teacher_name = ? AND teacher_phone = ?',
+          [teacher_name, teacher_phone],
+          (err, existingTeacher) => {
+            if (err) {
+              console.error('❌ Error checking existing teacher:', err);
+              return reject(err);
+            }
+
+            if (existingTeacher) {
+              // Update existing teacher
+              const currentSubjects = existingTeacher.subjects 
+                ? existingTeacher.subjects.split(',').map(s => s.trim())
+                : [];
+              const currentCities = existingTeacher.cities
+                ? existingTeacher.cities.split(',').map(c => c.trim())
+                : [];
+              const currentLevels = existingTeacher.levels
+                ? existingTeacher.levels.split(',').map(l => l.trim())
+                : [];
+
+              // Add new subject, city, level if not already present
+              if (subject && !currentSubjects.includes(subject)) {
+                currentSubjects.push(subject);
+              }
+              if (city && !currentCities.includes(city)) {
+                currentCities.push(city);
+              }
+              if (level && !currentLevels.includes(level)) {
+                currentLevels.push(level);
+              }
+
+              // Update total requests
+              const newTotalRequests = (existingTeacher.total_requests || 0) + 1;
+
+              const updateQuery = `
+                UPDATE teachers 
+                SET subjects = ?, cities = ?, levels = ?, 
+                    total_requests = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE teacher_name = ? AND teacher_phone = ?
+              `;
+
+              this.db.run(
+                updateQuery,
+                [
+                  currentSubjects.join(','),
+                  currentCities.join(','),
+                  currentLevels.join(','),
+                  newTotalRequests,
+                  teacher_name,
+                  teacher_phone
+                ],
+                function(updateErr) {
+                  if (updateErr) {
+                    console.error('❌ Error updating teacher:', updateErr);
+                    return reject(updateErr);
+                  }
+
+                  resolve({
+                    success: true,
+                    id: existingTeacher.id,
+                    message: 'Teacher updated successfully',
+                    isNew: false
+                  });
+                }
+              );
+            } else {
+              // Insert new teacher
+              const insertQuery = `
+                INSERT INTO teachers (
+                  teacher_name, teacher_phone, subjects, cities, levels, total_requests
+                ) VALUES (?, ?, ?, ?, ?, 1)
+              `;
+
+              this.db.run(
+                insertQuery,
+                [teacher_name, teacher_phone, subject || '', city || '', level || ''],
+                function(insertErr) {
+                  if (insertErr) {
+                    console.error('❌ Error inserting teacher:', insertErr);
+                    return reject(insertErr);
+                  }
+
+                  resolve({
+                    success: true,
+                    id: this.lastID,
+                    message: 'Teacher saved successfully',
+                    isNew: true
+                  });
+                }
+              );
+            }
+          }
+        );
+      } catch (error) {
+        console.error('❌ Error saving teacher:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Get all teachers with filters
+  getTeachers(filters = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        let query = 'SELECT * FROM teachers WHERE 1=1';
+        const params = [];
+
+        if (filters.status) {
+          query += ' AND status = ?';
+          params.push(filters.status);
+        }
+
+        if (filters.city) {
+          query += ' AND cities LIKE ?';
+          params.push(`%${filters.city}%`);
+        }
+
+        if (filters.subject) {
+          query += ' AND subjects LIKE ?';
+          params.push(`%${filters.subject}%`);
+        }
+
+        if (filters.search) {
+          query += ' AND (teacher_name LIKE ? OR teacher_phone LIKE ?)';
+          const searchTerm = `%${filters.search}%`;
+          params.push(searchTerm, searchTerm);
+        }
+
+        query += ' ORDER BY total_requests DESC, created_at DESC';
+
+        if (filters.limit) {
+          query += ' LIMIT ?';
+          params.push(filters.limit);
+        }
+
+        this.db.all(query, params, (err, teachers) => {
+          if (err) {
+            console.error('❌ Error fetching teachers:', err);
+            return reject(err);
+          }
+
+          resolve({
+            success: true,
+            teachers: teachers || [],
+            total: teachers ? teachers.length : 0
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error getting teachers:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Update teacher status
+  updateTeacherStatus(teacherId, status) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const query = `
+          UPDATE teachers 
+          SET status = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ?
+        `;
+
+        this.db.run(query, [status, teacherId], function(err) {
+          if (err) {
+            console.error('❌ Error updating teacher status:', err);
+            return reject(err);
+          }
+
+          resolve({
+            success: true,
+            message: 'Teacher status updated successfully'
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error updating teacher status:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Delete teacher
+  deleteTeacher(teacherId) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const query = 'DELETE FROM teachers WHERE id = ?';
+
+        this.db.run(query, [teacherId], function(err) {
+          if (err) {
+            console.error('❌ Error deleting teacher:', err);
+            return reject(err);
+          }
+
+          resolve({
+            success: true,
+            message: 'Teacher deleted successfully'
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error deleting teacher:', error);
         reject(error);
       }
     });

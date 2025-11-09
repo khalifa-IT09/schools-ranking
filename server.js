@@ -1585,6 +1585,20 @@ app.post('/api/tutor-request', async (req, res) => {
     });
 
     if (result.success) {
+      // Also save/update teacher in teachers database
+      try {
+        await dbManager.saveOrUpdateTeacher({
+          teacher_name,
+          teacher_phone,
+          subject,
+          city,
+          level
+        });
+      } catch (teacherError) {
+        console.warn('⚠️ Error saving teacher to database:', teacherError);
+        // Don't fail the request if teacher save fails
+      }
+
       res.json({
         success: true,
         message: 'Demande enregistrée avec succès'
@@ -1648,6 +1662,71 @@ app.put('/api/tutor-requests/:id/status', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+});
+
+// Get all teachers (admin only)
+app.get('/api/teachers', async (req, res) => {
+  try {
+    const { city, subject, status, search, limit } = req.query;
+    
+    const filters = {};
+    if (city) filters.city = city;
+    if (subject) filters.subject = subject;
+    if (status) filters.status = status;
+    if (search) filters.search = search;
+    if (limit) filters.limit = parseInt(limit);
+
+    const result = await dbManager.getTeachers(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching teachers:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des professeurs'
+    });
+  }
+});
+
+// Update teacher status (admin only)
+app.put('/api/teachers/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['active', 'inactive', 'suspended'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Statut invalide'
+      });
+    }
+
+    const result = await dbManager.updateTeacherStatus(parseInt(id), status);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error updating teacher status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+});
+
+// Delete teacher (admin only)
+app.delete('/api/teachers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await dbManager.deleteTeacher(parseInt(id));
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error deleting teacher:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression du professeur'
     });
   }
 });
