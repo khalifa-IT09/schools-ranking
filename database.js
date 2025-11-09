@@ -127,6 +127,30 @@ class DatabaseManager {
           )
         `;
 
+        // Create tutor_requests table for home tutor requests
+        const createTutorRequestsTable = `
+          CREATE TABLE IF NOT EXISTS tutor_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_name TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            level TEXT NOT NULL,
+            city TEXT NOT NULL,
+            preferred_schedule TEXT NOT NULL,
+            suggested_teacher TEXT,
+            phone_number TEXT NOT NULL,
+            request_status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `;
+
+        const createTutorRequestsIndexes = [
+          'CREATE INDEX IF NOT EXISTS idx_tutor_requests_status ON tutor_requests(request_status)',
+          'CREATE INDEX IF NOT EXISTS idx_tutor_requests_city ON tutor_requests(city)',
+          'CREATE INDEX IF NOT EXISTS idx_tutor_requests_subject ON tutor_requests(subject)',
+          'CREATE INDEX IF NOT EXISTS idx_tutor_requests_created_at ON tutor_requests(created_at)'
+        ];
+
       const createWeeklyStatsIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_school_id ON weekly_stats(school_id)',
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_week_start ON weekly_stats(week_start)',
@@ -153,7 +177,7 @@ class DatabaseManager {
         // Helper function to create all indexes
         const createAllIndexes = () => {
           return new Promise((resolveIndexes) => {
-            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes];
+            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes, ...createTutorRequestsIndexes];
             let completed = 0;
 
             if (allIndexes.length === 0) {
@@ -179,6 +203,7 @@ class DatabaseManager {
           .then(() => safeExec(createBadgesTable, 'badges'))
           .then(() => safeExec(createWeeklyStatsTable, 'weekly_stats'))
           .then(() => safeExec(createWeeklyWinnersTable, 'weekly_winners'))
+          .then(() => safeExec(createTutorRequestsTable, 'tutor_requests'))
           .then(() => new Promise(resolveDelay => setTimeout(resolveDelay, 100)))
           .then(() => createAllIndexes())
           .then(() => {
@@ -1417,6 +1442,138 @@ class DatabaseManager {
       .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
       .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
       .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
+  }
+
+  // Save tutor request
+  saveTutorRequest(requestData) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const {
+          student_name,
+          subject,
+          level,
+          city,
+          preferred_schedule,
+          suggested_teacher,
+          phone_number
+        } = requestData;
+
+        const query = `
+          INSERT INTO tutor_requests (
+            student_name, subject, level, city, preferred_schedule,
+            suggested_teacher, phone_number, request_status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+        `;
+
+        this.db.run(
+          query,
+          [student_name, subject, level, city, preferred_schedule, suggested_teacher || null, phone_number],
+          function(err) {
+            if (err) {
+              console.error('❌ Error saving tutor request:', err);
+              return reject(err);
+            }
+
+            resolve({
+              success: true,
+              id: this.lastID,
+              message: 'Tutor request saved successfully'
+            });
+          }
+        );
+      } catch (error) {
+        console.error('❌ Error saving tutor request:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Get tutor requests with filters
+  getTutorRequests(filters = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        let query = 'SELECT * FROM tutor_requests WHERE 1=1';
+        const params = [];
+
+        if (filters.city) {
+          query += ' AND city = ?';
+          params.push(filters.city);
+        }
+
+        if (filters.subject) {
+          query += ' AND subject = ?';
+          params.push(filters.subject);
+        }
+
+        if (filters.status) {
+          query += ' AND request_status = ?';
+          params.push(filters.status);
+        }
+
+        query += ' ORDER BY created_at DESC';
+
+        if (filters.limit) {
+          query += ' LIMIT ?';
+          params.push(filters.limit);
+        }
+
+        this.db.all(query, params, (err, requests) => {
+          if (err) {
+            console.error('❌ Error fetching tutor requests:', err);
+            return reject(err);
+          }
+
+          resolve({
+            success: true,
+            requests: requests || [],
+            total: requests ? requests.length : 0
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error getting tutor requests:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Update tutor request status
+  updateTutorRequestStatus(requestId, status) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const query = `
+          UPDATE tutor_requests 
+          SET request_status = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ?
+        `;
+
+        this.db.run(query, [status, requestId], function(err) {
+          if (err) {
+            console.error('❌ Error updating tutor request status:', err);
+            return reject(err);
+          }
+
+          resolve({
+            success: true,
+            message: 'Tutor request status updated successfully'
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error updating tutor request status:', error);
+        reject(error);
+      }
+    });
   }
 
   // Close database connection

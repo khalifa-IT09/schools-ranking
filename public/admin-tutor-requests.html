@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Demandes de Professeurs - Admin</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-form {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-form h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .admin-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn, .logout-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filters select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.95rem;
+        }
+
+        .requests-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-in_progress {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-completed {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-cancelled {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .status-select {
+            padding: 5px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 10px 5px;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="login-container" class="login-container">
+        <div class="login-form">
+            <h2><i class="fas fa-shield-alt"></i> Admin Access</h2>
+            <div id="error-message" class="error-message"></div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="dashboard" class="dashboard" style="display: none;">
+        <div class="header">
+            <h1><i class="fas fa-chalkboard-teacher"></i> Gestion des Demandes de Professeurs</h1>
+            <p>Consultez et gérez les demandes de professeurs à domicile</p>
+        </div>
+
+        <div class="admin-controls">
+            <button class="refresh-btn" onclick="loadRequests()">
+                <i class="fas fa-sync-alt"></i> Actualiser
+            </button>
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </button>
+        </div>
+
+        <div class="filters">
+            <select id="filterCity" onchange="loadRequests()">
+                <option value="">Toutes les villes</option>
+                <option value="Nouakchott">Nouakchott</option>
+                <option value="Nouadhibou">Nouadhibou</option>
+                <option value="Rosso">Rosso</option>
+                <option value="Atar">Atar</option>
+                <option value="Kaédi">Kaédi</option>
+                <option value="Kiffa">Kiffa</option>
+                <option value="Zouerate">Zouerate</option>
+                <option value="Néma">Néma</option>
+                <option value="Aïoun">Aïoun</option>
+            </select>
+
+            <select id="filterSubject" onchange="loadRequests()">
+                <option value="">Toutes les matières</option>
+                <option value="Math">Math</option>
+                <option value="Physique">Physique</option>
+                <option value="Chimie">Chimie</option>
+                <option value="Science Naturelle">Science Naturelle</option>
+                <option value="Arabe">Arabe</option>
+                <option value="Français">Français</option>
+                <option value="Anglais">Anglais</option>
+            </select>
+
+            <select id="filterStatus" onchange="loadRequests()">
+                <option value="">Tous les statuts</option>
+                <option value="pending">En attente</option>
+                <option value="in_progress">En cours</option>
+                <option value="completed">Terminé</option>
+                <option value="cancelled">Annulé</option>
+            </select>
+        </div>
+
+        <div id="loading" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Chargement des demandes...
+        </div>
+
+        <div id="error" class="error" style="display: none;">
+            Erreur lors du chargement des données. Veuillez réessayer.
+        </div>
+
+        <div id="requests-content" style="display: none;">
+            <div class="requests-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom de l'élève</th>
+                            <th>Matière</th>
+                            <th>Niveau</th>
+                            <th>Ville</th>
+                            <th>Horaire</th>
+                            <th>Téléphone</th>
+                            <th>Professeur suggéré</th>
+                            <th>Statut</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestsTableBody">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_CREDENTIALS = {
+            username: 'admin',
+            password: 'rim-schools-2025'
+        };
+
+        let isAuthenticated = false;
+
+        // Check if user is already logged in
+        if (localStorage.getItem('admin_authenticated') === 'true') {
+            showDashboard();
+        }
+
+        // Login form handler
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+                isAuthenticated = true;
+                localStorage.setItem('admin_authenticated', 'true');
+                showDashboard();
+            } else {
+                showError('Identifiants incorrects. Accès refusé.');
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showDashboard() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadRequests();
+        }
+
+        function logout() {
+            isAuthenticated = false;
+            localStorage.removeItem('admin_authenticated');
+            document.getElementById('login-container').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('login-form').reset();
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        async function loadRequests() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('requests-content');
+            const tableBody = document.getElementById('requestsTableBody');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            content.style.display = 'none';
+
+            try {
+                const city = document.getElementById('filterCity').value;
+                const subject = document.getElementById('filterSubject').value;
+                const status = document.getElementById('filterStatus').value;
+
+                let url = '/api/tutor-requests?';
+                const params = [];
+                if (city) params.push(`city=${encodeURIComponent(city)}`);
+                if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+                if (status) params.push(`status=${encodeURIComponent(status)}`);
+                url += params.join('&');
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayRequests(data.requests);
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Erreur lors du chargement');
+                }
+            } catch (error) {
+                console.error('Error loading requests:', error);
+                loading.style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function displayRequests(requests) {
+            const tableBody = document.getElementById('requestsTableBody');
+            
+            if (requests.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 40px;">Aucune demande trouvée</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = requests.map(request => {
+                const statusClass = `status-${request.request_status}`;
+                const statusLabels = {
+                    'pending': 'En attente',
+                    'in_progress': 'En cours',
+                    'completed': 'Terminé',
+                    'cancelled': 'Annulé'
+                };
+
+                const date = new Date(request.created_at);
+                const formattedDate = date.toLocaleDateString('fr-FR', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                return `
+                    <tr>
+                        <td>${request.id}</td>
+                        <td>${escapeHtml(request.student_name)}</td>
+                        <td>${escapeHtml(request.subject)}</td>
+                        <td>${escapeHtml(request.level)}</td>
+                        <td>${escapeHtml(request.city)}</td>
+                        <td>${escapeHtml(request.preferred_schedule)}</td>
+                        <td>${escapeHtml(request.phone_number)}</td>
+                        <td>${request.suggested_teacher ? escapeHtml(request.suggested_teacher) : '-'}</td>
+                        <td>
+                            <select class="status-select" onchange="updateStatus(${request.id}, this.value)" style="background: ${getStatusColor(request.request_status)}">
+                                <option value="pending" ${request.request_status === 'pending' ? 'selected' : ''}>En attente</option>
+                                <option value="in_progress" ${request.request_status === 'in_progress' ? 'selected' : ''}>En cours</option>
+                                <option value="completed" ${request.request_status === 'completed' ? 'selected' : ''}>Terminé</option>
+                                <option value="cancelled" ${request.request_status === 'cancelled' ? 'selected' : ''}>Annulé</option>
+                            </select>
+                        </td>
+                        <td>${formattedDate}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'pending': '#fff3cd',
+                'in_progress': '#cfe2ff',
+                'completed': '#d1e7dd',
+                'cancelled': '#f8d7da'
+            };
+            return colors[status] || '#f8f9fa';
+        }
+
+        async function updateStatus(requestId, newStatus) {
+            try {
+                const response = await fetch(`/api/tutor-requests/${requestId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadRequests(); // Reload to show updated status
+                } else {
+                    alert('Erreur lors de la mise à jour du statut');
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+                alert('Erreur lors de la mise à jour du statut');
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trouver un professeur à domicile - Classement des Écoles</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .tutor-request-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .tutor-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .tutor-banner h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .tutor-banner p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .tutor-form-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group input::placeholder {
+            color: #999;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+        }
+
+        @media (max-width: 768px) {
+            .tutor-request-container {
+                margin: 20px;
+                padding: 10px;
+            }
+
+            .tutor-form-card {
+                padding: 25px 20px;
+            }
+
+            .tutor-banner h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="drapo_RIM.jpg" alt="Drapeau Mauritanie" class="mauritania-flag">
+                    <div class="logo-text">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h1>Classement des Écoles - Mauritanie</h1>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="tutor-request-container">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                Retour à l'accueil
+            </a>
+
+            <div class="tutor-banner">
+                <h1>
+                    <span>👩‍🏫</span>
+                    Trouver un professeur à domicile
+                </h1>
+                <p>Remplissez le formulaire ci-dessous et nous vous contacterons sous 24h</p>
+            </div>
+
+            <div class="tutor-form-card">
+                <div id="successMessage" class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    ✅ Merci ! Votre demande a été enregistrée. Nous vous contacterons sous 24h.
+                </div>
+
+                <div id="errorMessage" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="errorText">Une erreur s'est produite. Veuillez réessayer.</span>
+                </div>
+
+                <form id="tutorRequestForm">
+                    <div class="form-group">
+                        <label for="studentName">Nom complet de l'élève *</label>
+                        <input type="text" id="studentName" name="studentName" placeholder="Ex: Mohamed Ahmed" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subject">Matière demandée *</label>
+                        <select id="subject" name="subject" required>
+                            <option value="">-- Sélectionnez une matière --</option>
+                            <option value="Math">Math</option>
+                            <option value="Physique">Physique</option>
+                            <option value="Chimie">Chimie</option>
+                            <option value="Science Naturelle">Science Naturelle</option>
+                            <option value="Arabe">Arabe</option>
+                            <option value="Français">Français</option>
+                            <option value="Anglais">Anglais</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="level">Niveau scolaire *</label>
+                        <select id="level" name="level" required>
+                            <option value="">-- Sélectionnez un niveau --</option>
+                            <option value="Primaire">Primaire</option>
+                            <option value="Collège">Collège</option>
+                            <option value="BAC">BAC</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="city">Ville *</label>
+                        <select id="city" name="city" required>
+                            <option value="">-- Sélectionnez une ville --</option>
+                            <option value="Nouakchott">Nouakchott</option>
+                            <option value="Nouadhibou">Nouadhibou</option>
+                            <option value="Rosso">Rosso</option>
+                            <option value="Atar">Atar</option>
+                            <option value="Kaédi">Kaédi</option>
+                            <option value="Kiffa">Kiffa</option>
+                            <option value="Zouerate">Zouerate</option>
+                            <option value="Néma">Néma</option>
+                            <option value="Aïoun">Aïoun</option>
+                            <option value="Sélibaby">Sélibaby</option>
+                            <option value="Boutilimit">Boutilimit</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedule">Horaire préféré *</label>
+                        <select id="schedule" name="schedule" required>
+                            <option value="">-- Sélectionnez un horaire --</option>
+                            <option value="Matin">Matin</option>
+                            <option value="Après-midi">Après-midi</option>
+                            <option value="Soir">Soir</option>
+                            <option value="Week-end">Week-end</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="suggestedTeacher">Nom du professeur suggéré (optionnel)</label>
+                        <input type="text" id="suggestedTeacher" name="suggestedTeacher" placeholder="Si vous avez un professeur en tête">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneNumber">Numéro de téléphone *</label>
+                        <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="Ex: +222 12 34 56 78" required>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        Envoyer la demande
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('tutorRequestForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide previous messages
+            successMessage.classList.remove('show');
+            errorMessage.classList.remove('show');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi en cours...';
+
+            // Get form data
+            const formData = {
+                student_name: document.getElementById('studentName').value.trim(),
+                subject: document.getElementById('subject').value,
+                level: document.getElementById('level').value,
+                city: document.getElementById('city').value,
+                preferred_schedule: document.getElementById('schedule').value,
+                suggested_teacher: document.getElementById('suggestedTeacher').value.trim() || null,
+                phone_number: document.getElementById('phoneNumber').value.trim()
+            };
+
+            // Validate required fields
+            if (!formData.student_name || !formData.subject || !formData.level || 
+                !formData.city || !formData.preferred_schedule || !formData.phone_number) {
+                showError('Veuillez remplir tous les champs obligatoires.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer la demande';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tutor-request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successMessage.classList.add('show');
+                    form.reset();
+                    
+                    // Scroll to success message
+                    successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    showError(data.message || 'Une erreur s\'est produite lors de l\'envoi de votre demande.');
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                showError('Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer la demande';
+            }
+        });
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('show');
+            errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
+

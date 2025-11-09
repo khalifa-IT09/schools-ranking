@@ -1549,6 +1549,106 @@ app.get('/vote/:schoolSlug', (req, res) => {
 
 
 
+// Tutor request endpoint
+app.post('/api/tutor-request', async (req, res) => {
+  try {
+    const {
+      student_name,
+      subject,
+      level,
+      city,
+      preferred_schedule,
+      suggested_teacher,
+      phone_number
+    } = req.body;
+
+    // Validate required fields
+    if (!student_name || !subject || !level || !city || !preferred_schedule || !phone_number) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tous les champs obligatoires doivent être remplis.'
+      });
+    }
+
+    // Save to database
+    const result = await dbManager.saveTutorRequest({
+      student_name,
+      subject,
+      level,
+      city,
+      preferred_schedule,
+      suggested_teacher,
+      phone_number
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Demande enregistrée avec succès'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'enregistrement de la demande'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error processing tutor request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du traitement de votre demande'
+    });
+  }
+});
+
+// Get tutor requests (admin only)
+app.get('/api/tutor-requests', async (req, res) => {
+  try {
+    const { city, subject, status, limit } = req.query;
+    
+    const filters = {};
+    if (city) filters.city = city;
+    if (subject) filters.subject = subject;
+    if (status) filters.status = status;
+    if (limit) filters.limit = parseInt(limit);
+
+    const result = await dbManager.getTutorRequests(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching tutor requests:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des demandes'
+    });
+  }
+});
+
+// Update tutor request status (admin only)
+app.put('/api/tutor-requests/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['pending', 'in_progress', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Statut invalide'
+      });
+    }
+
+    const result = await dbManager.updateTutorRequestStatus(parseInt(id), status);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error updating tutor request status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+});
+
 // Analytics endpoint for admin
 app.get('/api/analytics', (req, res) => {
   try {
@@ -1657,6 +1757,11 @@ app.get('/admin-access', (req, res) => {
 // Serve admin dashboard (admin only)
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
+});
+
+// Serve tutor requests admin page
+app.get('/admin/tutor-requests', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-tutor-requests.html'));
 });
 
 // Error handling middleware
