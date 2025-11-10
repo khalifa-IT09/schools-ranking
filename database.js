@@ -1578,43 +1578,32 @@ class DatabaseManager {
             });
 
             // Community Favorite Badge (100+ votes this week)
-            this.db.all(
+            const communityFavorites = await this.all(
               'SELECT school_id, school_name, SUM(vote_count) as total_votes FROM weekly_stats WHERE week_start = ? AND vote_count >= 100 GROUP BY school_id, school_name',
-              [weekStart],
-              (err, communityFavorites) => {
-                if (err) {
-                  console.error('❌ Error fetching community favorites:', err);
-                  return reject(err);
-                }
-
-                communityFavorites.forEach(school => {
-                  badgePromises.push(
-                    this.awardBadge(
-                      school.school_id,
-                      school.school_name,
-                      'community_favorite',
-                      '🌟 Favori de la Communauté',
-                      'Plus de 100 votes cette semaine'
-                    )
-                  );
-                });
-
-                Promise.all(badgePromises).then(() => {
-                  console.log('✅ Badge checking and awarding completed');
-                  resolve();
-                }).catch(err => {
-                  console.error('❌ Error awarding badges:', err);
-                  reject(err);
-                });
-              }
+              [weekStart]
             );
+
+            if (communityFavorites && communityFavorites.length > 0) {
+              communityFavorites.forEach(school => {
+                badgePromises.push(
+                  this.awardBadge(
+                    school.school_id,
+                    school.school_name,
+                    'community_favorite',
+                    '🌟 Favori de la Communauté',
+                    'Plus de 100 votes cette semaine'
+                  )
+                );
+              });
+            }
+
+            await Promise.all(badgePromises);
+            console.log('✅ Badge checking and awarding completed');
           }
-        );
-      } catch (error) {
-        console.error('❌ Error checking and awarding badges:', error);
-        reject(error);
-      }
-    });
+    } catch (error) {
+      console.error('❌ Error checking and awarding badges:', error);
+      // Don't throw - badges are not critical
+    }
   }
 
   // Get database statistics
