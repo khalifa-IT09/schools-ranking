@@ -1573,18 +1573,28 @@ app.post('/api/tutor-request', async (req, res) => {
     }
 
     // Save to database
-    const result = await dbManager.saveTutorRequest({
-      student_name,
-      student_phone,
-      subject,
-      level,
-      city,
-      preferred_schedule,
-      teacher_name,
-      teacher_phone
-    });
+    let result;
+    try {
+      result = await dbManager.saveTutorRequest({
+        student_name,
+        student_phone,
+        subject,
+        level,
+        city,
+        preferred_schedule,
+        teacher_name,
+        teacher_phone
+      });
+    } catch (dbError) {
+      console.error('❌ Database error saving tutor request:', dbError);
+      console.error('❌ Error details:', dbError.message, dbError.stack);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur serveur lors du traitement de votre demande. Veuillez réessayer plus tard.'
+      });
+    }
 
-    if (result.success) {
+    if (result && result.success) {
       // Also save/update teacher in teachers database
       try {
         await dbManager.saveOrUpdateTeacher({
@@ -1606,7 +1616,7 @@ app.post('/api/tutor-request', async (req, res) => {
     } else {
       res.status(500).json({
         success: false,
-        message: 'Erreur lors de l\'enregistrement de la demande'
+        message: result?.message || 'Erreur lors de l\'enregistrement de la demande'
       });
     }
   } catch (error) {
