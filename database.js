@@ -128,18 +128,76 @@ class DatabaseManager {
         .replace(/AUTOINCREMENT/g, '')
         .replace(/DATETIME/g, 'TIMESTAMP')
         .replace(/TEXT/g, 'VARCHAR(255)')
-        .replace(/INTEGER/g, 'INTEGER');
+        .replace(/INTEGER/g, 'INTEGER')
+        .replace(/ON CONFLICT\(([^)]+)\) DO UPDATE/g, 'ON CONFLICT ($1) DO UPDATE')
+        .replace(/COALESCE\(DATE\(([^)]+)\), DATE\('now'\)\)/g, "COALESCE(($1)::date, CURRENT_DATE)");
     }
     return sql;
+  }
+
+  // Get table info (works with both SQLite and PostgreSQL)
+  async getTableInfo(tableName) {
+    if (this.dbType === 'postgresql') {
+      const query = `
+        SELECT column_name as name, data_type as type, is_nullable, column_default
+        FROM information_schema.columns
+        WHERE table_name = $1
+        ORDER BY ordinal_position
+      `;
+      const rows = await this.all(query, [tableName]);
+      return rows.map(row => ({
+        name: row.name,
+        type: row.type,
+        notnull: row.is_nullable === 'NO',
+        dflt_value: row.column_default
+      }));
+    } else {
+      // SQLite
+      const query = `PRAGMA table_info(${tableName})`;
+      return await this.all(query);
+    }
+  }
+
+  // Check if table exists
+  async tableExists(tableName) {
+    if (this.dbType === 'postgresql') {
+      const query = `
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = $1
+        )
+      `;
+      const result = await this.get(query, [tableName]);
+      return result.exists;
+    } else {
+      // SQLite
+      const query = `
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name=?
+      `;
+      const result = await this.get(query, [tableName]);
+      return !!result;
+    }
+  }
+
+  // Convert SQL parameter placeholders (SQLite ? to PostgreSQL $1, $2, etc.)
+  convertParams(sql, params) {
+    if (this.dbType === 'postgresql' && sql.includes('?')) {
+      let paramIndex = 1;
+      const convertedSQL = sql.replace(/\?/g, () => `$${paramIndex++}`);
+      return { sql: convertedSQL, params };
+    }
+    return { sql, params };
   }
 
   // Unified query execution method
   async query(sql, params = []) {
     const convertedSQL = this.convertSQL(sql);
+    const { sql: finalSQL, params: finalParams } = this.convertParams(convertedSQL, params);
     
     if (this.dbType === 'postgresql') {
       return new Promise((resolve, reject) => {
-        this.pool.query(convertedSQL, params, (err, result) => {
+        this.pool.query(finalSQL, finalParams, (err, result) => {
           if (err) {
             reject(err);
           } else {
@@ -155,7 +213,7 @@ class DatabaseManager {
     } else {
       // SQLite
       return new Promise((resolve, reject) => {
-        this.db.all(sql, params, (err, rows) => {
+        this.db.all(finalSQL, finalParams, (err, rows) => {
           if (err) {
             reject(err);
           } else {
@@ -173,19 +231,25 @@ class DatabaseManager {
   // Unified run method (for INSERT, UPDATE, DELETE)
   async run(sql, params = []) {
     const convertedSQL = this.convertSQL(sql);
+    const { sql: finalSQL, params: finalParams } = this.convertParams(convertedSQL, params);
     
     if (this.dbType === 'postgresql') {
       return new Promise((resolve, reject) => {
-        this.pool.query(convertedSQL, params, (err, result) => {
+        this.pool.query(finalSQL, finalParams, (err, result) => {
           if (err) {
             reject(err);
           } else {
+            // For INSERT, try to get the last inserted ID
+            let lastID = null;
+            if (result.rows && result.rows.length > 0) {
+              lastID = result.rows[0].id || result.rows[0][Object.keys(result.rows[0])[0]] || null;
+            } else if (finalSQL.toUpperCase().includes('INSERT') && finalSQL.toUpperCase().includes('RETURNING')) {
+              // If RETURNING clause is used, get the ID from there
+              // Otherwise, we'll need to query for it
+            }
+            
             resolve({
-              lastID: result.rows.length > 0 && result.rows[0] && result.rows[0].id 
-                ? result.rows[0].id 
-                : (result.rows.length > 0 && result.rows[0] && result.rows[0][Object.keys(result.rows[0])[0]])
-                  ? result.rows[0][Object.keys(result.rows[0])[0]]
-                  : null,
+              lastID: lastID,
               changes: result.rowCount || 0
             });
           }
@@ -194,7 +258,7 @@ class DatabaseManager {
     } else {
       // SQLite
       return new Promise((resolve, reject) => {
-        this.db.run(sql, params, function(err) {
+        this.db.run(finalSQL, finalParams, function(err) {
           if (err) {
             reject(err);
           } else {
@@ -211,10 +275,11 @@ class DatabaseManager {
   // Unified get method (for single row)
   async get(sql, params = []) {
     const convertedSQL = this.convertSQL(sql);
+    const { sql: finalSQL, params: finalParams } = this.convertParams(convertedSQL, params);
     
     if (this.dbType === 'postgresql') {
       return new Promise((resolve, reject) => {
-        this.pool.query(convertedSQL, params, (err, result) => {
+        this.pool.query(finalSQL, finalParams, (err, result) => {
           if (err) {
             reject(err);
           } else {
@@ -225,7 +290,7 @@ class DatabaseManager {
     } else {
       // SQLite
       return new Promise((resolve, reject) => {
-        this.db.get(sql, params, (err, row) => {
+        this.db.get(finalSQL, finalParams, (err, row) => {
           if (err) {
             reject(err);
           } else {
@@ -239,10 +304,11 @@ class DatabaseManager {
   // Unified all method (for multiple rows)
   async all(sql, params = []) {
     const convertedSQL = this.convertSQL(sql);
+    const { sql: finalSQL, params: finalParams } = this.convertParams(convertedSQL, params);
     
     if (this.dbType === 'postgresql') {
       return new Promise((resolve, reject) => {
-        this.pool.query(convertedSQL, params, (err, result) => {
+        this.pool.query(finalSQL, finalParams, (err, result) => {
           if (err) {
             reject(err);
           } else {
@@ -253,7 +319,7 @@ class DatabaseManager {
     } else {
       // SQLite
       return new Promise((resolve, reject) => {
-        this.db.all(sql, params, (err, rows) => {
+        this.db.all(finalSQL, finalParams, (err, rows) => {
           if (err) {
             reject(err);
           } else {
@@ -514,145 +580,134 @@ class DatabaseManager {
   }
 
   // Migrate tutor_requests table to add new columns
-  migrateTutorRequestsTable() {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async migrateTutorRequestsTable() {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        // Check if table exists and what columns it has
-        this.db.all("PRAGMA table_info(tutor_requests)", (err, columns) => {
-          if (err) {
-            // Table might not exist yet, which is fine
-            console.log('ℹ️ tutor_requests table does not exist yet, will be created with new schema');
-            return resolve();
+      // Check if table exists
+      const tableExists = await this.tableExists('tutor_requests');
+      if (!tableExists) {
+        console.log('ℹ️ tutor_requests table does not exist yet, will be created with new schema');
+        return;
+      }
+
+      // Get current columns
+      const columns = await this.getTableInfo('tutor_requests');
+      const columnNames = columns.map(col => col.name);
+      const migrations = [];
+
+      // Add student_phone if missing
+      if (!columnNames.includes('student_phone')) {
+        migrations.push(async () => {
+          try {
+            await this.run('ALTER TABLE tutor_requests ADD COLUMN student_phone VARCHAR(255);');
+            console.log('✅ student_phone column added');
+          } catch (err) {
+            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
+              throw err;
+            }
           }
-
-          const columnNames = columns.map(col => col.name);
-          const migrations = [];
-
-          // Add student_phone if missing
-          if (!columnNames.includes('student_phone')) {
-            migrations.push(() => {
-              return new Promise((resolveMig, rejectMig) => {
-                this.db.run('ALTER TABLE tutor_requests ADD COLUMN student_phone TEXT;', (err) => {
-                  if (err && !err.message.includes('duplicate column')) {
-                    console.error('❌ Error adding student_phone column:', err);
-                    return rejectMig(err);
-                  }
-                  console.log('✅ student_phone column added');
-                  resolveMig();
-                });
-              });
-            });
-          }
-
-          // Rename suggested_teacher to teacher_name if needed
-          if (columnNames.includes('suggested_teacher') && !columnNames.includes('teacher_name')) {
-            migrations.push(() => {
-              return new Promise((resolveMig, rejectMig) => {
-                // SQLite doesn't support RENAME COLUMN directly, so we'll add new column and update
-                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name TEXT;', (err) => {
-                  if (err && !err.message.includes('duplicate column')) {
-                    console.error('❌ Error adding teacher_name column:', err);
-                    return rejectMig(err);
-                  }
-                  // Copy data from suggested_teacher to teacher_name
-                  this.db.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;', (updateErr) => {
-                    if (updateErr) {
-                      console.warn('⚠️ Error copying suggested_teacher to teacher_name:', updateErr);
-                    }
-                  });
-                  console.log('✅ teacher_name column added');
-                  resolveMig();
-                });
-              });
-            });
-          } else if (!columnNames.includes('teacher_name')) {
-            // Add teacher_name if it doesn't exist at all
-            migrations.push(() => {
-              return new Promise((resolveMig, rejectMig) => {
-                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name TEXT NOT NULL DEFAULT "";', (err) => {
-                  if (err && !err.message.includes('duplicate column')) {
-                    console.error('❌ Error adding teacher_name column:', err);
-                    return rejectMig(err);
-                  }
-                  console.log('✅ teacher_name column added');
-                  resolveMig();
-                });
-              });
-            });
-          }
-
-          // Add teacher_phone if missing
-          if (!columnNames.includes('teacher_phone')) {
-            migrations.push(() => {
-              return new Promise((resolveMig, rejectMig) => {
-                this.db.run('ALTER TABLE tutor_requests ADD COLUMN teacher_phone TEXT NOT NULL DEFAULT "";', (err) => {
-                  if (err && !err.message.includes('duplicate column')) {
-                    console.error('❌ Error adding teacher_phone column:', err);
-                    return rejectMig(err);
-                  }
-                  console.log('✅ teacher_phone column added');
-                  resolveMig();
-                });
-              });
-            });
-          }
-
-          // Execute all migrations sequentially
-          if (migrations.length === 0) {
-            console.log('✅ tutor_requests table is up to date');
-            return resolve();
-          }
-
-          let migrationPromise = Promise.resolve();
-          migrations.forEach(migration => {
-            migrationPromise = migrationPromise.then(() => migration());
-          });
-
-          migrationPromise
-            .then(() => {
-              console.log('✅ tutor_requests table migration completed');
-              resolve();
-            })
-            .catch(reject);
         });
-      } catch (error) {
-        console.error('❌ Error during tutor_requests migration:', error);
-        reject(error);
       }
-    });
+
+      // Rename suggested_teacher to teacher_name if needed
+      if (columnNames.includes('suggested_teacher') && !columnNames.includes('teacher_name')) {
+        migrations.push(async () => {
+          try {
+            if (this.dbType === 'postgresql') {
+              await this.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255);');
+              await this.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;');
+            } else {
+              await this.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255);');
+              await this.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;');
+            }
+            console.log('✅ teacher_name column added');
+          } catch (err) {
+            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
+              throw err;
+            }
+          }
+        });
+      } else if (!columnNames.includes('teacher_name')) {
+        migrations.push(async () => {
+          try {
+            const defaultVal = this.dbType === 'postgresql' ? "DEFAULT ''" : "DEFAULT ''";
+            await this.run(`ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255) NOT NULL ${defaultVal};`);
+            console.log('✅ teacher_name column added');
+          } catch (err) {
+            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
+              throw err;
+            }
+          }
+        });
+      }
+
+      // Add teacher_phone if missing
+      if (!columnNames.includes('teacher_phone')) {
+        migrations.push(async () => {
+          try {
+            const defaultVal = this.dbType === 'postgresql' ? "DEFAULT ''" : "DEFAULT ''";
+            await this.run(`ALTER TABLE tutor_requests ADD COLUMN teacher_phone VARCHAR(255) NOT NULL ${defaultVal};`);
+            console.log('✅ teacher_phone column added');
+          } catch (err) {
+            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
+              throw err;
+            }
+          }
+        });
+      }
+
+      // Execute all migrations sequentially
+      if (migrations.length === 0) {
+        console.log('✅ tutor_requests table is up to date');
+        return;
+      }
+
+      for (const migration of migrations) {
+        await migration();
+      }
+
+      console.log('✅ tutor_requests table migration completed');
+    } catch (error) {
+      console.error('❌ Error during tutor_requests migration:', error);
+      throw error;
+    }
   }
 
   // Migrate votes table immediately (called during table creation)
-  migrateVotesTableImmediate() {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async migrateVotesTableImmediate() {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
       
       // Check immediately if column exists
-      this.db.all("PRAGMA table_info(votes)", (err, columns) => {
-        if (err) {
-          // Table might not exist yet, wait a bit and try again
-          setTimeout(() => {
-            this.migrateVotesTable().then(resolve).catch(reject);
-          }, 200);
-          return;
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      
+      if (hasVoteDate) {
+        console.log('✅ vote_date column already exists');
+        return;
+      } else {
+        // Column doesn't exist, run migration (SQLite only for now)
+        if (this.dbType === 'sqlite') {
+          await this.migrateVotesTable();
         }
-        
-        const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
-        if (hasVoteDate) {
-          console.log('✅ vote_date column already exists');
-          resolve();
-        } else {
-          // Column doesn't exist, run migration
-          this.migrateVotesTable().then(resolve).catch(reject);
-        }
-      });
-    });
+      }
+    } catch (err) {
+      // Table might not exist yet, wait a bit and try again (SQLite only)
+      if (this.dbType === 'sqlite') {
+        setTimeout(async () => {
+          try {
+            await this.migrateVotesTable();
+          } catch (migrationErr) {
+            console.error('❌ Migration failed:', migrationErr);
+          }
+        }, 200);
+      }
+    }
   }
 
   // Migrate votes table to add vote_date column and voter_fingerprint (synchronous promise-based)
@@ -1824,378 +1879,292 @@ class DatabaseManager {
       .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
   }
 
-  // Save tutor request
-  saveTutorRequest(requestData) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
-      }
-
-      try {
-        const {
-          student_name,
-          student_phone,
-          subject,
-          level,
-          city,
-          preferred_schedule,
-          teacher_name,
-          teacher_phone
-        } = requestData;
-
-        const query = `
-          INSERT INTO tutor_requests (
-            student_name, student_phone, subject, level, city, preferred_schedule,
-            teacher_name, teacher_phone, request_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        `;
-
-        this.db.run(
-          query,
-          [student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone],
-          function(err) {
-            if (err) {
-              console.error('❌ Error saving tutor request:', err);
-              return reject(err);
-            }
-
-            resolve({
-              success: true,
-              id: this.lastID,
-              message: 'Tutor request saved successfully'
-            });
-          }
-        );
-      } catch (error) {
-        console.error('❌ Error saving tutor request:', error);
-        reject(error);
-      }
-    });
-  }
 
   // Get tutor requests with filters
-  getTutorRequests(filters = {}) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async getTutorRequests(filters = {}) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        let query = 'SELECT * FROM tutor_requests WHERE 1=1';
-        const params = [];
+      let query = 'SELECT * FROM tutor_requests WHERE 1=1';
+      const params = [];
 
-        if (filters.city) {
-          query += ' AND city = ?';
-          params.push(filters.city);
-        }
-
-        if (filters.subject) {
-          query += ' AND subject = ?';
-          params.push(filters.subject);
-        }
-
-        if (filters.status) {
-          query += ' AND request_status = ?';
-          params.push(filters.status);
-        }
-
-        query += ' ORDER BY created_at DESC';
-
-        if (filters.limit) {
-          query += ' LIMIT ?';
-          params.push(filters.limit);
-        }
-
-        this.db.all(query, params, (err, requests) => {
-          if (err) {
-            console.error('❌ Error fetching tutor requests:', err);
-            return reject(err);
-          }
-
-          resolve({
-            success: true,
-            requests: requests || [],
-            total: requests ? requests.length : 0
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error getting tutor requests:', error);
-        reject(error);
+      if (filters.city) {
+        query += ' AND city = ?';
+        params.push(filters.city);
       }
-    });
+
+      if (filters.subject) {
+        query += ' AND subject = ?';
+        params.push(filters.subject);
+      }
+
+      if (filters.status) {
+        query += ' AND request_status = ?';
+        params.push(filters.status);
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      if (filters.limit) {
+        query += ' LIMIT ?';
+        params.push(filters.limit);
+      }
+
+      const requests = await this.all(query, params);
+
+      return {
+        success: true,
+        requests: requests || [],
+        total: requests ? requests.length : 0
+      };
+    } catch (error) {
+      console.error('❌ Error getting tutor requests:', error);
+      throw error;
+    }
   }
 
   // Update tutor request status
-  updateTutorRequestStatus(requestId, status) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async updateTutorRequestStatus(requestId, status) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        const query = `
-          UPDATE tutor_requests 
-          SET request_status = ?, updated_at = CURRENT_TIMESTAMP 
-          WHERE id = ?
-        `;
+      const query = `
+        UPDATE tutor_requests 
+        SET request_status = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `;
 
-        this.db.run(query, [status, requestId], function(err) {
-          if (err) {
-            console.error('❌ Error updating tutor request status:', err);
-            return reject(err);
-          }
+      await this.run(query, [status, requestId]);
 
-          resolve({
-            success: true,
-            message: 'Tutor request status updated successfully'
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error updating tutor request status:', error);
-        reject(error);
-      }
-    });
+      return {
+        success: true,
+        message: 'Tutor request status updated successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error updating tutor request status:', error);
+      throw error;
+    }
   }
 
   // Save or update teacher in database
-  saveOrUpdateTeacher(teacherData) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async saveOrUpdateTeacher(teacherData) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        const {
-          teacher_name,
-          teacher_phone,
-          subject,
-          city,
-          level
-        } = teacherData;
+      const {
+        teacher_name,
+        teacher_phone,
+        subject,
+        city,
+        level
+      } = teacherData;
 
-        // First, check if teacher exists
-        this.db.get(
-          'SELECT * FROM teachers WHERE teacher_name = ? AND teacher_phone = ?',
-          [teacher_name, teacher_phone],
-          (err, existingTeacher) => {
-            if (err) {
-              console.error('❌ Error checking existing teacher:', err);
-              return reject(err);
-            }
+      // First, check if teacher exists
+      const existingTeacher = await this.get(
+        'SELECT * FROM teachers WHERE teacher_name = ? AND teacher_phone = ?',
+        [teacher_name, teacher_phone]
+      );
 
-            if (existingTeacher) {
-              // Update existing teacher
-              const currentSubjects = existingTeacher.subjects 
-                ? existingTeacher.subjects.split(',').map(s => s.trim())
-                : [];
-              const currentCities = existingTeacher.cities
-                ? existingTeacher.cities.split(',').map(c => c.trim())
-                : [];
-              const currentLevels = existingTeacher.levels
-                ? existingTeacher.levels.split(',').map(l => l.trim())
-                : [];
+      if (existingTeacher) {
+        // Update existing teacher
+        const currentSubjects = existingTeacher.subjects 
+          ? existingTeacher.subjects.split(',').map(s => s.trim())
+          : [];
+        const currentCities = existingTeacher.cities
+          ? existingTeacher.cities.split(',').map(c => c.trim())
+          : [];
+        const currentLevels = existingTeacher.levels
+          ? existingTeacher.levels.split(',').map(l => l.trim())
+          : [];
 
-              // Add new subject, city, level if not already present
-              if (subject && !currentSubjects.includes(subject)) {
-                currentSubjects.push(subject);
-              }
-              if (city && !currentCities.includes(city)) {
-                currentCities.push(city);
-              }
-              if (level && !currentLevels.includes(level)) {
-                currentLevels.push(level);
-              }
+        // Add new subject, city, level if not already present
+        if (subject && !currentSubjects.includes(subject)) {
+          currentSubjects.push(subject);
+        }
+        if (city && !currentCities.includes(city)) {
+          currentCities.push(city);
+        }
+        if (level && !currentLevels.includes(level)) {
+          currentLevels.push(level);
+        }
 
-              // Update total requests
-              const newTotalRequests = (existingTeacher.total_requests || 0) + 1;
+        // Update total requests
+        const newTotalRequests = (existingTeacher.total_requests || 0) + 1;
 
-              const updateQuery = `
-                UPDATE teachers 
-                SET subjects = ?, cities = ?, levels = ?, 
-                    total_requests = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE teacher_name = ? AND teacher_phone = ?
-              `;
+        const updateQuery = `
+          UPDATE teachers 
+          SET subjects = ?, cities = ?, levels = ?, 
+              total_requests = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE teacher_name = ? AND teacher_phone = ?
+        `;
 
-              this.db.run(
-                updateQuery,
-                [
-                  currentSubjects.join(','),
-                  currentCities.join(','),
-                  currentLevels.join(','),
-                  newTotalRequests,
-                  teacher_name,
-                  teacher_phone
-                ],
-                function(updateErr) {
-                  if (updateErr) {
-                    console.error('❌ Error updating teacher:', updateErr);
-                    return reject(updateErr);
-                  }
-
-                  resolve({
-                    success: true,
-                    id: existingTeacher.id,
-                    message: 'Teacher updated successfully',
-                    isNew: false
-                  });
-                }
-              );
-            } else {
-              // Insert new teacher
-              const insertQuery = `
-                INSERT INTO teachers (
-                  teacher_name, teacher_phone, subjects, cities, levels, total_requests
-                ) VALUES (?, ?, ?, ?, ?, 1)
-              `;
-
-              this.db.run(
-                insertQuery,
-                [teacher_name, teacher_phone, subject || '', city || '', level || ''],
-                function(insertErr) {
-                  if (insertErr) {
-                    console.error('❌ Error inserting teacher:', insertErr);
-                    return reject(insertErr);
-                  }
-
-                  resolve({
-                    success: true,
-                    id: this.lastID,
-                    message: 'Teacher saved successfully',
-                    isNew: true
-                  });
-                }
-              );
-            }
-          }
+        await this.run(
+          updateQuery,
+          [
+            currentSubjects.join(','),
+            currentCities.join(','),
+            currentLevels.join(','),
+            newTotalRequests,
+            teacher_name,
+            teacher_phone
+          ]
         );
-      } catch (error) {
-        console.error('❌ Error saving teacher:', error);
-        reject(error);
+
+        return {
+          success: true,
+          id: existingTeacher.id,
+          message: 'Teacher updated successfully',
+          isNew: false
+        };
+      } else {
+        // Insert new teacher
+        const returningClause = this.dbType === 'postgresql' ? ' RETURNING id' : '';
+        const insertQuery = `
+          INSERT INTO teachers (
+            teacher_name, teacher_phone, subjects, cities, levels, total_requests
+          ) VALUES (?, ?, ?, ?, ?, 1)${returningClause}
+        `;
+
+        const result = await this.run(
+          insertQuery,
+          [teacher_name, teacher_phone, subject || '', city || '', level || '']
+        );
+
+        // Get the inserted ID
+        let insertedId = result.lastID;
+        if (this.dbType === 'postgresql' && !insertedId) {
+          const lastRow = await this.get('SELECT id FROM teachers ORDER BY id DESC LIMIT 1');
+          insertedId = lastRow ? lastRow.id : null;
+        }
+
+        return {
+          success: true,
+          id: insertedId,
+          message: 'Teacher saved successfully',
+          isNew: true
+        };
       }
-    });
+    } catch (error) {
+      console.error('❌ Error saving teacher:', error);
+      throw error;
+    }
   }
 
   // Get all teachers with filters
-  getTeachers(filters = {}) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async getTeachers(filters = {}) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        let query = 'SELECT * FROM teachers WHERE 1=1';
-        const params = [];
+      let query = 'SELECT * FROM teachers WHERE 1=1';
+      const params = [];
 
-        if (filters.status) {
-          query += ' AND status = ?';
-          params.push(filters.status);
-        }
-
-        if (filters.city) {
-          query += ' AND cities LIKE ?';
-          params.push(`%${filters.city}%`);
-        }
-
-        if (filters.subject) {
-          query += ' AND subjects LIKE ?';
-          params.push(`%${filters.subject}%`);
-        }
-
-        if (filters.search) {
-          query += ' AND (teacher_name LIKE ? OR teacher_phone LIKE ?)';
-          const searchTerm = `%${filters.search}%`;
-          params.push(searchTerm, searchTerm);
-        }
-
-        query += ' ORDER BY total_requests DESC, created_at DESC';
-
-        if (filters.limit) {
-          query += ' LIMIT ?';
-          params.push(filters.limit);
-        }
-
-        this.db.all(query, params, (err, teachers) => {
-          if (err) {
-            console.error('❌ Error fetching teachers:', err);
-            return reject(err);
-          }
-
-          resolve({
-            success: true,
-            teachers: teachers || [],
-            total: teachers ? teachers.length : 0
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error getting teachers:', error);
-        reject(error);
+      if (filters.status) {
+        query += ' AND status = ?';
+        params.push(filters.status);
       }
-    });
+
+      if (filters.city) {
+        query += ' AND cities LIKE ?';
+        params.push(`%${filters.city}%`);
+      }
+
+      if (filters.subject) {
+        query += ' AND subjects LIKE ?';
+        params.push(`%${filters.subject}%`);
+      }
+
+      if (filters.search) {
+        query += ' AND (teacher_name LIKE ? OR teacher_phone LIKE ?)';
+        const searchTerm = `%${filters.search}%`;
+        params.push(searchTerm, searchTerm);
+      }
+
+      query += ' ORDER BY total_requests DESC, created_at DESC';
+
+      if (filters.limit) {
+        query += ' LIMIT ?';
+        params.push(filters.limit);
+      }
+
+      const teachers = await this.all(query, params);
+
+      return {
+        success: true,
+        teachers: teachers || [],
+        total: teachers ? teachers.length : 0
+      };
+    } catch (error) {
+      console.error('❌ Error getting teachers:', error);
+      throw error;
+    }
   }
 
   // Update teacher status
-  updateTeacherStatus(teacherId, status) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async updateTeacherStatus(teacherId, status) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        const query = `
-          UPDATE teachers 
-          SET status = ?, updated_at = CURRENT_TIMESTAMP 
-          WHERE id = ?
-        `;
+      const query = `
+        UPDATE teachers 
+        SET status = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `;
 
-        this.db.run(query, [status, teacherId], function(err) {
-          if (err) {
-            console.error('❌ Error updating teacher status:', err);
-            return reject(err);
-          }
+      await this.run(query, [status, teacherId]);
 
-          resolve({
-            success: true,
-            message: 'Teacher status updated successfully'
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error updating teacher status:', error);
-        reject(error);
-      }
-    });
+      return {
+        success: true,
+        message: 'Teacher status updated successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error updating teacher status:', error);
+      throw error;
+    }
   }
 
   // Delete teacher
-  deleteTeacher(teacherId) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async deleteTeacher(teacherId) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
       }
 
-      try {
-        const query = 'DELETE FROM teachers WHERE id = ?';
+      const query = 'DELETE FROM teachers WHERE id = ?';
 
-        this.db.run(query, [teacherId], function(err) {
-          if (err) {
-            console.error('❌ Error deleting teacher:', err);
-            return reject(err);
-          }
+      await this.run(query, [teacherId]);
 
-          resolve({
-            success: true,
-            message: 'Teacher deleted successfully'
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error deleting teacher:', error);
-        reject(error);
-      }
-    });
+      return {
+        success: true,
+        message: 'Teacher deleted successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error deleting teacher:', error);
+      throw error;
+    }
   }
 
-  // Backup database
+  // Backup database (SQLite only - PostgreSQL backups are handled by Render)
   backupDatabase() {
     return new Promise((resolve, reject) => {
+      if (this.dbType === 'postgresql') {
+        // PostgreSQL backups are handled by Render automatically
+        return resolve({
+          success: true,
+          message: 'PostgreSQL backups are managed by Render automatically',
+          backupPath: null
+        });
+      }
+      
       if (!this.db) {
         return reject(new Error('Database not initialized'));
       }
@@ -2368,7 +2337,15 @@ class DatabaseManager {
 
   // Close database connection
   close() {
-    if (this.db) {
+    if (this.dbType === 'postgresql' && this.pool) {
+      this.pool.end((err) => {
+        if (err) {
+          console.error('❌ Error closing PostgreSQL connection:', err);
+        } else {
+          console.log('✅ PostgreSQL connection pool closed');
+        }
+      });
+    } else if (this.db) {
       this.db.close((err) => {
         if (err) {
           console.error('❌ Error closing database:', err);
