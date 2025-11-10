@@ -2310,6 +2310,22 @@ class DatabaseManager {
   // Get list of available backups
   getBackups() {
     try {
+      if (this.dbType === 'postgresql') {
+        // PostgreSQL backups are managed by Render
+        return {
+          success: true,
+          backups: [],
+          message: 'PostgreSQL backups are managed automatically by Render. Check your Render dashboard for backup options.'
+        };
+      }
+      
+      if (!this.backupDir || !fs.existsSync(this.backupDir)) {
+        return {
+          success: true,
+          backups: []
+        };
+      }
+      
       const files = fs.readdirSync(this.backupDir)
         .filter(file => file.startsWith('school_ranking_') && file.endsWith('.db'))
         .map(file => {
