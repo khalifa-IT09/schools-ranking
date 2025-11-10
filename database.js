@@ -709,6 +709,13 @@ class DatabaseManager {
       if (this.dbType === 'postgresql') {
         // PostgreSQL: Create unique constraint
         try {
+          // Drop constraint if it exists first
+          try {
+            await this.run('ALTER TABLE votes DROP CONSTRAINT IF EXISTS votes_unique_daily_vote');
+          } catch (dropErr) {
+            // Ignore if constraint doesn't exist
+          }
+          
           await this.run(`
             ALTER TABLE votes 
             ADD CONSTRAINT votes_unique_daily_vote 
@@ -726,17 +733,88 @@ class DatabaseManager {
       } else {
         // SQLite: Create unique index
         try {
+          // Drop index if it exists first
+          try {
+            await this.run('DROP INDEX IF EXISTS votes_unique_daily_vote');
+          } catch (dropErr) {
+            // Ignore if index doesn't exist
+          }
+          
           await this.run(`
-            CREATE UNIQUE INDEX IF NOT EXISTS votes_unique_daily_vote 
+            CREATE UNIQUE INDEX votes_unique_daily_vote 
             ON votes(voter_ip, voter_fingerprint, school_id, vote_date)
           `);
           console.log('✅ Created unique index on votes table (SQLite)');
         } catch (indexErr) {
           console.error('❌ Error creating unique index:', indexErr);
+          // If it fails due to duplicates, try to clean them up and retry
+          if (indexErr.message?.includes('duplicate') || indexErr.message?.includes('UNIQUE')) {
+            console.log('🔄 Cleaning up duplicates and retrying...');
+            await this.cleanupDuplicateVotes();
+            try {
+              await this.run(`
+                CREATE UNIQUE INDEX votes_unique_daily_vote 
+                ON votes(voter_ip, voter_fingerprint, school_id, vote_date)
+              `);
+              console.log('✅ Created unique index after cleanup');
+            } catch (retryErr) {
+              console.error('❌ Still failed after cleanup:', retryErr);
+            }
+          }
         }
       }
     } catch (error) {
       console.error('❌ Error ensuring unique vote constraint:', error);
+    }
+  }
+  
+  // Clean up duplicate votes (keep only the first vote per IP+fingerprint+school+date)
+  async cleanupDuplicateVotes() {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
+      }
+      
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      
+      if (!hasVoteDate) {
+        console.log('ℹ️ vote_date column does not exist, skipping cleanup');
+        return;
+      }
+      
+      console.log('🧹 Cleaning up duplicate votes...');
+      
+      if (this.dbType === 'postgresql') {
+        // PostgreSQL: Delete duplicates, keeping the first one (lowest id)
+        const deleteQuery = `
+          DELETE FROM votes
+          WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM votes
+            GROUP BY voter_ip, voter_fingerprint, school_id, vote_date
+          )
+          AND vote_date IS NOT NULL
+        `;
+        const result = await this.run(deleteQuery);
+        console.log(`✅ Cleaned up duplicate votes (PostgreSQL). Rows affected: ${result.rowCount || 0}`);
+      } else {
+        // SQLite: Delete duplicates, keeping the first one (lowest id)
+        const deleteQuery = `
+          DELETE FROM votes
+          WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM votes
+            WHERE vote_date IS NOT NULL
+            GROUP BY voter_ip, voter_fingerprint, school_id, vote_date
+          )
+          AND vote_date IS NOT NULL
+        `;
+        const result = await this.run(deleteQuery);
+        console.log(`✅ Cleaned up duplicate votes (SQLite). Changes: ${result.changes || 0}`);
+      }
+    } catch (error) {
+      console.error('❌ Error cleaning up duplicate votes:', error);
     }
   }
 
