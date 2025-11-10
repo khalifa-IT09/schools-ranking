@@ -935,89 +935,70 @@ class DatabaseManager {
 
   // Get user vote status (daily and weekly limits)
   // CRITICAL: Now accepts fingerprint to correctly identify user after refresh
-  getUserVoteStatus(voterIp, voterFingerprint) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
-      }
-      
-      // CRITICAL: Fingerprint is required for proper user identification
-      if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
-        console.warn('⚠️ getUserVoteStatus: No fingerprint provided, using IP only (may be inaccurate)');
-      }
-      
+  async getUserVoteStatus(voterIp, voterFingerprint) {
+    if (!this.db && !this.pool) {
+      throw new Error('Database not initialized');
+    }
+    
+    // CRITICAL: Fingerprint is required for proper user identification
+    if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
+      console.warn('⚠️ getUserVoteStatus: No fingerprint provided, using IP only (may be inaccurate)');
+    }
+    
+    try {
       // Ensure vote_date column exists before querying
-      this.ensureVoteDateColumn().then(() => {
-        // Double-check column exists after migration attempt
-        this.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
-          if (colErr) {
-            return reject(colErr);
-          }
-          
-          const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
-          const dateColumn = hasVoteDate ? 'vote_date' : 'DATE(vote_timestamp)';
+      await this.ensureVoteDateColumn();
       
-          try {
-            const weekStart = this.getCurrentWeekStart();
-            const currentDate = this.getCurrentDate();
-            
-            // CRITICAL: Use fingerprint in queries to correctly identify user
-            // Use same query format as recordVote for consistency
-            const dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
-              ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND ${dateColumn} = ?`
-              : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
-            const dailyParams = voterFingerprint && voterFingerprint.trim() !== ''
-              ? [voterIp, voterFingerprint, currentDate]
-              : [voterIp, currentDate];
-            
-            // Check if user has voted today (using vote_date or DATE(vote_timestamp) as fallback)
-            this.db.get(dailyQuery, dailyParams, (err, dailyRow) => {
-              if (err) {
-                console.error('❌ Error checking daily vote:', err);
-                return reject(err);
-              }
-
-              const hasVotedToday = dailyRow ? (dailyRow.count > 0) : false;
-              const lastVoteDate = hasVotedToday ? currentDate : null;
-              
-              // Check total weekly votes - also use fingerprint
-              const weeklyQuery = voterFingerprint && voterFingerprint.trim() !== ''
-                ? 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?'
-                : 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?';
-              const weeklyParams = voterFingerprint && voterFingerprint.trim() !== ''
-                ? [voterIp, voterFingerprint, weekStart]
-                : [voterIp, weekStart];
-              
-              this.db.get(weeklyQuery, weeklyParams, (err, weeklyRow) => {
-                if (err) {
-                  console.error('❌ Error checking weekly vote:', err);
-                  return reject(err);
-                }
-                
-                const weeklyVoteCount = weeklyRow ? (weeklyRow.count || 0) : 0;
-                const remainingWeeklyVotes = Math.max(0, 7 - weeklyVoteCount);
-                const weeklyLimitReached = weeklyVoteCount >= 7;
-                
-                console.log(`📊 Vote status for IP: ${voterIp}, FP: ${voterFingerprint?.substring(0, 20)}..., Daily: ${hasVotedToday}, Weekly: ${weeklyVoteCount}/7`);
-                
-                resolve({
-                  hasVotedToday,
-                  lastVoteDate,
-                  weeklyVoteCount,
-                  remainingWeeklyVotes,
-                  weeklyLimitReached,
-                  currentDate,
-                  weekStart
-                });
-              });
-            });
-          } catch (error) {
-            console.error('❌ Error getting user vote status:', error);
-            reject(error);
-          }
-        });
-      }).catch(reject);
-    });
+      // Check column existence using unified method
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      const dateColumn = hasVoteDate ? 'vote_date' : 'DATE(vote_timestamp)';
+      
+      const weekStart = this.getCurrentWeekStart();
+      const currentDate = this.getCurrentDate();
+      
+      // CRITICAL: Use fingerprint in queries to correctly identify user
+      // Use same query format as recordVote for consistency
+      const dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+        ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND ${dateColumn} = ?`
+        : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
+      const dailyParams = voterFingerprint && voterFingerprint.trim() !== ''
+        ? [voterIp, voterFingerprint, currentDate]
+        : [voterIp, currentDate];
+      
+      // Check if user has voted today
+      const dailyRow = await this.get(dailyQuery, dailyParams);
+      const hasVotedToday = dailyRow ? (dailyRow.count > 0) : false;
+      const lastVoteDate = hasVotedToday ? currentDate : null;
+      
+      // Check total weekly votes - also use fingerprint
+      const weeklyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+        ? 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?'
+        : 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND week_start = ?';
+      const weeklyParams = voterFingerprint && voterFingerprint.trim() !== ''
+        ? [voterIp, voterFingerprint, weekStart]
+        : [voterIp, weekStart];
+      
+      const weeklyRow = await this.get(weeklyQuery, weeklyParams);
+      const weeklyVoteCount = weeklyRow ? (weeklyRow.count || 0) : 0;
+      const remainingWeeklyVotes = Math.max(0, 7 - weeklyVoteCount);
+      const weeklyLimitReached = weeklyVoteCount >= 7;
+      
+      console.log(`📊 Vote status for IP: ${voterIp}, FP: ${voterFingerprint?.substring(0, 20)}..., Daily: ${hasVotedToday}, Weekly: ${weeklyVoteCount}/7`);
+      
+      return {
+        hasVotedToday,
+        lastVoteDate,
+        weeklyVoteCount,
+        remainingWeeklyVotes,
+        weeklyLimitReached,
+        currentDate,
+        weekStart
+      };
+    } catch (error) {
+      console.error('❌ Error getting user vote status:', error);
+      throw error;
+    }
   }
 
   // Record a vote (with atomic transaction to prevent race conditions)
@@ -1818,6 +1799,44 @@ class DatabaseManager {
       .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
   }
 
+
+  // Save tutor request
+  async saveTutorRequest(requestData) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
+      }
+
+      const {
+        student_name,
+        student_phone,
+        subject,
+        level,
+        city,
+        preferred_schedule,
+        teacher_name,
+        teacher_phone
+      } = requestData;
+
+      const query = `
+        INSERT INTO tutor_requests 
+        (student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone, request_status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
+
+      const params = [student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone];
+
+      await this.run(query, params);
+
+      return {
+        success: true,
+        message: 'Tutor request saved successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error saving tutor request:', error);
+      throw error;
+    }
+  }
 
   // Get tutor requests with filters
   async getTutorRequests(filters = {}) {
