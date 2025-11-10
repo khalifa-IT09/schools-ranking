@@ -1977,6 +1977,179 @@ class DatabaseManager {
     });
   }
 
+  // Backup database
+  backupDatabase() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject(new Error('Database not initialized'));
+      }
+
+      try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(this.backupDir, `school_ranking_${timestamp}.db`);
+
+        // Close current connection
+        this.db.close((closeErr) => {
+          if (closeErr) {
+            console.error('❌ Error closing database for backup:', closeErr);
+            return reject(closeErr);
+          }
+
+          // Copy database file
+          fs.copyFile(this.dbPath, backupPath, (copyErr) => {
+            if (copyErr) {
+              console.error('❌ Error copying database file:', copyErr);
+              return reject(copyErr);
+            }
+
+            console.log(`✅ Database backed up to: ${backupPath}`);
+
+            // Reopen database connection
+            this.db = new sqlite3.Database(this.dbPath, (openErr) => {
+              if (openErr) {
+                console.error('❌ Error reopening database:', openErr);
+                return reject(openErr);
+              }
+
+              // Clean up old backups (keep last 10)
+              this.cleanupOldBackups();
+
+              resolve({
+                success: true,
+                backupPath: backupPath,
+                message: 'Database backed up successfully'
+              });
+            });
+          });
+        });
+      } catch (error) {
+        console.error('❌ Error during backup:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Clean up old backups, keep only the last 10
+  cleanupOldBackups() {
+    try {
+      const files = fs.readdirSync(this.backupDir)
+        .filter(file => file.startsWith('school_ranking_') && file.endsWith('.db'))
+        .map(file => ({
+          name: file,
+          path: path.join(this.backupDir, file),
+          time: fs.statSync(path.join(this.backupDir, file)).mtime.getTime()
+        }))
+        .sort((a, b) => b.time - a.time); // Sort by date, newest first
+
+      // Keep only the last 10 backups
+      if (files.length > 10) {
+        const filesToDelete = files.slice(10);
+        filesToDelete.forEach(file => {
+          fs.unlinkSync(file.path);
+          console.log(`🗑️ Deleted old backup: ${file.name}`);
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ Error cleaning up old backups:', error);
+    }
+  }
+
+  // Restore database from backup
+  restoreDatabase(backupPath) {
+    return new Promise((resolve, reject) => {
+      if (!fs.existsSync(backupPath)) {
+        return reject(new Error('Backup file not found'));
+      }
+
+      try {
+        // Close current connection if exists
+        if (this.db) {
+          this.db.close((closeErr) => {
+            if (closeErr) {
+              console.error('❌ Error closing database for restore:', closeErr);
+              return reject(closeErr);
+            }
+
+            // Create a backup of current database before restore
+            const currentBackup = path.join(this.backupDir, `pre_restore_${Date.now()}.db`);
+            if (fs.existsSync(this.dbPath)) {
+              fs.copyFileSync(this.dbPath, currentBackup);
+            }
+
+            // Copy backup file to database location
+            fs.copyFile(backupPath, this.dbPath, (copyErr) => {
+              if (copyErr) {
+                console.error('❌ Error restoring database:', copyErr);
+                return reject(copyErr);
+              }
+
+              // Reopen database connection
+              this.db = new sqlite3.Database(this.dbPath, (openErr) => {
+                if (openErr) {
+                  console.error('❌ Error reopening database after restore:', openErr);
+                  return reject(openErr);
+                }
+
+                console.log(`✅ Database restored from: ${backupPath}`);
+                resolve({
+                  success: true,
+                  message: 'Database restored successfully'
+                });
+              });
+            });
+          });
+        } else {
+          // Database not initialized, just copy the file
+          fs.copyFile(backupPath, this.dbPath, (copyErr) => {
+            if (copyErr) {
+              return reject(copyErr);
+            }
+            this.init();
+            resolve({
+              success: true,
+              message: 'Database restored successfully'
+            });
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error during restore:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Get list of available backups
+  getBackups() {
+    try {
+      const files = fs.readdirSync(this.backupDir)
+        .filter(file => file.startsWith('school_ranking_') && file.endsWith('.db'))
+        .map(file => {
+          const filePath = path.join(this.backupDir, file);
+          const stats = fs.statSync(filePath);
+          return {
+            name: file,
+            path: filePath,
+            size: stats.size,
+            created: stats.birthtime,
+            modified: stats.mtime
+          };
+        })
+        .sort((a, b) => b.modified.getTime() - a.modified.getTime());
+
+      return {
+        success: true,
+        backups: files
+      };
+    } catch (error) {
+      console.error('❌ Error getting backups:', error);
+      return {
+        success: false,
+        error: error.message,
+        backups: []
+      };
+    }
+  }
+
   // Close database connection
   close() {
     if (this.db) {
