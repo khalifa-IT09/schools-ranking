@@ -6,8 +6,18 @@ class DatabaseManager {
   constructor() {
     this.db = null;
     // Use persistent data directory - this ensures data survives deployments
-    // On Render, use /opt/render/project/src/data or environment variable
+    // On Render, you MUST set DATA_DIR environment variable to a persistent disk path
+    // Default to ./data/ but this is EPHEMERAL on Render - will be wiped on deploy!
+    // For Render: Set DATA_DIR=/opt/render/project/data (or your persistent disk path)
     const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+    
+    // Warn if using default (ephemeral) location in production
+    if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
+      console.warn('⚠️ WARNING: Using default data directory which is EPHEMERAL on Render!');
+      console.warn('⚠️ Data will be LOST on each deployment!');
+      console.warn('⚠️ Please set DATA_DIR environment variable to a persistent disk path.');
+    }
+    
     this.dataDir = dataDir;
     this.dbPath = path.join(dataDir, 'school_ranking.db');
     this.backupDir = path.join(dataDir, 'backups');

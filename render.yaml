@@ -21,3 +21,7 @@ services:
         value: true
       - key: COMPRESSION_ENABLED
         value: true
+      # CRITICAL: Set DATA_DIR to a persistent disk path to prevent data loss
+      # Uncomment and set to your persistent disk mount path
+      # - key: DATA_DIR
+      #   value: /opt/render/project/data
