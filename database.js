@@ -130,7 +130,12 @@ class DatabaseManager {
         .replace(/TEXT/g, 'VARCHAR(255)')
         .replace(/INTEGER/g, 'INTEGER')
         .replace(/ON CONFLICT\(([^)]+)\) DO UPDATE/g, 'ON CONFLICT ($1) DO UPDATE')
-        .replace(/COALESCE\(DATE\(([^)]+)\), DATE\('now'\)\)/g, "COALESCE(($1)::date, CURRENT_DATE)");
+        .replace(/COALESCE\(DATE\(([^)]+)\), DATE\('now'\)\)/g, "COALESCE(($1)::date, CURRENT_DATE)")
+        // Fix boolean defaults: SQLite uses 1/0, PostgreSQL needs true/false
+        .replace(/BOOLEAN DEFAULT 1/g, 'BOOLEAN DEFAULT true')
+        .replace(/BOOLEAN DEFAULT 0/g, 'BOOLEAN DEFAULT false')
+        .replace(/DEFAULT 1(?=\s|,|\))/g, 'DEFAULT true')
+        .replace(/DEFAULT 0(?=\s|,|\))/g, 'DEFAULT false');
     }
     return sql;
   }
