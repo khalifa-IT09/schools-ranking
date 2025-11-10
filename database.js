@@ -897,28 +897,34 @@ class DatabaseManager {
   }
 
   // Ensure vote_date column exists (safety check before queries)
-  ensureVoteDateColumn() {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
-      }
-      
-      this.db.all("PRAGMA table_info(votes)", (err, columns) => {
-        if (err) {
-          console.error('❌ Error checking votes table:', err);
-          return reject(err);
-        }
-        
-        const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
-        if (hasVoteDate) {
-          resolve();
-        } else {
-          // Column doesn't exist, try to add it
+  async ensureVoteDateColumn() {
+    if (!this.db && !this.pool) {
+      throw new Error('Database not initialized');
+    }
+    
+    try {
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      if (hasVoteDate) {
+        return;
+      } else {
+        // Column doesn't exist, try to add it (SQLite only for now)
+        if (this.dbType === 'sqlite') {
           console.log('⚠️ vote_date column missing, attempting to add...');
-          this.migrateVotesTable().then(resolve).catch(reject);
+          await this.migrateVotesTable();
+        } else {
+          // For PostgreSQL, the column should already exist from table creation
+          console.log('ℹ️ vote_date column check for PostgreSQL - assuming it exists');
         }
-      });
-    });
+      }
+    } catch (err) {
+      console.error('❌ Error checking votes table:', err);
+      // For PostgreSQL, if table doesn't exist yet, it will be created with vote_date
+      if (this.dbType === 'postgresql') {
+        return; // Allow to continue, table creation will handle it
+      }
+      throw err;
+    }
   }
 
   // Get current date (YYYY-MM-DD format)
@@ -1015,333 +1021,249 @@ class DatabaseManager {
   }
 
   // Record a vote (with atomic transaction to prevent race conditions)
-  recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent) {
-    const dbManager = this; // Capture context for nested callbacks
-    return new Promise((resolve, reject) => {
-      // Check database initialization for both SQLite and PostgreSQL
-      if (!dbManager.db && !dbManager.pool) {
-        return reject(new Error('Database not initialized'));
-      }
-      
-      // Note: recordVote currently uses SQLite-specific code
-      // For PostgreSQL, we need to ensure tables exist first
-      if (dbManager.dbType === 'postgresql') {
-        // For now, voting will work once tables are created
-        // The method uses direct SQLite calls which need to be converted
-        // This is a temporary limitation - voting should work after tables are created
-      }
-      
+  async recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent) {
+    // Check database initialization for both SQLite and PostgreSQL
+    if (!this.db && !this.pool) {
+      throw new Error('Database not initialized');
+    }
+    
+    // CRITICAL: Validate fingerprint is present BEFORE any database operations
+    if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
+      console.error('❌ CRITICAL: voterFingerprint is missing or invalid:', voterFingerprint);
+      throw new Error('Fingerprint is required but was null or invalid');
+    }
+    
+    try {
       // Ensure vote_date column exists before inserting
-      dbManager.ensureVoteDateColumn().then(() => {
+      await this.ensureVoteDateColumn();
+      
+      const weekStart = this.getCurrentWeekStart();
+      const currentDate = this.getCurrentDate();
+      
+      // Check column existence using unified method
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
+      const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
+      
+      // Start transaction
+      try {
+        // Begin transaction (works for both SQLite and PostgreSQL)
+        if (this.dbType === 'postgresql') {
+          await this.run('BEGIN');
+        } else {
+          // Try BEGIN IMMEDIATE for SQLite, fallback to BEGIN
+          try {
+            await this.run('BEGIN IMMEDIATE TRANSACTION');
+          } catch (beginErr) {
+            console.warn('⚠️ BEGIN IMMEDIATE not supported, trying BEGIN:', beginErr.message);
+            await this.run('BEGIN TRANSACTION');
+          }
+        }
+        
+        // CRITICAL: Check if user already voted for THIS SPECIFIC school today
+        // Rule: 1 vote per school per day, max 7 votes per week
+        // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
+        // Use exact match with proper date comparison - use CAST to ensure date comparison works
+        const checkSchoolQuery = hasVoteDateCol 
+          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
+        
+        console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
+        
+        // DEBUG: Query to see what's actually in the database
         try {
-          const weekStart = dbManager.getCurrentWeekStart();
-          const currentDate = dbManager.getCurrentDate();
+          const debugRows = await this.all(`SELECT id, voter_ip, voter_fingerprint, school_id, ${dateColumn} as vote_date FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? LIMIT 5`, [voterIp, voterFingerprint, schoolId]);
+          if (debugRows && debugRows.length > 0) {
+            console.log(`🔍 [DEBUG] Existing votes in DB for this IP+FP+School:`, JSON.stringify(debugRows, null, 2));
+          }
+        } catch (debugErr) {
+          // Ignore debug errors
+        }
+        
+        const schoolRow = await this.get(checkSchoolQuery, checkSchoolParams);
+        const schoolVoteCount = schoolRow ? (schoolRow.count || 0) : 0;
+        console.log(`📊 [TRANSACTION] Vote count for this school today: ${schoolVoteCount}`);
+        
+        // CRITICAL: Block if user already voted for THIS school today (1 vote per school per day)
+        if (schoolVoteCount > 0) {
+          console.log(`🚫 [TRANSACTION] BLOCKING VOTE - Already voted for this school ${schoolVoteCount} time(s) today`);
+          await this.run('ROLLBACK');
+          return {
+            success: false,
+            error: 'Already voted for this school today',
+            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+            remainingVotes: 0,
+            hasVotedToday: true
+          };
+        }
+        
+        // Check weekly limit (max 7 votes per week)
+        const weeklyCheckQuery = 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?';
+        const weeklyCheckParams = [voterIp, voterFingerprint, weekStart];
+        const weeklyRow = await this.get(weeklyCheckQuery, weeklyCheckParams);
+        const weeklyCount = weeklyRow ? (weeklyRow.count || 0) : 0;
+        console.log(`📊 Weekly vote count: ${weeklyCount}/7`);
+        
+        if (weeklyCount >= 7) {
+          console.log(`🚫 Blocking vote - weekly limit reached (7 votes)`);
+          await this.run('ROLLBACK');
+          return {
+            success: false,
+            error: 'Weekly limit reached',
+            message: 'Vos votes hebdomadaires sont épuisés.',
+            remainingVotes: 0,
+            weeklyLimitReached: true
+          };
+        }
+        
+        // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
+        const doubleCheckQuery = hasVoteDateCol 
+          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        const doubleCheckRow = await this.get(doubleCheckQuery, checkSchoolParams);
+        const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
+        console.log(`🔍 Double check vote count for this school: ${doubleCheckCount}`);
+        
+        if (doubleCheckCount > 0) {
+          console.log(`🚫 Blocking vote after double check - already voted for this school ${doubleCheckCount} time(s) today`);
+          await this.run('ROLLBACK');
+          return {
+            success: false,
+            error: 'Already voted for this school today',
+            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+            remainingVotes: Math.max(0, 7 - weeklyCount),
+            hasVotedToday: true
+          };
+        }
+        
+        // CRITICAL: Ensure currentDate is never null/undefined
+        if (!currentDate || currentDate === 'null' || currentDate === 'undefined') {
+          console.error('❌ Invalid currentDate:', currentDate);
+          await this.run('ROLLBACK');
+          throw new Error('Invalid date for vote');
+        }
+        
+        // FINAL CHECK: Query database one more time with EXACT same conditions as INSERT
+        const finalCheckQuery = hasVoteDateCol 
+          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        const finalCheckRow = await this.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate]);
+        const finalCheckCount = finalCheckRow ? (finalCheckRow.count || 0) : 0;
+        console.log(`🔍 [TRANSACTION] FINAL CHECK before insert: ${finalCheckCount} existing votes`);
+        
+        if (finalCheckCount > 0) {
+          console.log(`🚫 [TRANSACTION] FINAL CHECK BLOCKED - Found ${finalCheckCount} existing vote(s) before insert`);
+          await this.run('ROLLBACK');
+          return {
+            success: false,
+            error: 'Already voted for this school today',
+            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+            remainingVotes: 0,
+            hasVotedToday: true
+          };
+        }
+        
+        // Insert the vote
+        const insertQuery = hasVoteDateCol 
+          ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+        
+        const insertParams = hasVoteDateCol
+          ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, currentDate, weekStart]
+          : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, weekStart];
+        
+        console.log(`✅ [TRANSACTION] Inserting vote for school ${schoolId}, IP: ${voterIp}, FP: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
+        
+        try {
+          const insertResult = await this.run(insertQuery, insertParams);
+          const voteId = insertResult.lastID;
+          console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${voteId}`);
           
-          // Function to process vote within transaction (defined before use)
-          function processVoteTransaction() {
-            // CRITICAL: Validate fingerprint is present BEFORE any database operations
-            if (!voterFingerprint || typeof voterFingerprint !== 'string' || voterFingerprint.trim() === '') {
-              console.error('❌ CRITICAL: voterFingerprint is missing or invalid:', voterFingerprint);
-              dbManager.db.run('ROLLBACK', () => {});
-              return reject(new Error('Fingerprint is required but was null or invalid'));
-            }
-            
-            // Check column existence
-            dbManager.db.all("PRAGMA table_info(votes)", (colErr, columns) => {
-              if (colErr) {
-                dbManager.db.run('ROLLBACK', () => {});
-                return reject(colErr);
-              }
-              
-              const hasVoteDateCol = columns && columns.some(col => col.name === 'vote_date');
-              const dateColumn = hasVoteDateCol ? 'vote_date' : 'DATE(vote_timestamp)';
-              
-              // CRITICAL: Check if user already voted for THIS SPECIFIC school today
-              // Rule: 1 vote per school per day, max 7 votes per week
-              // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
-              // Use exact match with proper date comparison - use CAST to ensure date comparison works
-              const checkSchoolQuery = hasVoteDateCol 
-                ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-                : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
-              const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
-              
-              console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
-              
-              // DEBUG: Query to see what's actually in the database
-              dbManager.db.all(`SELECT id, voter_ip, voter_fingerprint, school_id, ${dateColumn} as vote_date FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? LIMIT 5`, [voterIp, voterFingerprint, schoolId], (debugErr, debugRows) => {
-                if (!debugErr && debugRows) {
-                  console.log(`🔍 [DEBUG] Existing votes in DB for this IP+FP+School:`, JSON.stringify(debugRows, null, 2));
-                }
-              });
-              
-              dbManager.db.get(checkSchoolQuery, checkSchoolParams, (schoolErr, schoolRow) => {
-                if (schoolErr) {
-                  console.error('❌ Error checking school vote:', schoolErr);
-                  dbManager.db.run('ROLLBACK', () => {});
-                  return reject(schoolErr);
-                }
-                
-                const schoolVoteCount = schoolRow ? (schoolRow.count || 0) : 0;
-                console.log(`📊 [TRANSACTION] Vote count for this school today: ${schoolVoteCount}`);
-                
-                // CRITICAL: Block if user already voted for THIS school today (1 vote per school per day)
-                if (schoolVoteCount > 0) {
-                  console.log(`🚫 [TRANSACTION] BLOCKING VOTE - Already voted for this school ${schoolVoteCount} time(s) today`);
-                  console.log(`🚫 [TRANSACTION] Query: ${checkSchoolQuery}`);
-                  console.log(`🚫 [TRANSACTION] Params: IP=${voterIp}, FP=${voterFingerprint.substring(0, 20)}..., School=${schoolId}, Date=${currentDate}`);
-                  dbManager.db.run('ROLLBACK', () => {});
-              return resolve({
-                success: false,
-                    error: 'Already voted for this school today',
-                    message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                    remainingVotes: 0,
-                    hasVotedToday: true
-                  });
-                }
-                
-                // Check weekly limit (max 7 votes per week)
-                // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
-                const weeklyCheckQuery = 'SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND week_start = ?';
-                const weeklyCheckParams = [voterIp, voterFingerprint, weekStart];
-                
-                dbManager.db.get(weeklyCheckQuery, weeklyCheckParams, (weeklyErr, weeklyRow) => {
-                  if (weeklyErr) {
-                    dbManager.db.run('ROLLBACK', () => {});
-                    return reject(weeklyErr);
-                  }
-                  
-                  const weeklyCount = weeklyRow ? weeklyRow.count : 0;
-                  console.log(`📊 Weekly vote count: ${weeklyCount}/7`);
-                  
-                  if (weeklyCount >= 7) {
-                    console.log(`🚫 Blocking vote - weekly limit reached (7 votes)`);
-                    dbManager.db.run('ROLLBACK', () => {});
-                    return resolve({
-                      success: false,
-                      error: 'Weekly limit reached',
-                      message: 'Vos votes hebdomadaires sont épuisés.',
-                      remainingVotes: 0,
-                      weeklyLimitReached: true
-                    });
-                  }
-                  
-                  // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
-                  // This prevents race conditions where multiple requests passed the initial check
-                  // Use same query format as initial check
-                  const doubleCheckQuery = hasVoteDateCol 
-                    ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-                    : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
-                  dbManager.db.get(doubleCheckQuery, checkSchoolParams, (doubleCheckErr, doubleCheckRow) => {
-                    if (doubleCheckErr) {
-                      console.error('❌ Error in double check:', doubleCheckErr);
-                      dbManager.db.run('ROLLBACK', () => {});
-                      return reject(doubleCheckErr);
-                    }
-                    
-                    const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
-                    console.log(`🔍 Double check vote count for this school: ${doubleCheckCount}`);
-                    
-                    if (doubleCheckCount > 0) {
-                      console.log(`🚫 Blocking vote after double check - already voted for this school ${doubleCheckCount} time(s) today`);
-                      dbManager.db.run('ROLLBACK', () => {});
-                      return resolve({
-                        success: false,
-                        error: 'Already voted for this school today',
-                        message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                        remainingVotes: Math.max(0, 7 - weeklyCount),
-                        hasVotedToday: true
-                      });
-                    }
-                      
-                      // CRITICAL: Ensure currentDate is never null/undefined
-                      if (!currentDate || currentDate === 'null' || currentDate === 'undefined') {
-                        console.error('❌ Invalid currentDate:', currentDate);
-                        dbManager.db.run('ROLLBACK', () => {});
-                        return reject(new Error('Invalid date for vote'));
-                      }
-                      
-                      // All checks passed - insert the vote
-                      // ALWAYS include vote_date if column exists, never allow NULL
-                      // ALWAYS include fingerprint (should NEVER be null - enforced by server)
-                      if (!voterFingerprint) {
-                        console.error('❌ CRITICAL: Attempting to insert vote with NULL fingerprint!');
-                        dbManager.db.run('ROLLBACK', () => {});
-                        return reject(new Error('Fingerprint is required but was null'));
-                      }
-                      
-                      // FINAL CHECK: Query database one more time with EXACT same conditions as INSERT
-                      // This is the absolute last check before insert to catch any race conditions
-                      // Use CAST to ensure date comparison works correctly
-                      const finalCheckQuery = hasVoteDateCol 
-                        ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-                        : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
-                      dbManager.db.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate], (finalCheckErr, finalCheckRow) => {
-                        if (finalCheckErr) {
-                          console.error('❌ [TRANSACTION] Final check error:', finalCheckErr);
-                          dbManager.db.run('ROLLBACK', () => {});
-                          return reject(finalCheckErr);
-                        }
-                        
-                        const finalCheckCount = finalCheckRow ? (finalCheckRow.count || 0) : 0;
-                        console.log(`🔍 [TRANSACTION] FINAL CHECK before insert: ${finalCheckCount} existing votes`);
-                        
-                        if (finalCheckCount > 0) {
-                          console.log(`🚫 [TRANSACTION] FINAL CHECK BLOCKED - Found ${finalCheckCount} existing vote(s) before insert`);
-                          dbManager.db.run('ROLLBACK', () => {});
-                          return resolve({
-                            success: false,
-                            error: 'Already voted for this school today',
-                            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                            remainingVotes: 0,
-                            hasVotedToday: true
-                          });
-                        }
-                      
-                      // Use INSERT OR IGNORE to rely on UNIQUE constraint - if duplicate exists, it will be silently ignored
-                      // But we still want to catch the error, so use regular INSERT and handle the constraint error
-                      const insertQuery = hasVoteDateCol 
-                        ? 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, vote_date, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                        : 'INSERT INTO votes (school_id, school_name, school_region, school_level, voter_ip, voter_fingerprint, voter_user_agent, week_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-                      
-                      const insertParams = hasVoteDateCol
-                        ? [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, currentDate, weekStart]
-                        : [schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent, weekStart];
-                      
-                      console.log(`✅ [TRANSACTION] Inserting vote for school ${schoolId}, IP: ${voterIp}, FP: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
-                      console.log(`✅ [TRANSACTION] Insert Query: ${insertQuery}`);
-                      console.log(`✅ [TRANSACTION] Insert Params: [${schoolId}, ${schoolName.substring(0, 20)}..., ${schoolRegion}, ${schoolLevel}, ${voterIp}, ${voterFingerprint.substring(0, 20)}..., ..., ${currentDate}, ${weekStart}]`);
-                      
-                      // Verify unique index exists before insert
-                      dbManager.db.all("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='idx_votes_unique_daily_with_fingerprint'", (indexCheckErr, indexes) => {
-                        if (indexCheckErr) {
-                          console.error('❌ [TRANSACTION] Error checking unique index:', indexCheckErr);
-                        } else {
-                          if (indexes.length === 0) {
-                            console.error('❌ [TRANSACTION] CRITICAL: Unique index does not exist! This will allow duplicates!');
-                          } else {
-                            console.log('✅ [TRANSACTION] Unique index verified:', indexes[0].name);
-                          }
-                        }
-                        
-                        dbManager.db.run(insertQuery, insertParams, function(insertErr) {
-                          if (insertErr) {
-                            dbManager.db.run('ROLLBACK', () => {});
-                            // Check if it's a duplicate vote error (database constraint)
-                            console.error('❌ [TRANSACTION] INSERT ERROR:', insertErr.message, insertErr.code);
-                            console.error('❌ [TRANSACTION] Full error:', JSON.stringify(insertErr));
-                            console.error('❌ [TRANSACTION] Error toString:', insertErr.toString());
-                            
-                            // SQLite constraint error codes: SQLITE_CONSTRAINT = 19, SQLITE_CONSTRAINT_UNIQUE = 2067
-                            const isConstraintError = insertErr.code === 'SQLITE_CONSTRAINT' || 
-                                                      insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
-                                                      insertErr.code === 19 ||
-                                                      insertErr.code === 2067 ||
-                                                      (insertErr.message && (
-                                                        insertErr.message.includes('UNIQUE') || 
-                                                        insertErr.message.includes('duplicate') ||
-                                                        insertErr.message.includes('constraint')
-                                                      ));
-                            
-                            if (isConstraintError) {
-                              console.log('🚫 [TRANSACTION] Duplicate vote blocked by database UNIQUE constraint');
-                              return resolve({
-                                success: false,
-                                error: 'Duplicate vote',
-                                message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
-                                remainingVotes: Math.max(0, 7 - weeklyCount),
-                                hasVotedToday: true
-                              });
-                            }
-                            // Log the error for debugging
-                            console.error('❌ [TRANSACTION] Database insert error (not duplicate):', insertErr);
-                            return reject(insertErr);
-                          }
-                        
-                        console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${this.lastID}`);
-                        
-                        // Update weekly stats only if vote was successfully inserted
-                        const voteId = this.lastID;
-                        if (voteId) {
-                dbManager.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
-                        }
-                        
-                        // VERIFY: Check if vote was actually inserted and no duplicate exists
-                        // Use same query format as finalCheckQuery
-                        const verifyQuery = hasVoteDateCol 
-                          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-                          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
-                        dbManager.db.get(verifyQuery, [voterIp, voterFingerprint, schoolId, currentDate], (verifyErr, verifyRow) => {
-                          if (verifyErr) {
-                            console.error('❌ [TRANSACTION] Verification error:', verifyErr);
-                          } else {
-                            const verifyCount = verifyRow ? (verifyRow.count || 0) : 0;
-                            console.log(`🔍 [TRANSACTION] Post-insert verification: ${verifyCount} vote(s) found`);
-                            if (verifyCount > 1) {
-                              console.error('❌ [TRANSACTION] CRITICAL: Multiple votes found after insert! This should not happen!');
-                            }
-                          }
-                          
-                          // Commit the transaction after verification
-                          dbManager.db.run('COMMIT', (commitErr) => {
-                            if (commitErr) {
-                              console.error('❌ Error committing transaction:', commitErr);
-                              // Vote was inserted but commit failed - this is bad but vote is already in DB
-                            }
-                            
-                        // Get updated status after vote - CRITICAL: Pass fingerprint!
-                        dbManager.getUserVoteStatus(voterIp, voterFingerprint).then(updatedStatus => {
-                resolve({
-                  success: true,
-                                voteId: voteId,
-                                remainingVotes: updatedStatus.remainingWeeklyVotes,
-                                message: 'Vote enregistré avec succès',
-                                hasVotedToday: true
-                              });
-                            }).catch(updateErr => {
-                              // Still return success even if status update fails
-                              resolve({
-                                success: true,
-                                voteId: voteId,
-                                remainingVotes: Math.max(0, 7 - weeklyCount - 1),
-                                message: 'Vote enregistré avec succès',
-                                hasVotedToday: true
-                              });
-                            });
-                          }); // Close COMMIT callback
-                        }); // Close verify callback
-                      }); // Close insert function
-                    }); // Close indexCheck callback
-                  }); // Close finalCheck callback
-                }); // Close double check
-              }); // Close weekly check
-            }); // Close school check
-          }); // Close PRAGMA table_info
+          // Update weekly stats
+          if (voteId) {
+            await this.updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart);
           }
           
-          // Use transaction to ensure atomicity and prevent race conditions
-          // Try BEGIN IMMEDIATE first, fallback to BEGIN if not supported
-          dbManager.db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
-            if (beginErr) {
-              console.warn('⚠️ BEGIN IMMEDIATE not supported, trying BEGIN:', beginErr.message);
-              // Fallback to regular BEGIN
-              dbManager.db.run('BEGIN TRANSACTION', (beginErr2) => {
-                if (beginErr2) {
-                  console.error('❌ Error beginning transaction:', beginErr2);
-                  return reject(beginErr2);
-                }
-                processVoteTransaction();
-              });
-              return;
-            }
-            processVoteTransaction();
-          });
+          // VERIFY: Check if vote was actually inserted
+          const verifyQuery = hasVoteDateCol 
+            ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
+            : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+          const verifyRow = await this.get(verifyQuery, [voterIp, voterFingerprint, schoolId, currentDate]);
+          const verifyCount = verifyRow ? (verifyRow.count || 0) : 0;
+          console.log(`🔍 [TRANSACTION] Post-insert verification: ${verifyCount} vote(s) found`);
+          
+          if (verifyCount > 1) {
+            console.error('❌ [TRANSACTION] CRITICAL: Multiple votes found after insert! This should not happen!');
+          }
+          
+          // Commit the transaction
+          await this.run('COMMIT');
+          
+          // Get updated status after vote
+          try {
+            const updatedStatus = await this.getUserVoteStatus(voterIp, voterFingerprint);
+            return {
+              success: true,
+              voteId: voteId,
+              remainingVotes: updatedStatus.remainingWeeklyVotes,
+              message: 'Vote enregistré avec succès',
+              hasVotedToday: true
+            };
+          } catch (updateErr) {
+            // Still return success even if status update fails
+            return {
+              success: true,
+              voteId: voteId,
+              remainingVotes: Math.max(0, 7 - weeklyCount - 1),
+              message: 'Vote enregistré avec succès',
+              hasVotedToday: true
+            };
+          }
+        } catch (insertErr) {
+          await this.run('ROLLBACK');
+          
+          // Check if it's a duplicate vote error (database constraint)
+          const isConstraintError = insertErr.code === 'SQLITE_CONSTRAINT' || 
+                                    insertErr.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+                                    insertErr.code === 19 ||
+                                    insertErr.code === 2067 ||
+                                    insertErr.code === '23505' || // PostgreSQL unique violation
+                                    (insertErr.message && (
+                                      insertErr.message.includes('UNIQUE') || 
+                                      insertErr.message.includes('duplicate') ||
+                                      insertErr.message.includes('constraint') ||
+                                      insertErr.message.includes('unique_violation')
+                                    ));
+          
+          if (isConstraintError) {
+            console.log('🚫 [TRANSACTION] Duplicate vote blocked by database UNIQUE constraint');
+            return {
+              success: false,
+              error: 'Duplicate vote',
+              message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+              remainingVotes: Math.max(0, 7 - weeklyCount),
+              hasVotedToday: true
+            };
+          }
+          
+          // Log the error for debugging
+          console.error('❌ [TRANSACTION] Database insert error (not duplicate):', insertErr);
+          throw insertErr;
+        }
       } catch (error) {
-          dbManager.db.run('ROLLBACK', () => {});
+        try {
+          await this.run('ROLLBACK');
+        } catch (rollbackErr) {
+          // Ignore rollback errors
+        }
         console.error('❌ Error recording vote:', error);
-        reject(error);
+        throw error;
       }
-      }).catch(reject);
-    });
+    } catch (error) {
+      console.error('❌ Error recording vote:', error);
+      throw error;
+    }
   }
 
   // Update weekly statistics
