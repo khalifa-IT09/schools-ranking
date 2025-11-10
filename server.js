@@ -1964,6 +1964,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`💾 Database location: ${dbManager.dbPath}`);
   console.log(`📦 Backup location: ${dbManager.backupDir}`);
   
+  // Warn about data persistence
+  if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
+    console.error('❌ CRITICAL: DATA_DIR not set! Data will be LOST on deployment!');
+    console.error('❌ Please set DATA_DIR environment variable in Render dashboard.');
+  } else if (process.env.DATA_DIR) {
+    console.log(`✅ Using persistent data directory: ${process.env.DATA_DIR}`);
+  }
+  
   // Setup automatic backups
   setupAutomaticBackups();
   console.log(`🌐 Application: http://localhost:${PORT}`);
