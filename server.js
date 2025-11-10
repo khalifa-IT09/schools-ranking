@@ -1851,6 +1851,57 @@ app.get('/admin/teachers', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-teachers.html'));
 });
 
+// Backup database endpoint (admin only)
+app.post('/api/backup', async (req, res) => {
+  try {
+    const result = await dbManager.backupDatabase();
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error creating backup:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la création de la sauvegarde'
+    });
+  }
+});
+
+// Get list of backups (admin only)
+app.get('/api/backups', async (req, res) => {
+  try {
+    const result = dbManager.getBackups();
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error getting backups:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des sauvegardes'
+    });
+  }
+});
+
+// Restore database from backup (admin only)
+app.post('/api/restore', async (req, res) => {
+  try {
+    const { backupPath } = req.body;
+    
+    if (!backupPath) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chemin de sauvegarde requis'
+      });
+    }
+
+    const result = await dbManager.restoreDatabase(backupPath);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error restoring backup:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la restauration de la sauvegarde'
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -1870,9 +1921,35 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Start server immediately - bind to 0.0.0.0 to ensure browser can connect
+// Setup automatic backups every 6 hours
+const BACKUP_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+
+function setupAutomaticBackups() {
+  console.log('🔄 Setting up automatic database backups every 6 hours...');
+  
+  // Create initial backup on startup (wait 1 minute after startup)
+  setTimeout(() => {
+    dbManager.backupDatabase().catch(err => {
+      console.warn('⚠️ Initial backup failed:', err.message);
+    });
+  }, 60000); // Wait 1 minute after startup
+
+  // Schedule regular backups
+  setInterval(() => {
+    dbManager.backupDatabase().catch(err => {
+      console.warn('⚠️ Scheduled backup failed:', err.message);
+    });
+  }, BACKUP_INTERVAL);
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 School Ranking App running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`💾 Database location: ${dbManager.dbPath}`);
+  console.log(`📦 Backup location: ${dbManager.backupDir}`);
+  
+  // Setup automatic backups
+  setupAutomaticBackups();
   console.log(`🌐 Application: http://localhost:${PORT}`);
   console.log(`🔒 Admin dashboard: http://localhost:${PORT}/admin`);
   console.log(`📈 Analytics: http://localhost:${PORT}/analytics`);

@@ -5,8 +5,31 @@ const fs = require('fs');
 class DatabaseManager {
   constructor() {
     this.db = null;
-    this.dbPath = path.join(__dirname, 'school_ranking.db');
+    // Use persistent data directory - this ensures data survives deployments
+    // On Render, use /opt/render/project/src/data or environment variable
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+    this.dataDir = dataDir;
+    this.dbPath = path.join(dataDir, 'school_ranking.db');
+    this.backupDir = path.join(dataDir, 'backups');
+    this.ensureDataDirectory();
     this.init();
+  }
+
+  ensureDataDirectory() {
+    try {
+      // Create data directory if it doesn't exist
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+        console.log(`✅ Created data directory: ${this.dataDir}`);
+      }
+      // Create backups directory if it doesn't exist
+      if (!fs.existsSync(this.backupDir)) {
+        fs.mkdirSync(this.backupDir, { recursive: true });
+        console.log(`✅ Created backups directory: ${this.backupDir}`);
+      }
+    } catch (error) {
+      console.error('❌ Error creating data directories:', error);
+    }
   }
 
   init() {
