@@ -1894,6 +1894,36 @@ app.get('/admin/teachers', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-teachers.html'));
 });
 
+// Serve votes management admin page
+app.get('/admin/voters', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-voters.html'));
+});
+
+// Get all votes (admin endpoint)
+app.get('/api/votes', async (req, res) => {
+  try {
+    const { region, school, search, level, week_start, limit } = req.query;
+    
+    const filters = {};
+    if (region) filters.region = region;
+    if (school) filters.school = school;
+    if (search) filters.search = search;
+    if (level) filters.level = level;
+    if (week_start) filters.week_start = week_start;
+    if (limit) filters.limit = parseInt(limit);
+
+    const result = await dbManager.getVotes(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching votes:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des votes'
+    });
+  }
+});
+
 // Backup database endpoint (admin only)
 app.post('/api/backup', async (req, res) => {
   try {

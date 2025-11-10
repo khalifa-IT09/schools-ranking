@@ -1596,6 +1596,65 @@ class DatabaseManager {
     }
   }
 
+  // Get all votes with filters (for admin)
+  async getVotes(filters = {}) {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
+      }
+
+      let query = 'SELECT * FROM votes WHERE 1=1';
+      const params = [];
+
+      if (filters.region) {
+        query += ' AND school_region = ?';
+        params.push(filters.region);
+      }
+
+      if (filters.school) {
+        query += ' AND (school_name LIKE ? OR school_id LIKE ?)';
+        const searchPattern = `%${filters.school}%`;
+        params.push(searchPattern, searchPattern);
+      }
+
+      if (filters.search) {
+        query += ' AND (school_name LIKE ? OR school_id LIKE ? OR voter_ip LIKE ? OR school_region LIKE ?)';
+        const searchPattern = `%${filters.search}%`;
+        params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      }
+
+      if (filters.level) {
+        query += ' AND school_level = ?';
+        params.push(filters.level);
+      }
+
+      if (filters.week_start) {
+        query += ' AND week_start = ?';
+        params.push(filters.week_start);
+      }
+
+      // Order by most recent first
+      query += ' ORDER BY vote_timestamp DESC, vote_date DESC';
+
+      // Limit results if specified
+      if (filters.limit) {
+        query += ' LIMIT ?';
+        params.push(parseInt(filters.limit));
+      }
+
+      const rows = await this.all(query, params);
+
+      return {
+        success: true,
+        votes: rows,
+        count: rows.length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching votes:', error);
+      throw error;
+    }
+  }
+
   // Get vote statistics for a school
   getSchoolVoteStats(schoolId) {
     return new Promise((resolve, reject) => {
