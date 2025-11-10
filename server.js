@@ -1925,20 +1925,30 @@ if (process.env.NODE_ENV === 'production') {
 const BACKUP_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 
 function setupAutomaticBackups() {
+  // Check if backupDatabase method exists
+  if (typeof dbManager.backupDatabase !== 'function') {
+    console.warn('⚠️ backupDatabase method not available. Skipping automatic backups.');
+    return;
+  }
+
   console.log('🔄 Setting up automatic database backups every 6 hours...');
   
   // Create initial backup on startup (wait 1 minute after startup)
   setTimeout(() => {
-    dbManager.backupDatabase().catch(err => {
-      console.warn('⚠️ Initial backup failed:', err.message);
-    });
+    if (typeof dbManager.backupDatabase === 'function') {
+      dbManager.backupDatabase().catch(err => {
+        console.warn('⚠️ Initial backup failed:', err.message);
+      });
+    }
   }, 60000); // Wait 1 minute after startup
 
   // Schedule regular backups
   setInterval(() => {
-    dbManager.backupDatabase().catch(err => {
-      console.warn('⚠️ Scheduled backup failed:', err.message);
-    });
+    if (typeof dbManager.backupDatabase === 'function') {
+      dbManager.backupDatabase().catch(err => {
+        console.warn('⚠️ Scheduled backup failed:', err.message);
+      });
+    }
   }, BACKUP_INTERVAL);
 }
 
