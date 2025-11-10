@@ -1018,8 +1018,14 @@ class DatabaseManager {
   recordVote(schoolId, schoolName, schoolRegion, schoolLevel, voterIp, voterFingerprint, userAgent) {
     const dbManager = this; // Capture context for nested callbacks
     return new Promise((resolve, reject) => {
-      if (!dbManager.db) {
+      // Check database initialization for both SQLite and PostgreSQL
+      if (!dbManager.db && !dbManager.pool) {
         return reject(new Error('Database not initialized'));
+      }
+      
+      // For PostgreSQL, voting needs more work - return a helpful error for now
+      if (dbManager.dbType === 'postgresql') {
+        return reject(new Error('Voting functionality is being updated for PostgreSQL. Please try again in a moment.'));
       }
       
       // Ensure vote_date column exists before inserting
