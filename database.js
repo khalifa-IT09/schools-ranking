@@ -1044,10 +1044,19 @@ class DatabaseManager {
         // CRITICAL: Check if user already voted for THIS SPECIFIC school today
         // Rule: 1 vote per school per day, max 7 votes per week
         // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
-        // Use exact match with proper date comparison - use CAST to ensure date comparison works
-        const checkSchoolQuery = hasVoteDateCol 
-          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        // Use proper date comparison for both SQLite and PostgreSQL
+        let checkSchoolQuery;
+        if (hasVoteDateCol) {
+          if (this.dbType === 'postgresql') {
+            // PostgreSQL: Direct date comparison works better
+            checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND vote_date = ?::date`;
+          } else {
+            // SQLite: Use CAST for date comparison
+            checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
+          }
+        } else {
+          checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        }
         const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
         
         console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
@@ -1099,9 +1108,16 @@ class DatabaseManager {
         }
         
         // DOUBLE CHECK: Verify one more time before inserting (within same transaction)
-        const doubleCheckQuery = hasVoteDateCol 
-          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        let doubleCheckQuery;
+        if (hasVoteDateCol) {
+          if (this.dbType === 'postgresql') {
+            doubleCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND vote_date = ?::date`;
+          } else {
+            doubleCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
+          }
+        } else {
+          doubleCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        }
         const doubleCheckRow = await this.get(doubleCheckQuery, checkSchoolParams);
         const doubleCheckCount = doubleCheckRow ? (doubleCheckRow.count || 0) : 0;
         console.log(`🔍 Double check vote count for this school: ${doubleCheckCount}`);
@@ -1126,9 +1142,16 @@ class DatabaseManager {
         }
         
         // FINAL CHECK: Query database one more time with EXACT same conditions as INSERT
-        const finalCheckQuery = hasVoteDateCol 
-          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        let finalCheckQuery;
+        if (hasVoteDateCol) {
+          if (this.dbType === 'postgresql') {
+            finalCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND vote_date = ?::date`;
+          } else {
+            finalCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
+          }
+        } else {
+          finalCheckQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        }
         const finalCheckRow = await this.get(finalCheckQuery, [voterIp, voterFingerprint, schoolId, currentDate]);
         const finalCheckCount = finalCheckRow ? (finalCheckRow.count || 0) : 0;
         console.log(`🔍 [TRANSACTION] FINAL CHECK before insert: ${finalCheckCount} existing votes`);
@@ -1167,9 +1190,16 @@ class DatabaseManager {
           }
           
           // VERIFY: Check if vote was actually inserted
-          const verifyQuery = hasVoteDateCol 
-            ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND CAST(vote_date AS TEXT) = CAST(? AS TEXT)`
-            : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+          let verifyQuery;
+          if (hasVoteDateCol) {
+            if (this.dbType === 'postgresql') {
+              verifyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND vote_date = ?::date`;
+            } else {
+              verifyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
+            }
+          } else {
+            verifyQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+          }
           const verifyRow = await this.get(verifyQuery, [voterIp, voterFingerprint, schoolId, currentDate]);
           const verifyCount = verifyRow ? (verifyRow.count || 0) : 0;
           console.log(`🔍 [TRANSACTION] Post-insert verification: ${verifyCount} vote(s) found`);
@@ -1269,103 +1299,87 @@ class DatabaseManager {
   }
 
   // Get top voted schools for a region and level
-  getTopVotedSchools(region = null, level = null, limit = 10) {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        return reject(new Error('Database not initialized'));
+  async getTopVotedSchools(region = null, level = null, limit = 10) {
+    if (!this.db && !this.pool) {
+      throw new Error('Database not initialized');
+    }
+    
+    try {
+      // weekly_stats doesn't have voter_ip - we need to join with votes table
+      // Or calculate unique_voters separately
+      let query = `
+        SELECT 
+          ws.school_id,
+          ws.school_name,
+          ws.school_region,
+          ws.school_level,
+          SUM(ws.vote_count) as total_votes,
+          MAX(ws.last_updated) as last_vote_time
+        FROM weekly_stats ws
+        WHERE ws.week_start = ?
+      `;
+
+      const params = [this.getCurrentWeekStart()];
+
+      if (region && region !== 'all') {
+        query += ' AND ws.school_region = ?';
+        params.push(region);
       }
+
+      if (level && level !== 'all') {
+        query += ' AND ws.school_level = ?';
+        params.push(level);
+      }
+
+      query += `
+        GROUP BY ws.school_id, ws.school_name, ws.school_region, ws.school_level
+        ORDER BY total_votes DESC
+        LIMIT ?
+      `;
+      params.push(limit);
+
+      const rows = await this.all(query, params);
       
-      try {
-        // weekly_stats doesn't have voter_ip - we need to join with votes table
-        // Or calculate unique_voters separately
-        let query = `
-          SELECT 
-            ws.school_id,
-            ws.school_name,
-            ws.school_region,
-            ws.school_level,
-            SUM(ws.vote_count) as total_votes,
-            MAX(ws.last_updated) as last_vote_time
-          FROM weekly_stats ws
-          WHERE ws.week_start = ?
-        `;
-
-        const params = [this.getCurrentWeekStart()];
-
-        if (region && region !== 'all') {
-          query += ' AND ws.school_region = ?';
-          params.push(region);
-        }
-
-        if (level && level !== 'all') {
-          query += ' AND ws.school_level = ?';
-          params.push(level);
-        }
-
-        query += `
-          GROUP BY ws.school_id, ws.school_name, ws.school_region, ws.school_level
-          ORDER BY total_votes DESC
-          LIMIT ?
-        `;
-        params.push(limit);
-
-        this.db.all(query, params, (err, rows) => {
-          if (err) {
-            console.error('❌ Error fetching top voted schools:', err);
-            return reject(err);
-          }
-          
-          // Get unique voters count from votes table for each school
-          const weekStart = this.getCurrentWeekStart();
-          const schoolsWithVoters = rows.map((school, index) => {
-            // Calculate unique_voters from votes table
-            return new Promise((resolveVoters) => {
-              const dateColumn = 'vote_date'; // Use vote_date column
-              this.db.get(
-                `SELECT COUNT(DISTINCT voter_ip) as unique_voters 
-                 FROM votes 
-                 WHERE school_id = ? AND week_start = ? AND ${dateColumn} IS NOT NULL`,
-                [school.school_id, weekStart],
-                (voterErr, voterRow) => {
-                  const uniqueVoters = voterErr ? 0 : (voterRow ? parseInt(voterRow.unique_voters || 0) : 0);
-                  resolveVoters({
-            ...school,
-            rank: index + 1,
-                    total_votes: parseInt(school.total_votes || 0),
-                    unique_voters: uniqueVoters
-                  });
-                }
-              );
-            });
-          });
-          
-          // Wait for all unique_voters queries to complete
-          Promise.all(schoolsWithVoters).then(schools => {
-          resolve({
-            success: true,
-            schools: schools,
-            week_start: this.getCurrentWeekStart()
-            });
-          }).catch(rejectErr => {
-            // Fallback: return schools without unique_voters if query fails
-            const fallbackSchools = rows.map((school, index) => ({
+      // Get unique voters count from votes table for each school
+      const weekStart = this.getCurrentWeekStart();
+      const schoolsWithVoters = await Promise.all(
+        rows.map(async (school, index) => {
+          try {
+            const dateColumn = 'vote_date'; // Use vote_date column
+            const voterRow = await this.get(
+              `SELECT COUNT(DISTINCT voter_ip) as unique_voters 
+               FROM votes 
+               WHERE school_id = ? AND week_start = ? AND ${dateColumn} IS NOT NULL`,
+              [school.school_id, weekStart]
+            );
+            const uniqueVoters = voterRow ? parseInt(voterRow.unique_voters || 0) : 0;
+            return {
+              ...school,
+              rank: index + 1,
+              total_votes: parseInt(school.total_votes || 0),
+              unique_voters: uniqueVoters
+            };
+          } catch (voterErr) {
+            // Fallback: return school without unique_voters if query fails
+            return {
               ...school,
               rank: index + 1,
               total_votes: parseInt(school.total_votes || 0),
               unique_voters: 0
-            }));
-            resolve({
-              success: true,
-              schools: fallbackSchools,
-              week_start: this.getCurrentWeekStart()
-            });
-          });
-        });
-      } catch (error) {
-        console.error('❌ Error fetching top voted schools:', error);
-        reject(error);
-      }
-    });
+            };
+          }
+        })
+      );
+      
+      return {
+        success: true,
+        schools: schoolsWithVoters,
+        week_start: weekStart
+      };
+    } catch (error) {
+      console.error('❌ Error fetching top voted schools:', error);
+      throw error;
+    }
   }
 
   // Get vote statistics for a school
@@ -1517,20 +1531,21 @@ class DatabaseManager {
   }
 
   // Check and award badges based on vote performance
-  checkAndAwardBadges() {
-    return new Promise((resolve, reject) => {
-      try {
-        const weekStart = this.getCurrentWeekStart();
-        
-        // Top Performer Badge (Top 3 in region this week)
-        this.db.all(
-          'SELECT school_id, school_name, school_region, school_level, SUM(vote_count) as total_votes FROM weekly_stats WHERE week_start = ? GROUP BY school_id, school_name, school_region, school_level ORDER BY school_region, school_level, total_votes DESC',
-          [weekStart],
-          (err, topPerformers) => {
-            if (err) {
-              console.error('❌ Error fetching top performers:', err);
-              return reject(err);
-            }
+  async checkAndAwardBadges() {
+    if (!this.db && !this.pool) {
+      throw new Error('Database not initialized');
+    }
+    
+    try {
+      const weekStart = this.getCurrentWeekStart();
+      
+      // Top Performer Badge (Top 3 in region this week)
+      const topPerformers = await this.all(
+        'SELECT school_id, school_name, school_region, school_level, SUM(vote_count) as total_votes FROM weekly_stats WHERE week_start = ? GROUP BY school_id, school_name, school_region, school_level ORDER BY school_region, school_level, total_votes DESC',
+        [weekStart]
+      );
+      
+      if (topPerformers && topPerformers.length > 0) {
 
             // Group by region and level, then award top 3 badges
             const regionLevelGroups = {};
