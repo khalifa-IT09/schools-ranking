@@ -1056,12 +1056,23 @@ class SchoolRankingApp {
                     const rank = index + 1;
                     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
                     
+                    // Escape HTML to prevent XSS
+                    const escapeHtml = (str) => {
+                        if (!str) return '';
+                        return str
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#39;');
+                    };
+                    
                     return `
                         <div class="leaderboard-item">
                             <div class="leaderboard-rank">${medal}</div>
                             <div class="leaderboard-school">
-                                <div class="leaderboard-school-name">${this.escapeHtml(school.school_name)}</div>
-                                <div class="leaderboard-school-region">${this.escapeHtml(school.school_region)}</div>
+                                <div class="leaderboard-school-name">${escapeHtml(school.school_name)}</div>
+                                <div class="leaderboard-school-region">${escapeHtml(school.school_region)}</div>
                             </div>
                             <div class="leaderboard-votes">
                                 <div class="leaderboard-vote-count">${school.total_votes} ${this.translate('votes')}</div>
