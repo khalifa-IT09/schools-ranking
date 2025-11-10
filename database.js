@@ -1113,13 +1113,13 @@ class DatabaseManager {
         // Rule: 1 vote per school per day, max 7 votes per week
         // ALWAYS use IP + fingerprint combination (fingerprint should NEVER be null)
         // Use proper date comparison for both SQLite and PostgreSQL
+        
+        // FIRST: Check by IP + Fingerprint + School + Date (most specific)
         let checkSchoolQuery;
         if (hasVoteDateCol) {
           if (this.dbType === 'postgresql') {
-            // PostgreSQL: Direct date comparison works better
             checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND vote_date = ?::date`;
           } else {
-            // SQLite: Use CAST for date comparison
             checkSchoolQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
           }
         } else {
@@ -1127,25 +1127,65 @@ class DatabaseManager {
         }
         const checkSchoolParams = [voterIp, voterFingerprint, schoolId, currentDate];
         
-        console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, DateColumn: ${dateColumn}`);
+        console.log(`🔍 [TRANSACTION] Checking if user already voted for school ${schoolId} today. IP: ${voterIp}, Fingerprint: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}`);
         
         // DEBUG: Query to see what's actually in the database
         try {
-          const debugRows = await this.all(`SELECT id, voter_ip, voter_fingerprint, school_id, ${dateColumn} as vote_date FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND school_id = ? LIMIT 5`, [voterIp, voterFingerprint, schoolId]);
+          let debugQuery;
+          if (hasVoteDateCol) {
+            if (this.dbType === 'postgresql') {
+              debugQuery = `SELECT id, voter_ip, voter_fingerprint, school_id, vote_date FROM votes WHERE school_id = ? AND vote_date = ?::date ORDER BY id DESC LIMIT 10`;
+            } else {
+              debugQuery = `SELECT id, voter_ip, voter_fingerprint, school_id, vote_date FROM votes WHERE school_id = ? AND DATE(vote_date) = DATE(?) ORDER BY id DESC LIMIT 10`;
+            }
+          } else {
+            debugQuery = `SELECT id, voter_ip, voter_fingerprint, school_id, DATE(vote_timestamp) as vote_date FROM votes WHERE school_id = ? AND DATE(vote_timestamp) = DATE(?) ORDER BY id DESC LIMIT 10`;
+          }
+          const debugRows = await this.all(debugQuery, [schoolId, currentDate]);
           if (debugRows && debugRows.length > 0) {
-            console.log(`🔍 [DEBUG] Existing votes in DB for this IP+FP+School:`, JSON.stringify(debugRows, null, 2));
+            console.log(`🔍 [DEBUG] ALL votes for this school today:`, JSON.stringify(debugRows, null, 2));
+            console.log(`🔍 [DEBUG] Total votes found: ${debugRows.length}`);
           }
         } catch (debugErr) {
-          // Ignore debug errors
+          console.error('❌ Debug query error:', debugErr);
         }
         
         const schoolRow = await this.get(checkSchoolQuery, checkSchoolParams);
         const schoolVoteCount = schoolRow ? (schoolRow.count || 0) : 0;
-        console.log(`📊 [TRANSACTION] Vote count for this school today: ${schoolVoteCount}`);
+        console.log(`📊 [TRANSACTION] Vote count for this IP+FP+School today: ${schoolVoteCount}`);
         
         // CRITICAL: Block if user already voted for THIS school today (1 vote per school per day)
         if (schoolVoteCount > 0) {
           console.log(`🚫 [TRANSACTION] BLOCKING VOTE - Already voted for this school ${schoolVoteCount} time(s) today`);
+          await this.run('ROLLBACK');
+          return {
+            success: false,
+            error: 'Already voted for this school today',
+            message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+            remainingVotes: 0,
+            hasVotedToday: true
+          };
+        }
+        
+        // ADDITIONAL CHECK: Also check by IP only (in case fingerprint changed)
+        // This is a fallback to prevent abuse if fingerprint changes
+        let checkByIpQuery;
+        if (hasVoteDateCol) {
+          if (this.dbType === 'postgresql') {
+            checkByIpQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND vote_date = ?::date`;
+          } else {
+            checkByIpQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND DATE(vote_date) = DATE(?)`;
+          }
+        } else {
+          checkByIpQuery = `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND school_id = ? AND DATE(vote_timestamp) = DATE(?)`;
+        }
+        const ipCheckRow = await this.get(checkByIpQuery, [voterIp, schoolId, currentDate]);
+        const ipVoteCount = ipCheckRow ? (ipCheckRow.count || 0) : 0;
+        console.log(`📊 [TRANSACTION] Vote count for this IP+School today (IP-only check): ${ipVoteCount}`);
+        
+        // Block if same IP already voted for this school today (even with different fingerprint)
+        if (ipVoteCount > 0) {
+          console.log(`🚫 [TRANSACTION] BLOCKING VOTE - Same IP already voted for this school ${ipVoteCount} time(s) today`);
           await this.run('ROLLBACK');
           return {
             success: false,
