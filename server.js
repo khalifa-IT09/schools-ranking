@@ -1355,7 +1355,7 @@ app.post('/api/voting/counts', async (req, res) => {
     const counts = {};
     
     // Query all schools at once for efficiency
-    if (!dbManager.db) {
+    if (!dbManager.db && !dbManager.pool) {
       return res.status(500).json({
         success: false,
         error: 'Database not initialized'
@@ -1370,15 +1370,8 @@ app.post('/api/voting/counts', async (req, res) => {
       GROUP BY school_id
     `;
     
-    dbManager.db.all(query, [...schoolIds, weekStart], (err, rows) => {
-      if (err) {
-        console.error('❌ Error fetching vote counts:', err);
-        return res.status(500).json({
-          success: false,
-          error: 'Database error',
-          message: 'Erreur de base de données'
-        });
-      }
+    try {
+      const rows = await dbManager.all(query, [...schoolIds, weekStart]);
       
       rows.forEach(row => {
         counts[row.school_id] = parseInt(row.total_votes) || 0;
@@ -1395,7 +1388,14 @@ app.post('/api/voting/counts', async (req, res) => {
         success: true,
         counts: counts
       });
-    });
+    } catch (error) {
+      console.error('❌ Error fetching vote counts:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+        message: 'Erreur lors du chargement des votes'
+      });
+    }
   } catch (error) {
     console.error('❌ Error fetching vote counts:', error);
     res.status(500).json({

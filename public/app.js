@@ -769,11 +769,9 @@ class SchoolRankingApp {
                             <span class="voting-students"><i class="fas fa-users"></i> ${school.totalStudents}</span>
                         </span>
                     </div>
-                    ${school.voteCount !== undefined ? `
-                        <div class="voting-vote-count">
-                            <i class="fas fa-heart"></i> ${school.voteCount} ${this.translate('voting_vote_count')}
-                        </div>
-                    ` : ''}
+                    <div class="voting-vote-count">
+                        <i class="fas fa-heart"></i> ${school.voteCount !== undefined ? school.voteCount : 0} ${this.translate('voting_vote_count')}
+                    </div>
                 </div>
                 <div class="voting-card-actions">
                     <div class="share-buttons-container">
@@ -943,8 +941,14 @@ class SchoolRankingApp {
             const data = await response.json();
             
             if (data.success) {
-                // Update vote status
+                // Refresh vote counts to show updated numbers
+                await this.loadVoteCounts();
+                
+                // Update vote status to disable buttons properly
                 await this.loadVoteStatus();
+                
+                // Refresh the display to show updated vote counts and button states
+                this.displayVotingSchools();
                 
                 // Show success message
                 if (voteButton) {
@@ -965,10 +969,6 @@ class SchoolRankingApp {
                 if (school) {
                     this.addShareButtonAfterVote(school.name || school.school_name, school.region || school.school_region);
                 }
-                
-                // Refresh vote counts and display
-                await this.loadVoteCounts();
-                this.displayVotingSchools();
                 
                 // Refresh Top 10 leaderboard after vote
                 await this.loadTop10Leaderboard();

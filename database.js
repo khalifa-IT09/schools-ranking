@@ -958,10 +958,23 @@ class DatabaseManager {
       const currentDate = this.getCurrentDate();
       
       // CRITICAL: Use fingerprint in queries to correctly identify user
-      // Use same query format as recordVote for consistency
-      const dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
-        ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND ${dateColumn} = ?`
-        : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND ${dateColumn} = ?`;
+      // Use same query format as recordVote for consistency with proper date comparison
+      let dailyQuery;
+      if (hasVoteDate) {
+        if (this.dbType === 'postgresql') {
+          dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+            ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND vote_date = ?::date`
+            : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND vote_date = ?::date`;
+        } else {
+          dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+            ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND DATE(vote_date) = DATE(?)`
+            : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND DATE(vote_date) = DATE(?)`;
+        }
+      } else {
+        dailyQuery = voterFingerprint && voterFingerprint.trim() !== ''
+          ? `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND voter_fingerprint = ? AND DATE(vote_timestamp) = DATE(?)`
+          : `SELECT COUNT(*) as count FROM votes WHERE voter_ip = ? AND DATE(vote_timestamp) = DATE(?)`;
+      }
       const dailyParams = voterFingerprint && voterFingerprint.trim() !== ''
         ? [voterIp, voterFingerprint, currentDate]
         : [voterIp, currentDate];
