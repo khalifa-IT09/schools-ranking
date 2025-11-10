@@ -1328,20 +1328,20 @@ class DatabaseManager {
   }
 
   // Update weekly statistics
-  updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart) {
+  async updateWeeklyStats(schoolId, schoolName, schoolRegion, schoolLevel, weekStart) {
     try {
-      this.db.run(
+      // PostgreSQL uses different ON CONFLICT syntax
+      const conflictClause = this.dbType === 'postgresql' 
+        ? 'ON CONFLICT (school_id, week_start)' 
+        : 'ON CONFLICT(school_id, week_start)';
+      
+      await this.run(
         `INSERT INTO weekly_stats (school_id, school_name, school_region, school_level, week_start, vote_count, last_updated)
          VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-         ON CONFLICT(school_id, week_start) DO UPDATE SET
+         ${conflictClause} DO UPDATE SET
            vote_count = vote_count + 1,
            last_updated = CURRENT_TIMESTAMP`,
-        [schoolId, schoolName, schoolRegion, schoolLevel, weekStart],
-        (err) => {
-          if (err) {
-            console.error('❌ Error updating weekly stats:', err);
-          }
-        }
+        [schoolId, schoolName, schoolRegion, schoolLevel, weekStart]
       );
     } catch (error) {
       console.error('❌ Error updating weekly stats:', error);
