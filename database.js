@@ -2239,9 +2239,13 @@ class DatabaseManager {
     }
   }
 
-  // Restore database from backup
+  // Restore database from backup (SQLite only - PostgreSQL restores via Render)
   restoreDatabase(backupPath) {
     return new Promise((resolve, reject) => {
+      if (this.dbType === 'postgresql') {
+        return reject(new Error('PostgreSQL restores must be done via Render dashboard or pg_restore'));
+      }
+      
       if (!fs.existsSync(backupPath)) {
         return reject(new Error('Backup file not found'));
       }
