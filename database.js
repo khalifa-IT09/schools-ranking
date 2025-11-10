@@ -579,6 +579,9 @@ class DatabaseManager {
       this.migrateVotesTableImmediate().then(() => {
         return this.migrateTutorRequestsTable();
       }).then(() => {
+        // Ensure unique constraint exists to prevent duplicate votes
+        return this.ensureUniqueVoteConstraint();
+      }).then(() => {
         console.log('✅ Database migration completed');
       }).catch((migrationError) => {
         console.warn('⚠️ Migration will run on-demand:', migrationError.message);
@@ -685,6 +688,58 @@ class DatabaseManager {
   }
 
   // Migrate votes table immediately (called during table creation)
+  // Create unique constraint to prevent duplicate votes
+  async ensureUniqueVoteConstraint() {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
+      }
+      
+      // Check if vote_date column exists first
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      
+      if (!hasVoteDate) {
+        console.log('ℹ️ vote_date column does not exist yet, skipping unique constraint creation');
+        return;
+      }
+      
+      // Create unique constraint to prevent duplicate votes
+      // This ensures the same user (IP + fingerprint) cannot vote for the same school on the same day
+      if (this.dbType === 'postgresql') {
+        // PostgreSQL: Create unique constraint
+        try {
+          await this.run(`
+            ALTER TABLE votes 
+            ADD CONSTRAINT votes_unique_daily_vote 
+            UNIQUE (voter_ip, voter_fingerprint, school_id, vote_date)
+          `);
+          console.log('✅ Created unique constraint on votes table (PostgreSQL)');
+        } catch (constraintErr) {
+          // Constraint might already exist
+          if (constraintErr.code === '42P07' || constraintErr.message?.includes('already exists')) {
+            console.log('ℹ️ Unique constraint already exists');
+          } else {
+            console.error('❌ Error creating unique constraint:', constraintErr);
+          }
+        }
+      } else {
+        // SQLite: Create unique index
+        try {
+          await this.run(`
+            CREATE UNIQUE INDEX IF NOT EXISTS votes_unique_daily_vote 
+            ON votes(voter_ip, voter_fingerprint, school_id, vote_date)
+          `);
+          console.log('✅ Created unique index on votes table (SQLite)');
+        } catch (indexErr) {
+          console.error('❌ Error creating unique index:', indexErr);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring unique vote constraint:', error);
+    }
+  }
+
   async migrateVotesTableImmediate() {
     try {
       if (!this.db && !this.pool) {
@@ -1193,7 +1248,32 @@ class DatabaseManager {
         console.log(`✅ [TRANSACTION] Inserting vote for school ${schoolId}, IP: ${voterIp}, FP: ${voterFingerprint.substring(0, 20)}..., Date: ${currentDate}, HasDateCol: ${hasVoteDateCol}`);
         
         try {
-          const insertResult = await this.run(insertQuery, insertParams);
+          let insertResult;
+          try {
+            insertResult = await this.run(insertQuery, insertParams);
+          } catch (insertError) {
+            // Handle unique constraint violations (duplicate vote attempts)
+            // PostgreSQL error code: 23505, SQLite error code: SQLITE_CONSTRAINT_UNIQUE
+            const isUniqueError = insertError.code === '23505' || 
+                                 insertError.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+                                 insertError.message?.includes('UNIQUE constraint') ||
+                                 insertError.message?.includes('duplicate key');
+            
+            if (isUniqueError) {
+              console.log(`🚫 [TRANSACTION] Unique constraint violation - duplicate vote blocked at database level`);
+              await this.run('ROLLBACK');
+              return {
+                success: false,
+                error: 'Already voted for this school today',
+                message: 'Vous avez déjà voté pour cette école aujourd\'hui!',
+                remainingVotes: Math.max(0, 7 - weeklyCount),
+                hasVotedToday: true
+              };
+            }
+            // Re-throw if it's a different error
+            throw insertError;
+          }
+          
           const voteId = insertResult.lastID;
           console.log(`✅ [TRANSACTION] Vote inserted successfully. ID: ${voteId}`);
           
