@@ -127,7 +127,7 @@ class DatabaseManager {
         .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
         .replace(/AUTOINCREMENT/g, '')
         .replace(/DATETIME/g, 'TIMESTAMP')
-        .replace(/TEXT/g, 'VARCHAR(255)')
+        .replace(/TEXT/g, 'TEXT')  // PostgreSQL TEXT is unlimited, like SQLite TEXT
         .replace(/INTEGER/g, 'INTEGER')
         .replace(/ON CONFLICT\(([^)]+)\) DO UPDATE/g, 'ON CONFLICT ($1) DO UPDATE')
         .replace(/COALESCE\(DATE\(([^)]+)\), DATE\('now'\)\)/g, "COALESCE(($1)::date, CURRENT_DATE)");
@@ -579,6 +579,9 @@ class DatabaseManager {
       this.migrateVotesTableImmediate().then(() => {
         return this.migrateTutorRequestsTable();
       }).then(() => {
+        // Migrate VARCHAR(255) columns to TEXT for PostgreSQL
+        return this.migrateVarcharToText();
+      }).then(() => {
         // Ensure unique constraint exists to prevent duplicate votes
         return this.ensureUniqueVoteConstraint();
       }).then(() => {
@@ -848,6 +851,84 @@ class DatabaseManager {
           }
         }, 200);
       }
+    }
+  }
+
+  // Migrate VARCHAR(255) columns to TEXT for PostgreSQL (fixes "value too long" errors)
+  async migrateVarcharToText() {
+    try {
+      if (this.dbType !== 'postgresql') {
+        return; // Only needed for PostgreSQL
+      }
+
+      if (!this.pool) {
+        throw new Error('Database not initialized');
+      }
+
+      // List of tables and columns that should be TEXT (unlimited)
+      const migrations = [
+        {
+          table: 'votes',
+          columns: ['school_id', 'school_name', 'school_region', 'school_level', 'voter_ip', 'voter_fingerprint', 'voter_user_agent']
+        },
+        {
+          table: 'weekly_stats',
+          columns: ['school_id', 'school_name', 'school_region', 'school_level']
+        },
+        {
+          table: 'school_badges',
+          columns: ['school_id', 'school_name', 'badge_type', 'badge_name', 'badge_description']
+        },
+        {
+          table: 'tutor_requests',
+          columns: ['student_name', 'student_phone', 'subject', 'level', 'city', 'preferred_schedule', 'teacher_name', 'teacher_phone']
+        },
+        {
+          table: 'teachers',
+          columns: ['teacher_name', 'teacher_phone', 'subjects', 'cities', 'levels']
+        }
+      ];
+
+      for (const { table, columns } of migrations) {
+        // Check if table exists
+        const tableExists = await this.tableExists(table);
+        if (!tableExists) {
+          console.log(`ℹ️ Table ${table} does not exist yet, will be created with TEXT columns`);
+          continue;
+        }
+
+        // Get current column info
+        const tableColumns = await this.getTableInfo(table);
+        
+        for (const columnName of columns) {
+          const column = tableColumns.find(col => col.name === columnName);
+          if (!column) {
+            continue; // Column doesn't exist, skip
+          }
+
+          // Check if column is VARCHAR(255) or character varying(255)
+          const dataType = column.type?.toLowerCase() || '';
+          if (dataType.includes('varchar') || dataType.includes('character varying')) {
+            try {
+              // Alter column to TEXT
+              await this.run(`ALTER TABLE ${table} ALTER COLUMN ${columnName} TYPE TEXT`);
+              console.log(`✅ Migrated ${table}.${columnName} from VARCHAR(255) to TEXT`);
+            } catch (alterErr) {
+              // Column might already be TEXT or migration might have failed
+              if (alterErr.message?.includes('already') || alterErr.message?.includes('same type')) {
+                console.log(`ℹ️ ${table}.${columnName} is already TEXT or cannot be altered`);
+              } else {
+                console.warn(`⚠️ Could not migrate ${table}.${columnName}:`, alterErr.message);
+              }
+            }
+          }
+        }
+      }
+
+      console.log('✅ VARCHAR to TEXT migration completed');
+    } catch (error) {
+      console.warn('⚠️ Error during VARCHAR to TEXT migration:', error.message);
+      // Don't throw - allow app to continue
     }
   }
 
