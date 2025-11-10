@@ -1020,43 +1020,89 @@ class SchoolRankingApp {
     // Show live results leaderboard
     async showLiveResults() {
         try {
+            const modal = document.getElementById('resultsModal');
+            const body = document.getElementById('leaderboardContainer');
+            const motivationalMessage = document.querySelector('.motivational-message');
+            
+            if (!modal || !body) {
+                console.error('❌ Modal elements not found');
+                return;
+            }
+            
+            // Show loading state
+            body.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #667eea;"></i>
+                    <p>${this.translate('loading_top10')}</p>
+                </div>
+            `;
+            
+            // Hide motivational message initially
+            if (motivationalMessage) {
+                motivationalMessage.style.display = 'none';
+            }
+            
+            // Show modal
+            modal.style.display = 'block';
+            
             const response = await fetch('/api/voting/results?limit=10');
             const data = await response.json();
             
-            if (data.success && data.schools) {
-                const modal = document.getElementById('resultsModal');
-                const body = document.getElementById('leaderboardContainer');
+            if (data.success && data.schools && data.schools.length > 0) {
+                const maxVotes = data.schools[0]?.total_votes || 1;
                 
-                if (modal && body) {
-                    const maxVotes = data.schools[0]?.total_votes || 1;
+                body.innerHTML = data.schools.map((school, index) => {
+                    const percentage = (school.total_votes / maxVotes) * 100;
+                    const rank = index + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
                     
-                    body.innerHTML = data.schools.map((school, index) => {
-                        const percentage = (school.total_votes / maxVotes) * 100;
-                        const rank = index + 1;
-                        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-                        
-                        return `
-                            <div class="leaderboard-item">
-                                <div class="leaderboard-rank">${medal}</div>
-                                <div class="leaderboard-school">
-                                    <div class="leaderboard-school-name">${school.school_name}</div>
-                                    <div class="leaderboard-school-region">${school.school_region}</div>
-                                </div>
-                                <div class="leaderboard-votes">
-                                    <div class="leaderboard-vote-count">${school.total_votes} ${this.translate('votes')}</div>
-                                    <div class="leaderboard-progress-bar">
-                                        <div class="leaderboard-progress-fill" style="width: ${percentage}%"></div>
-                                    </div>
+                    return `
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">${medal}</div>
+                            <div class="leaderboard-school">
+                                <div class="leaderboard-school-name">${this.escapeHtml(school.school_name)}</div>
+                                <div class="leaderboard-school-region">${this.escapeHtml(school.school_region)}</div>
+                            </div>
+                            <div class="leaderboard-votes">
+                                <div class="leaderboard-vote-count">${school.total_votes} ${this.translate('votes')}</div>
+                                <div class="leaderboard-progress-bar">
+                                    <div class="leaderboard-progress-fill" style="width: ${percentage}%"></div>
                                 </div>
                             </div>
-                        `;
-                    }).join('');
-                    
-                    modal.style.display = 'block';
+                        </div>
+                    `;
+                }).join('');
+                
+                // Show motivational message only if there are results
+                if (motivationalMessage) {
+                    motivationalMessage.style.display = 'block';
+                }
+            } else {
+                // No results available
+                body.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-chart-line" style="font-size: 3rem; color: #ccc; margin-bottom: 20px;"></i>
+                        <p style="font-size: 1.2rem; color: #666;">${this.translate('top10_no_data')}</p>
+                        <p style="color: #999; margin-top: 10px;">Les résultats apparaîtront ici une fois que les votes commenceront.</p>
+                    </div>
+                `;
+                
+                // Hide motivational message if no results
+                if (motivationalMessage) {
+                    motivationalMessage.style.display = 'none';
                 }
             }
         } catch (error) {
             console.error('❌ Error loading live results:', error);
+            const body = document.getElementById('leaderboardContainer');
+            if (body) {
+                body.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f44336; margin-bottom: 20px;"></i>
+                        <p style="font-size: 1.2rem; color: #666;">${this.translate('error_loading')}</p>
+                    </div>
+                `;
+            }
             this.showNotification(this.translate('error_loading'), 'error');
         }
     }
