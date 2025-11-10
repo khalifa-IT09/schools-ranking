@@ -108,7 +108,7 @@ class SchoolRankingApp {
                 about_criteria_success: "Taux de réussite (60%)",
                 about_criteria_average: "Moyenne générale des scores (40%)",
                 about_data_source: "Données fournies par le Ministère de l'Éducation de la République Islamique de Mauritanie.",
-                about_developer: "Cette application est développée par Khalifa-IT services, pour plus d'info: 36090932",
+                about_developer: "Cette application est développée par iBTIKAR IT SOLUTIONS AND SERVICES",
                 
                 // Voting section
                 nav_voting: "Voter pour votre école préférée",
@@ -234,7 +234,7 @@ class SchoolRankingApp {
                 about_criteria_success: "معدل النجاح (60%)",
                 about_criteria_average: "متوسط النقاط العامة (40%)",
                 about_data_source: "البيانات مقدمة من وزارة التربية في الجمهورية الإسلامية الموريتانية.",
-                about_developer: "هذا التطبيق مطور من قبل Khalifa-IT services، للمزيد من المعلومات: 36090932",
+                about_developer: "هذا التطبيق مطور من قبل iBTIKAR IT SOLUTIONS AND SERVICES",
                 
                 // Voting section (Arabic)
                 nav_voting: "صوت لمدرستك المفضلة",
