@@ -1961,13 +1961,21 @@ function setupAutomaticBackups() {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 School Ranking App running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`💾 Database location: ${dbManager.dbPath}`);
-  console.log(`📦 Backup location: ${dbManager.backupDir}`);
   
-  // Warn about data persistence
-  if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
+  // Only show database paths for SQLite
+  if (dbManager.dbType === 'sqlite') {
+    console.log(`💾 Database location: ${dbManager.dbPath}`);
+    console.log(`📦 Backup location: ${dbManager.backupDir}`);
+  } else {
+    console.log(`💾 Using PostgreSQL database`);
+  }
+  
+  // Warn about data persistence (only for SQLite, not PostgreSQL)
+  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL && !process.env.DATA_DIR) {
     console.error('❌ CRITICAL: DATA_DIR not set! Data will be LOST on deployment!');
-    console.error('❌ Please set DATA_DIR environment variable in Render dashboard.');
+    console.error('❌ Please set DATABASE_URL for PostgreSQL or DATA_DIR for persistent SQLite.');
+  } else if (process.env.DATABASE_URL) {
+    console.log(`✅ Using PostgreSQL database (data will persist across deployments)`);
   } else if (process.env.DATA_DIR) {
     console.log(`✅ Using persistent data directory: ${process.env.DATA_DIR}`);
   }
