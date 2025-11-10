@@ -1,56 +1,83 @@
 const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 
 class DatabaseManager {
   constructor() {
     this.db = null;
-    // Use persistent data directory - this ensures data survives deployments
-    // On Render, you MUST set DATA_DIR environment variable to a persistent disk path
-    // Default to ./data/ but this is EPHEMERAL on Render - will be wiped on deploy!
-    // For Render: Set DATA_DIR=/opt/render/project/data (or your persistent disk path)
-    const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+    this.pool = null;
+    this.dbType = null; // 'sqlite' or 'postgresql'
     
-    // Warn if using default (ephemeral) location in production
-    if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
-      console.warn('⚠️ WARNING: Using default data directory which is EPHEMERAL on Render!');
-      console.warn('⚠️ Data will be LOST on each deployment!');
-      console.warn('⚠️ Please set DATA_DIR environment variable to a persistent disk path.');
+    // Check if PostgreSQL is configured
+    if (process.env.DATABASE_URL || process.env.USE_POSTGRESQL === 'true') {
+      this.dbType = 'postgresql';
+      this.initPostgreSQL();
+    } else {
+      // Use SQLite (default for local development)
+      this.dbType = 'sqlite';
+      const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+      
+      // Warn if using default (ephemeral) location in production
+      if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
+        console.warn('⚠️ WARNING: Using SQLite with default data directory which is EPHEMERAL on Render!');
+        console.warn('⚠️ Data will be LOST on each deployment!');
+        console.warn('⚠️ Please set DATABASE_URL for PostgreSQL or DATA_DIR for persistent SQLite.');
+      }
+      
+      this.dataDir = dataDir;
+      this.dbPath = path.join(dataDir, 'school_ranking.db');
+      this.backupDir = path.join(dataDir, 'backups');
+      this.ensureDataDirectory();
+      this.initSQLite();
     }
-    
-    this.dataDir = dataDir;
-    this.dbPath = path.join(dataDir, 'school_ranking.db');
-    this.backupDir = path.join(dataDir, 'backups');
-    this.ensureDataDirectory();
-    this.init();
   }
 
-  ensureDataDirectory() {
+  initPostgreSQL() {
     try {
-      // Create data directory if it doesn't exist
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-        console.log(`✅ Created data directory: ${this.dataDir}`);
+      const connectionString = process.env.DATABASE_URL;
+      
+      if (!connectionString) {
+        throw new Error('DATABASE_URL environment variable is required for PostgreSQL');
       }
-      // Create backups directory if it doesn't exist
-      if (!fs.existsSync(this.backupDir)) {
-        fs.mkdirSync(this.backupDir, { recursive: true });
-        console.log(`✅ Created backups directory: ${this.backupDir}`);
-      }
+
+      this.pool = new Pool({
+        connectionString: connectionString,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+
+      // Test connection
+      this.pool.query('SELECT NOW()', (err, res) => {
+        if (err) {
+          console.error('❌ PostgreSQL connection failed:', err);
+          return;
+        }
+        console.log('✅ PostgreSQL database connected successfully');
+        console.log('✅ Using PostgreSQL database (data will persist across deployments)');
+        
+        // Create tables
+        this.createTables().catch((err) => {
+          console.error('❌ Failed to create tables:', err);
+        });
+      });
+
+      this.pool.on('error', (err) => {
+        console.error('❌ Unexpected PostgreSQL error:', err);
+      });
     } catch (error) {
-      console.error('❌ Error creating data directories:', error);
+      console.error('❌ PostgreSQL initialization failed:', error);
     }
   }
 
-  init() {
+  initSQLite() {
     try {
       // Create database file if it doesn't exist
       this.db = new sqlite3.Database(this.dbPath, (err) => {
         if (err) {
-          console.error('❌ Database initialization failed:', err);
+          console.error('❌ SQLite database initialization failed:', err);
           return;
         }
-        console.log('✅ Database initialized successfully');
+        console.log('✅ SQLite database initialized successfully');
         
         // Add error handler to catch missing column errors gracefully
         this.db.on('error', (err) => {
@@ -71,7 +98,169 @@ class DatabaseManager {
         });
       });
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
+      console.error('❌ SQLite database initialization failed:', error);
+    }
+  }
+
+  ensureDataDirectory() {
+    try {
+      // Create data directory if it doesn't exist
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+        console.log(`✅ Created data directory: ${this.dataDir}`);
+      }
+      // Create backups directory if it doesn't exist
+      if (!fs.existsSync(this.backupDir)) {
+        fs.mkdirSync(this.backupDir, { recursive: true });
+        console.log(`✅ Created backups directory: ${this.backupDir}`);
+      }
+    } catch (error) {
+      console.error('❌ Error creating data directories:', error);
+    }
+  }
+
+  // Convert SQLite SQL to PostgreSQL-compatible SQL
+  convertSQL(sql) {
+    if (this.dbType === 'postgresql') {
+      // Replace SQLite-specific syntax with PostgreSQL syntax
+      return sql
+        .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
+        .replace(/AUTOINCREMENT/g, '')
+        .replace(/DATETIME/g, 'TIMESTAMP')
+        .replace(/TEXT/g, 'VARCHAR(255)')
+        .replace(/INTEGER/g, 'INTEGER');
+    }
+    return sql;
+  }
+
+  // Unified query execution method
+  async query(sql, params = []) {
+    const convertedSQL = this.convertSQL(sql);
+    
+    if (this.dbType === 'postgresql') {
+      return new Promise((resolve, reject) => {
+        this.pool.query(convertedSQL, params, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            // Convert PostgreSQL result to SQLite-like format
+            resolve({
+              rows: result.rows,
+              lastID: result.rows.length > 0 && result.rows[0].id ? result.rows[0].id : null,
+              changes: result.rowCount || 0
+            });
+          }
+        });
+      });
+    } else {
+      // SQLite
+      return new Promise((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve({
+              rows: rows || [],
+              lastID: this.db.lastID,
+              changes: this.db.changes
+            });
+          }
+        });
+      });
+    }
+  }
+
+  // Unified run method (for INSERT, UPDATE, DELETE)
+  async run(sql, params = []) {
+    const convertedSQL = this.convertSQL(sql);
+    
+    if (this.dbType === 'postgresql') {
+      return new Promise((resolve, reject) => {
+        this.pool.query(convertedSQL, params, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve({
+              lastID: result.rows.length > 0 && result.rows[0] && result.rows[0].id 
+                ? result.rows[0].id 
+                : (result.rows.length > 0 && result.rows[0] && result.rows[0][Object.keys(result.rows[0])[0]])
+                  ? result.rows[0][Object.keys(result.rows[0])[0]]
+                  : null,
+              changes: result.rowCount || 0
+            });
+          }
+        });
+      });
+    } else {
+      // SQLite
+      return new Promise((resolve, reject) => {
+        this.db.run(sql, params, function(err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve({
+              lastID: this.lastID,
+              changes: this.changes
+            });
+          }
+        });
+      });
+    }
+  }
+
+  // Unified get method (for single row)
+  async get(sql, params = []) {
+    const convertedSQL = this.convertSQL(sql);
+    
+    if (this.dbType === 'postgresql') {
+      return new Promise((resolve, reject) => {
+        this.pool.query(convertedSQL, params, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result.rows[0] || null);
+          }
+        });
+      });
+    } else {
+      // SQLite
+      return new Promise((resolve, reject) => {
+        this.db.get(sql, params, (err, row) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(row || null);
+          }
+        });
+      });
+    }
+  }
+
+  // Unified all method (for multiple rows)
+  async all(sql, params = []) {
+    const convertedSQL = this.convertSQL(sql);
+    
+    if (this.dbType === 'postgresql') {
+      return new Promise((resolve, reject) => {
+        this.pool.query(convertedSQL, params, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result.rows || []);
+          }
+        });
+      });
+    } else {
+      // SQLite
+      return new Promise((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
+        });
+      });
     }
   }
 
@@ -216,64 +405,81 @@ class DatabaseManager {
         'CREATE INDEX IF NOT EXISTS idx_weekly_stats_vote_count ON weekly_stats(vote_count)'
       ];
 
-        // Helper function to safely execute SQL (prevents nested callback hell)
-        const safeExec = (sql, tableName) => {
-          return new Promise((resolveExec, rejectExec) => {
-            this.db.exec(sql, (err) => {
-              if (err) {
-                // Ignore "table already exists" errors
-                if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
-                  console.error(`❌ Error creating ${tableName} table:`, err);
-                  return rejectExec(err);
-                }
-              }
-              resolveExec();
-            });
-          });
-        };
-
-        // Helper function to create all indexes
-        const createAllIndexes = () => {
-          return new Promise((resolveIndexes) => {
-            const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes, ...createTutorRequestsIndexes, ...createTeachersIndexes];
-            let completed = 0;
-
-            if (allIndexes.length === 0) {
-              return resolveIndexes();
-            }
-
-            allIndexes.forEach(index => {
-              this.db.exec(index, (indexErr) => {
-                completed++;
-                if (indexErr && !indexErr.message.includes('already exists') && !indexErr.message.includes('no such column')) {
-                  console.warn('⚠️ Index creation warning:', indexErr.message);
-                }
-                if (completed === allIndexes.length) {
-                  resolveIndexes();
-                }
+        // Helper function to safely execute SQL (works with both SQLite and PostgreSQL)
+        const safeExec = async (sql, tableName) => {
+          try {
+            if (this.dbType === 'postgresql') {
+              // PostgreSQL uses query for everything
+              await this.run(sql);
+            } else {
+              // SQLite uses exec for DDL statements
+              return new Promise((resolveExec, rejectExec) => {
+                this.db.exec(sql, (err) => {
+                  if (err) {
+                    // Ignore "table already exists" errors
+                    if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate'))) {
+                      console.error(`❌ Error creating ${tableName} table:`, err);
+                      return rejectExec(err);
+                    }
+                  }
+                  resolveExec();
+                });
               });
-            });
-          });
+            }
+          } catch (err) {
+            // Ignore "table already exists" errors
+            if (!err.message || (!err.message.includes('already exists') && !err.message.includes('duplicate') && !err.message.includes('relation'))) {
+              console.error(`❌ Error creating ${tableName} table:`, err);
+              throw err;
+            }
+          }
         };
 
-        // Execute table creation sequentially using promises (much cleaner than nested callbacks)
-        safeExec(createVotesTable, 'votes')
-          .then(() => safeExec(createBadgesTable, 'badges'))
-          .then(() => safeExec(createWeeklyStatsTable, 'weekly_stats'))
-          .then(() => safeExec(createWeeklyWinnersTable, 'weekly_winners'))
-          .then(() => safeExec(createTutorRequestsTable, 'tutor_requests'))
-          .then(() => safeExec(createTeachersTable, 'teachers'))
-          .then(() => new Promise(resolveDelay => setTimeout(resolveDelay, 100)))
-          .then(() => createAllIndexes())
-          .then(() => {
+        // Helper function to create all indexes (works with both SQLite and PostgreSQL)
+        const createAllIndexes = async () => {
+          const allIndexes = [...createIndexes, ...createBadgeIndexes, ...createWeeklyStatsIndexes, ...createTutorRequestsIndexes, ...createTeachersIndexes];
+          
+          if (allIndexes.length === 0) {
+            return;
+          }
+
+          for (const index of allIndexes) {
+            try {
+              await this.run(index);
+            } catch (indexErr) {
+              // Ignore "already exists" errors
+              if (indexErr.message && !indexErr.message.includes('already exists') && !indexErr.message.includes('duplicate') && !indexErr.message.includes('relation')) {
+                console.warn('⚠️ Index creation warning:', indexErr.message);
+              }
+            }
+          }
+        };
+
+        // Execute table creation sequentially using async/await
+        (async () => {
+          try {
+            await safeExec(createVotesTable, 'votes');
+            await safeExec(createBadgesTable, 'badges');
+            await safeExec(createWeeklyStatsTable, 'weekly_stats');
+            await safeExec(createWeeklyWinnersTable, 'weekly_winners');
+            await safeExec(createTutorRequestsTable, 'tutor_requests');
+            await safeExec(createTeachersTable, 'teachers');
+            
+            // Small delay for SQLite
+            if (this.dbType === 'sqlite') {
+              await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
+            }
+            
+            await createAllIndexes();
+            
             console.log('✅ Database tables and indexes created successfully');
             this.runMigrationAfterSetup();
             resolve();
-          })
-          .catch((error) => {
+          } catch (error) {
             console.error('❌ Error creating database tables:', error);
             reject(error);
-          });
+          }
+        })();
     } catch (error) {
       console.error('❌ Error creating database tables:', error);
         reject(error);
