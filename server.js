@@ -1351,7 +1351,8 @@ app.post('/api/voting/counts', async (req, res) => {
     // Get current week start
     const weekStart = dbManager.getCurrentWeekStart();
     
-    // Get vote counts from weekly_stats for each school
+    // Get vote counts directly from votes table for accuracy
+    // This ensures we always have the most up-to-date counts
     const counts = {};
     
     // Query all schools at once for efficiency
@@ -1362,16 +1363,48 @@ app.post('/api/voting/counts', async (req, res) => {
       });
     }
     
+    // Use direct count from votes table instead of weekly_stats
+    // This is more reliable and ensures accuracy
     const placeholders = schoolIds.map(() => '?').join(',');
-    const query = `
-      SELECT school_id, SUM(vote_count) as total_votes
-      FROM weekly_stats
-      WHERE school_id IN (${placeholders}) AND week_start = ?
-      GROUP BY school_id
-    `;
+    
+    // Check if vote_date column exists
+    const hasVoteDate = await dbManager.tableExists('votes') && 
+                        (await dbManager.getTableInfo('votes')).some(col => col.name === 'vote_date');
+    
+    let query;
+    let params;
+    
+    // Count all votes for the current week (not just today)
+    // This shows the total votes each school has received this week
+    if (hasVoteDate) {
+      if (dbManager.dbType === 'postgresql') {
+        query = `
+          SELECT school_id, COUNT(*) as total_votes
+          FROM votes
+          WHERE school_id IN (${placeholders}) AND week_start = ?
+          GROUP BY school_id
+        `;
+      } else {
+        query = `
+          SELECT school_id, COUNT(*) as total_votes
+          FROM votes
+          WHERE school_id IN (${placeholders}) AND week_start = ?
+          GROUP BY school_id
+        `;
+      }
+      params = [...schoolIds, weekStart];
+    } else {
+      query = `
+        SELECT school_id, COUNT(*) as total_votes
+        FROM votes
+        WHERE school_id IN (${placeholders}) AND week_start = ?
+        GROUP BY school_id
+      `;
+      params = [...schoolIds, weekStart];
+    }
     
     try {
-      const rows = await dbManager.all(query, [...schoolIds, weekStart]);
+      const rows = await dbManager.all(query, params);
       
       rows.forEach(row => {
         counts[row.school_id] = parseInt(row.total_votes) || 0;
