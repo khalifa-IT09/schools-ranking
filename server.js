@@ -1854,6 +1854,12 @@ app.get('/admin/teachers', (req, res) => {
 // Backup database endpoint (admin only)
 app.post('/api/backup', async (req, res) => {
   try {
+    if (typeof dbManager.backupDatabase !== 'function') {
+      return res.status(503).json({
+        success: false,
+        error: 'Backup functionality not available. Please ensure database.js is up to date.'
+      });
+    }
     const result = await dbManager.backupDatabase();
     res.json(result);
   } catch (error) {
