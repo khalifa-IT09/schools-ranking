@@ -1,6 +1,8 @@
 # PostgreSQL Setup Guide for Render
 
-## Step-by-Step Instructions
+> **📖 For detailed step-by-step instructions with screenshots, see `POSTGRESQL_SETUP_STEP_BY_STEP.md`**
+
+## Quick Reference
 
 ### Step 1: Create PostgreSQL Database on Render
 
