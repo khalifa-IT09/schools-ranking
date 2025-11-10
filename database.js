@@ -1516,34 +1516,58 @@ class DatabaseManager {
     }
     
     try {
-      // weekly_stats doesn't have voter_ip - we need to join with votes table
-      // Or calculate unique_voters separately
-      let query = `
-        SELECT 
-          ws.school_id,
-          ws.school_name,
-          ws.school_region,
-          ws.school_level,
-          SUM(ws.vote_count) as total_votes,
-          MAX(ws.last_updated) as last_vote_time
-        FROM weekly_stats ws
-        WHERE ws.week_start = ?
-      `;
-
-      const params = [this.getCurrentWeekStart()];
+      // Count votes directly from votes table for accuracy (same as vote counts endpoint)
+      const weekStart = this.getCurrentWeekStart();
+      
+      // Check if vote_date column exists
+      const columns = await this.getTableInfo('votes');
+      const hasVoteDate = columns && columns.some(col => col.name === 'vote_date');
+      
+      let query;
+      let params = [weekStart];
+      
+      if (hasVoteDate) {
+        // Use vote_date column if it exists
+        query = `
+          SELECT 
+            school_id,
+            school_name,
+            school_region,
+            school_level,
+            COUNT(*) as total_votes,
+            COUNT(DISTINCT voter_ip) as unique_voters,
+            MAX(vote_date) as last_vote_time
+          FROM votes
+          WHERE week_start = ?
+        `;
+      } else {
+        // Fallback to vote_timestamp
+        query = `
+          SELECT 
+            school_id,
+            school_name,
+            school_region,
+            school_level,
+            COUNT(*) as total_votes,
+            COUNT(DISTINCT voter_ip) as unique_voters,
+            MAX(vote_timestamp) as last_vote_time
+          FROM votes
+          WHERE week_start = ?
+        `;
+      }
 
       if (region && region !== 'all') {
-        query += ' AND ws.school_region = ?';
+        query += ' AND school_region = ?';
         params.push(region);
       }
 
       if (level && level !== 'all') {
-        query += ' AND ws.school_level = ?';
+        query += ' AND school_level = ?';
         params.push(level);
       }
 
       query += `
-        GROUP BY ws.school_id, ws.school_name, ws.school_region, ws.school_level
+        GROUP BY school_id, school_name, school_region, school_level
         ORDER BY total_votes DESC
         LIMIT ?
       `;
@@ -1551,36 +1575,15 @@ class DatabaseManager {
 
       const rows = await this.all(query, params);
       
-      // Get unique voters count from votes table for each school
-      const weekStart = this.getCurrentWeekStart();
-      const schoolsWithVoters = await Promise.all(
-        rows.map(async (school, index) => {
-          try {
-            const dateColumn = 'vote_date'; // Use vote_date column
-            const voterRow = await this.get(
-              `SELECT COUNT(DISTINCT voter_ip) as unique_voters 
-               FROM votes 
-               WHERE school_id = ? AND week_start = ? AND ${dateColumn} IS NOT NULL`,
-              [school.school_id, weekStart]
-            );
-            const uniqueVoters = voterRow ? parseInt(voterRow.unique_voters || 0) : 0;
-            return {
-              ...school,
-              rank: index + 1,
-              total_votes: parseInt(school.total_votes || 0),
-              unique_voters: uniqueVoters
-            };
-          } catch (voterErr) {
-            // Fallback: return school without unique_voters if query fails
-            return {
-              ...school,
-              rank: index + 1,
-              total_votes: parseInt(school.total_votes || 0),
-              unique_voters: 0
-            };
-          }
-        })
-      );
+      // Format the results - unique_voters is already in the query result
+      const schoolsWithVoters = rows.map((school, index) => {
+        return {
+          ...school,
+          rank: index + 1,
+          total_votes: parseInt(school.total_votes || 0),
+          unique_voters: parseInt(school.unique_voters || 0)
+        };
+      });
       
       return {
         success: true,
