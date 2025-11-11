@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
+  <!-- Homepage -->
+  <url>
+    <loc>https://rim-schools.com/</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://rim-schools.com/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/"/>
+  </url>
+  
+  <!-- Student Request Page -->
+  <url>
+    <loc>https://rim-schools.com/trouver-professeur.html</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://rim-schools.com/trouver-professeur.html"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/trouver-professeur.html"/>
+  </url>
+  
+  <!-- Tutor Enrollment Page -->
+  <url>
+    <loc>https://rim-schools.com/inscrire-professeur.html</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://rim-schools.com/inscrire-professeur.html"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/inscrire-professeur.html"/>
+  </url>
+  
+</urlset>
+
