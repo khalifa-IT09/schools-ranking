@@ -1582,7 +1582,7 @@ app.get('/vote/:schoolSlug', (req, res) => {
 
 
 
-// Tutor request endpoint
+// Tutor request endpoint (for students requesting a tutor)
 app.post('/api/tutor-request', async (req, res) => {
   try {
     const {
@@ -1592,20 +1592,19 @@ app.post('/api/tutor-request', async (req, res) => {
       level,
       city,
       preferred_schedule,
-      teacher_name,
-      teacher_phone
+      type
     } = req.body;
 
-    // Validate required fields
+    // Validate required fields for student request
     if (!student_name || !student_phone || !subject || !level || !city || 
-        !preferred_schedule || !teacher_name || !teacher_phone) {
+        !preferred_schedule) {
       return res.status(400).json({
         success: false,
         message: 'Tous les champs obligatoires doivent être remplis.'
       });
     }
 
-    // Save to database
+    // Save to database (teacher_name and teacher_phone are optional for student requests)
     let result;
     try {
       result = await dbManager.saveTutorRequest({
@@ -1615,8 +1614,8 @@ app.post('/api/tutor-request', async (req, res) => {
         level,
         city,
         preferred_schedule,
-        teacher_name,
-        teacher_phone
+        teacher_name: null, // Not required for student requests
+        teacher_phone: null // Not required for student requests
       });
     } catch (dbError) {
       console.error('❌ Database error saving tutor request:', dbError);
@@ -1628,20 +1627,6 @@ app.post('/api/tutor-request', async (req, res) => {
     }
 
     if (result && result.success) {
-      // Also save/update teacher in teachers database
-      try {
-        await dbManager.saveOrUpdateTeacher({
-          teacher_name,
-          teacher_phone,
-          subject,
-          city,
-          level
-        });
-      } catch (teacherError) {
-        console.warn('⚠️ Error saving teacher to database:', teacherError);
-        // Don't fail the request if teacher save fails
-      }
-
       res.json({
         success: true,
         message: 'Demande enregistrée avec succès'
@@ -1657,6 +1642,64 @@ app.post('/api/tutor-request', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur serveur lors du traitement de votre demande'
+    });
+  }
+});
+
+// Tutor enrollment endpoint (for tutors wanting to enroll)
+app.post('/api/tutor-enrollment', async (req, res) => {
+  try {
+    const {
+      teacher_name,
+      teacher_phone,
+      subject,
+      level,
+      city,
+      type
+    } = req.body;
+
+    // Validate required fields for tutor enrollment
+    if (!teacher_name || !teacher_phone || !subject || !level || !city) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tous les champs obligatoires doivent être remplis.'
+      });
+    }
+
+    // Save/update teacher in teachers database
+    try {
+      const result = await dbManager.saveOrUpdateTeacher({
+        teacher_name,
+        teacher_phone,
+        subject,
+        city,
+        level
+      });
+
+      if (result && result.success) {
+        res.json({
+          success: true,
+          message: 'Inscription enregistrée avec succès'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: result?.message || 'Erreur lors de l\'enregistrement de votre inscription'
+        });
+      }
+    } catch (dbError) {
+      console.error('❌ Database error saving tutor enrollment:', dbError);
+      console.error('❌ Error details:', dbError.message, dbError.stack);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur serveur lors du traitement de votre inscription. Veuillez réessayer plus tard.'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error processing tutor enrollment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du traitement de votre inscription'
     });
   }
 });
