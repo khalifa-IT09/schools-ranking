@@ -327,8 +327,6 @@
                             <th>Niveau</th>
                             <th>Ville</th>
                             <th>Horaire</th>
-                            <th>Nom professeur</th>
-                            <th>Tél. professeur</th>
                             <th>Statut</th>
                             <th>Date</th>
                         </tr>
@@ -434,7 +432,7 @@
             const tableBody = document.getElementById('requestsTableBody');
             
             if (requests.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px;">Aucune demande trouvée</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px;">Aucune demande trouvée</td></tr>';
                 return;
             }
 
@@ -465,8 +463,6 @@
                         <td>${escapeHtml(request.level)}</td>
                         <td>${escapeHtml(request.city)}</td>
                         <td>${escapeHtml(request.preferred_schedule)}</td>
-                        <td>${escapeHtml(request.teacher_name || request.suggested_teacher || '-')}</td>
-                        <td>${escapeHtml(request.teacher_phone || '-')}</td>
                         <td>
                             <select class="status-select" onchange="updateStatus(${request.id}, this.value)" style="background: ${getStatusColor(request.request_status)}">
                                 <option value="pending" ${request.request_status === 'pending' ? 'selected' : ''}>En attente</option>

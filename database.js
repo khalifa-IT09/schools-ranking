@@ -433,8 +433,6 @@ class DatabaseManager {
             level TEXT NOT NULL,
             city TEXT NOT NULL,
             preferred_schedule TEXT NOT NULL,
-            teacher_name TEXT NOT NULL,
-            teacher_phone TEXT NOT NULL,
             request_status TEXT DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -593,7 +591,7 @@ class DatabaseManager {
     }, 50);
   }
 
-  // Migrate tutor_requests table to add new columns
+  // Migrate tutor_requests table to remove teacher columns
   async migrateTutorRequestsTable() {
     try {
       if (!this.db && !this.pool) {
@@ -626,49 +624,72 @@ class DatabaseManager {
         });
       }
 
-      // Rename suggested_teacher to teacher_name if needed
-      if (columnNames.includes('suggested_teacher') && !columnNames.includes('teacher_name')) {
+      // Remove teacher_name and teacher_phone columns if they exist
+      // SQLite doesn't support DROP COLUMN, so we need to recreate the table
+      if (columnNames.includes('teacher_name') || columnNames.includes('teacher_phone')) {
         migrations.push(async () => {
           try {
+            console.log('🔄 Removing teacher_name and teacher_phone columns from tutor_requests...');
+            
             if (this.dbType === 'postgresql') {
-              await this.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255);');
-              await this.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;');
+              // PostgreSQL supports DROP COLUMN
+              if (columnNames.includes('teacher_name')) {
+                await this.run('ALTER TABLE tutor_requests DROP COLUMN IF EXISTS teacher_name;');
+                console.log('✅ teacher_name column removed');
+              }
+              if (columnNames.includes('teacher_phone')) {
+                await this.run('ALTER TABLE tutor_requests DROP COLUMN IF EXISTS teacher_phone;');
+                console.log('✅ teacher_phone column removed');
+              }
             } else {
-              await this.run('ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255);');
-              await this.run('UPDATE tutor_requests SET teacher_name = suggested_teacher WHERE teacher_name IS NULL;');
+              // SQLite: recreate table without teacher columns
+              await this.run('BEGIN TRANSACTION;');
+              
+              // Create new table without teacher columns
+              await this.run(`
+                CREATE TABLE tutor_requests_new (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  student_name TEXT NOT NULL,
+                  student_phone TEXT NOT NULL,
+                  subject TEXT NOT NULL,
+                  level TEXT NOT NULL,
+                  city TEXT NOT NULL,
+                  preferred_schedule TEXT NOT NULL,
+                  request_status TEXT DEFAULT 'pending',
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
+              
+              // Copy data (excluding teacher columns)
+              await this.run(`
+                INSERT INTO tutor_requests_new 
+                (id, student_name, student_phone, subject, level, city, preferred_schedule, request_status, created_at, updated_at)
+                SELECT id, student_name, student_phone, subject, level, city, preferred_schedule, request_status, created_at, updated_at
+                FROM tutor_requests
+              `);
+              
+              // Drop old table
+              await this.run('DROP TABLE tutor_requests;');
+              
+              // Rename new table
+              await this.run('ALTER TABLE tutor_requests_new RENAME TO tutor_requests;');
+              
+              // Recreate indexes
+              await this.run('CREATE INDEX IF NOT EXISTS idx_tutor_requests_status ON tutor_requests(request_status);');
+              await this.run('CREATE INDEX IF NOT EXISTS idx_tutor_requests_city ON tutor_requests(city);');
+              await this.run('CREATE INDEX IF NOT EXISTS idx_tutor_requests_subject ON tutor_requests(subject);');
+              await this.run('CREATE INDEX IF NOT EXISTS idx_tutor_requests_created_at ON tutor_requests(created_at);');
+              
+              await this.run('COMMIT;');
+              console.log('✅ teacher_name and teacher_phone columns removed (table recreated)');
             }
-            console.log('✅ teacher_name column added');
           } catch (err) {
-            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
-              throw err;
+            if (this.dbType !== 'postgresql') {
+              await this.run('ROLLBACK;');
             }
-          }
-        });
-      } else if (!columnNames.includes('teacher_name')) {
-        migrations.push(async () => {
-          try {
-            const defaultVal = this.dbType === 'postgresql' ? "DEFAULT ''" : "DEFAULT ''";
-            await this.run(`ALTER TABLE tutor_requests ADD COLUMN teacher_name VARCHAR(255) NOT NULL ${defaultVal};`);
-            console.log('✅ teacher_name column added');
-          } catch (err) {
-            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
-              throw err;
-            }
-          }
-        });
-      }
-
-      // Add teacher_phone if missing
-      if (!columnNames.includes('teacher_phone')) {
-        migrations.push(async () => {
-          try {
-            const defaultVal = this.dbType === 'postgresql' ? "DEFAULT ''" : "DEFAULT ''";
-            await this.run(`ALTER TABLE tutor_requests ADD COLUMN teacher_phone VARCHAR(255) NOT NULL ${defaultVal};`);
-            console.log('✅ teacher_phone column added');
-          } catch (err) {
-            if (!err.message.includes('duplicate column') && !err.message.includes('already exists')) {
-              throw err;
-            }
+            console.error('❌ Error removing teacher columns:', err);
+            // Don't throw - allow migration to continue
           }
         });
       }
@@ -2171,18 +2192,16 @@ class DatabaseManager {
         subject,
         level,
         city,
-        preferred_schedule,
-        teacher_name,
-        teacher_phone
+        preferred_schedule
       } = requestData;
 
       const query = `
         INSERT INTO tutor_requests 
-        (student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone, request_status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        (student_name, student_phone, subject, level, city, preferred_schedule, request_status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `;
 
-      const params = [student_name, student_phone, subject, level, city, preferred_schedule, teacher_name, teacher_phone];
+      const params = [student_name, student_phone, subject, level, city, preferred_schedule];
 
       await this.run(query, params);
 

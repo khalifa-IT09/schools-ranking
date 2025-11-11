@@ -1604,7 +1604,7 @@ app.post('/api/tutor-request', async (req, res) => {
       });
     }
 
-    // Save to database (teacher_name and teacher_phone are optional for student requests)
+    // Save to database
     let result;
     try {
       result = await dbManager.saveTutorRequest({
@@ -1613,9 +1613,7 @@ app.post('/api/tutor-request', async (req, res) => {
         subject,
         level,
         city,
-        preferred_schedule,
-        teacher_name: null, // Not required for student requests
-        teacher_phone: null // Not required for student requests
+        preferred_schedule
       });
     } catch (dbError) {
       console.error('❌ Database error saving tutor request:', dbError);
