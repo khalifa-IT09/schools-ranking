@@ -6,6 +6,7 @@
     <title>S'inscrire comme professeur - Classement des Écoles</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
         .tutor-request-container {
@@ -183,7 +184,7 @@
         </header>
 
         <div class="tutor-request-container">
-            <a href="/" class="back-link">
+            <a href="/" class="back-link" data-translate="back_home">
                 <i class="fas fa-arrow-left"></i>
                 Retour à l'accueil
             </a>
@@ -191,9 +192,9 @@
             <div class="tutor-banner">
                 <h1>
                     <span>👨‍🏫</span>
-                    S'inscrire comme professeur (service payant)
+                    <span data-translate="tutor_enroll_title">S'inscrire comme professeur</span> (service payant)
                 </h1>
-                <p>Remplissez le formulaire ci-dessous et payez 1000 MRU via le numéro 36090932. Nous vous contacterons sous 12 heures.</p>
+                <p data-translate="tutor_enroll_subtitle">Remplissez le formulaire ci-dessous et payez 1000 MRU via le numéro 36090932. Nous vous contacterons sous 12 heures.</p>
             </div>
 
             <div class="tutor-form-card">
@@ -342,6 +343,51 @@
             tutorErrorText.textContent = message;
             tutorErrorMessage.classList.add('show');
             tutorErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+    <script>
+        // Simple translation system for tutor pages
+        const tutorTranslations = {
+            fr: {
+                tutor_find_title: "Trouver un professeur à domicile",
+                tutor_enroll_title: "S'inscrire comme professeur",
+                tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 48h",
+                tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et payez 1000 MRU via le numéro 36090932. Nous vous contacterons sous 12 heures.",
+                back_home: "Retour à l'accueil"
+            },
+            ar: {
+                tutor_find_title: "العثور على مدرس في المنزل",
+                tutor_enroll_title: "التسجيل كأستاذ",
+                tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 48 ساعة",
+                tutor_enroll_subtitle: "املأ النموذج أدناه وادفع 1000 أوقية عبر الرقم 36090932. سنتصل بك في غضون 12 ساعة.",
+                back_home: "العودة إلى الصفحة الرئيسية"
+            }
+        };
+
+        function initTutorTranslations() {
+            const savedLanguage = localStorage.getItem('schoolRankingLanguage') || localStorage.getItem('preferredLanguage') || 'fr';
+            const currentLang = savedLanguage === 'ar' ? 'ar' : 'fr';
+            
+            // Update HTML attributes
+            document.documentElement.setAttribute('lang', currentLang);
+            document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+            document.body.classList.toggle('rtl', currentLang === 'ar');
+            
+            // Translate elements
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const translation = tutorTranslations[currentLang][key];
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+        }
+
+        // Initialize on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTutorTranslations);
+        } else {
+            initTutorTranslations();
         }
     </script>
 </body>
