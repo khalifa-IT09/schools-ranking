@@ -146,11 +146,30 @@
             text-decoration: none;
             margin-bottom: 20px;
             font-weight: 500;
-            transition: color 0.3s ease;
+            transition: color 0.3s ease, background-color 0.3s ease;
+            padding: 8px 15px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .back-link:hover {
             color: #764ba2;
+            background-color: rgba(255, 255, 255, 1);
+        }
+
+        /* Make back link more visible in Arabic/RTL mode */
+        body.rtl .back-link,
+        html[dir="rtl"] .back-link {
+            color: #2E7D32;
+            background-color: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
+        }
+
+        body.rtl .back-link:hover,
+        html[dir="rtl"] .back-link:hover {
+            color: #1B5E20;
+            background-color: #ffffff;
         }
 
         @media (max-width: 768px) {
