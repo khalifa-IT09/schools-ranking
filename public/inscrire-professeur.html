@@ -180,6 +180,13 @@
                         <h1>Classement des Écoles - Mauritanie</h1>
                     </div>
                 </div>
+                <!-- Language Toggle -->
+                <div class="language-toggle">
+                    <button id="languageToggle" class="lang-btn" title="Changer la langue">
+                        <i class="fas fa-globe"></i>
+                        <span id="currentLang">FR</span>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -200,29 +207,29 @@
             <div class="tutor-form-card">
                 <div id="tutorSuccessMessage" class="success-message">
                     <i class="fas fa-check-circle"></i>
-                    ✅ Merci ! Votre inscription a été enregistrée. Nous vous contacterons sous 48h.
+                    <span data-translate="enrollment_success">✅ Merci ! Votre inscription a été enregistrée. Nous vous contacterons sous 48h.</span>
                 </div>
 
                 <div id="tutorErrorMessage" class="error-message">
                     <i class="fas fa-exclamation-circle"></i>
-                    <span id="tutorErrorText">Une erreur s'est produite. Veuillez réessayer.</span>
+                    <span id="tutorErrorText" data-translate="error_message">Une erreur s'est produite. Veuillez réessayer.</span>
                 </div>
 
                 <form id="tutorEnrollmentForm">
                     <div class="form-group">
-                        <label for="tutorName">Nom du Professeur *</label>
+                        <label for="tutorName" data-translate="teacher_name">Nom du Professeur *</label>
                         <input type="text" id="tutorName" name="tutorName" placeholder="Ex: Ahmed Ould Mohamed" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorPhone">Numéro de téléphone *</label>
+                        <label for="tutorPhone" data-translate="teacher_phone">Numéro de téléphone *</label>
                         <input type="tel" id="tutorPhone" name="tutorPhone" placeholder="Ex: +222 12 34 56 78" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorSubject">Matière enseignée *</label>
+                        <label for="tutorSubject" data-translate="subject_taught">Matière enseignée *</label>
                         <select id="tutorSubject" name="tutorSubject" required>
-                            <option value="">-- Sélectionnez une matière --</option>
+                            <option value="" data-translate="select_subject">-- Sélectionnez une matière --</option>
                             <option value="Math">Math</option>
                             <option value="Physique">Physique</option>
                             <option value="Chimie">Chimie</option>
@@ -234,9 +241,9 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorLevel">Niveau scolaire *</label>
+                        <label for="tutorLevel" data-translate="school_level">Niveau scolaire *</label>
                         <select id="tutorLevel" name="tutorLevel" required>
-                            <option value="">-- Sélectionnez un niveau --</option>
+                            <option value="" data-translate="select_level">-- Sélectionnez un niveau --</option>
                             <option value="Primaire">Primaire</option>
                             <option value="Collège">Collège</option>
                             <option value="BAC">BAC</option>
@@ -244,9 +251,9 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorCity">Ville *</label>
+                        <label for="tutorCity" data-translate="city">Ville *</label>
                         <select id="tutorCity" name="tutorCity" required>
-                            <option value="">-- Sélectionnez une ville --</option>
+                            <option value="" data-translate="select_city">-- Sélectionnez une ville --</option>
                             <option value="Nouakchott">Nouakchott</option>
                             <option value="Nouadhibou">Nouadhibou</option>
                             <option value="Rosso">Rosso</option>
@@ -265,7 +272,7 @@
 
                     <button type="submit" class="submit-btn" id="tutorSubmitBtn">
                         <i class="fas fa-paper-plane"></i>
-                        S'inscrire
+                        <span data-translate="enroll">S'inscrire</span>
                     </button>
                 </form>
             </div>
@@ -289,7 +296,8 @@
 
             // Disable submit button
             tutorSubmitBtn.disabled = true;
-            tutorSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Inscription en cours...';
+            const enrollmentText = currentTutorLang === 'ar' ? tutorTranslations.ar.enrollment_in_progress : tutorTranslations.fr.enrollment_in_progress;
+            tutorSubmitBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${enrollmentText}`;
 
             // Get form data
             const formData = {
@@ -304,9 +312,11 @@
             // Validate required fields
             if (!formData.teacher_name || !formData.teacher_phone || !formData.subject || 
                 !formData.level || !formData.city) {
-                showTutorError('Veuillez remplir tous les champs obligatoires.');
+                const errorText = currentTutorLang === 'ar' ? 'يرجى ملء جميع الحقول الإلزامية.' : 'Veuillez remplir tous les champs obligatoires.';
+                showTutorError(errorText);
                 tutorSubmitBtn.disabled = false;
-                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
+                const enrollText = currentTutorLang === 'ar' ? tutorTranslations.ar.enroll : tutorTranslations.fr.enroll;
+                tutorSubmitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${enrollText}`;
                 return;
             }
 
@@ -335,7 +345,8 @@
                 showTutorError('Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.');
             } finally {
                 tutorSubmitBtn.disabled = false;
-                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
+                const enrollText = currentTutorLang === 'ar' ? tutorTranslations.ar.enroll : tutorTranslations.fr.enroll;
+                tutorSubmitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${enrollText}`;
             }
         });
 
@@ -353,40 +364,148 @@
                 tutor_enroll_title: "S'inscrire comme professeur",
                 tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 48h",
                 tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et payez 1000 MRU via le numéro 36090932. Nous vous contacterons sous 12 heures.",
-                back_home: "Retour à l'accueil"
+                back_home: "Retour à l'accueil",
+                student_name: "Nom de l'Etudiant *",
+                student_phone: "Numéro de téléphone *",
+                subject_requested: "Matière demandée *",
+                school_level: "Niveau scolaire *",
+                city: "Ville *",
+                preferred_schedule: "Horaire préféré *",
+                select_subject: "-- Sélectionnez une matière --",
+                select_level: "-- Sélectionnez un niveau --",
+                select_city: "-- Sélectionnez une ville --",
+                select_schedule: "-- Sélectionnez un horaire --",
+                send_request: "Envoyer la demande",
+                success_message: "✅ Merci ! Votre demande a été enregistrée. Nous vous contacterons sous 48h.",
+                error_message: "Une erreur s'est produite. Veuillez réessayer.",
+                sending: "Envoi en cours...",
+                teacher_name: "Nom du Professeur *",
+                teacher_phone: "Numéro de téléphone *",
+                subject_taught: "Matière enseignée *",
+                enroll: "S'inscrire",
+                enrollment_success: "✅ Merci ! Votre inscription a été enregistrée. Nous vous contacterons sous 48h.",
+                enrollment_in_progress: "Inscription en cours..."
             },
             ar: {
                 tutor_find_title: "العثور على مدرس في المنزل",
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 48 ساعة",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وادفع 1000 أوقية عبر الرقم 36090932. سنتصل بك في غضون 12 ساعة.",
-                back_home: "العودة إلى الصفحة الرئيسية"
+                back_home: "العودة إلى الصفحة الرئيسية",
+                student_name: "اسم الطالب *",
+                student_phone: "رقم الهاتف *",
+                subject_requested: "المادة المطلوبة *",
+                school_level: "المستوى الدراسي *",
+                city: "المدينة *",
+                preferred_schedule: "الوقت المفضل *",
+                select_subject: "-- اختر مادة --",
+                select_level: "-- اختر مستوى --",
+                select_city: "-- اختر مدينة --",
+                select_schedule: "-- اختر وقت --",
+                send_request: "إرسال الطلب",
+                success_message: "✅ شكراً! تم تسجيل طلبك. سنتصل بك في غضون 48 ساعة.",
+                error_message: "حدث خطأ. يرجى المحاولة مرة أخرى.",
+                sending: "جاري الإرسال...",
+                teacher_name: "اسم الأستاذ *",
+                teacher_phone: "رقم الهاتف *",
+                subject_taught: "المادة المدرسة *",
+                enroll: "التسجيل",
+                enrollment_success: "✅ شكراً! تم تسجيل تسجيلك. سنتصل بك في غضون 48 ساعة.",
+                enrollment_in_progress: "جاري التسجيل..."
             }
         };
 
+        let currentTutorLang = 'fr';
+
         function initTutorTranslations() {
             const savedLanguage = localStorage.getItem('schoolRankingLanguage') || localStorage.getItem('preferredLanguage') || 'fr';
-            const currentLang = savedLanguage === 'ar' ? 'ar' : 'fr';
-            
+            currentTutorLang = savedLanguage === 'ar' ? 'ar' : 'fr';
+            updateTutorTranslations();
+        }
+
+        function updateTutorTranslations() {
             // Update HTML attributes
-            document.documentElement.setAttribute('lang', currentLang);
-            document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
-            document.body.classList.toggle('rtl', currentLang === 'ar');
+            document.documentElement.setAttribute('lang', currentTutorLang);
+            document.documentElement.setAttribute('dir', currentTutorLang === 'ar' ? 'rtl' : 'ltr');
+            document.body.classList.toggle('rtl', currentTutorLang === 'ar');
+            
+            // Update language toggle button
+            const currentLangSpan = document.getElementById('currentLang');
+            if (currentLangSpan) {
+                currentLangSpan.textContent = currentTutorLang.toUpperCase();
+            }
             
             // Translate elements
             document.querySelectorAll('[data-translate]').forEach(element => {
                 const key = element.getAttribute('data-translate');
-                const translation = tutorTranslations[currentLang][key];
+                const translation = tutorTranslations[currentTutorLang][key];
                 if (translation) {
                     element.textContent = translation;
                 }
             });
+            
+            // Update success/error messages
+            const successMsg = document.getElementById('tutorSuccessMessage');
+            if (successMsg) {
+                const span = successMsg.querySelector('span[data-translate="enrollment_success"]');
+                if (span) {
+                    span.textContent = tutorTranslations[currentTutorLang].enrollment_success;
+                }
+            }
+            
+            const errorMsg = document.getElementById('tutorErrorMessage');
+            if (errorMsg) {
+                const span = errorMsg.querySelector('span[data-translate="error_message"]');
+                if (span) {
+                    span.textContent = tutorTranslations[currentTutorLang].error_message;
+                }
+            }
         }
 
-        // Initialize on page load
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initTutorTranslations);
-        } else {
+        function toggleTutorLanguage() {
+            currentTutorLang = currentTutorLang === 'fr' ? 'ar' : 'fr';
+            localStorage.setItem('schoolRankingLanguage', currentTutorLang);
+            localStorage.setItem('preferredLanguage', currentTutorLang);
+            updateTutorTranslations();
+            
+            // Dispatch custom event for same-page updates
+            window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: currentTutorLang } }));
+        }
+        
+        // Listen for custom language change events (same page)
+        window.addEventListener('languageChanged', function(e) {
+            if (e.detail && e.detail.lang) {
+                currentTutorLang = e.detail.lang;
+                updateTutorTranslations();
+            }
+        });
+
+        // Listen for language toggle button click
+        document.addEventListener('DOMContentLoaded', function() {
+            const languageToggle = document.getElementById('languageToggle');
+            if (languageToggle) {
+                languageToggle.addEventListener('click', toggleTutorLanguage);
+            }
+            
+            // Listen for storage changes (when language changes on other pages)
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'schoolRankingLanguage' || e.key === 'preferredLanguage') {
+                    const newLang = e.newValue || 'fr';
+                    currentTutorLang = newLang === 'ar' ? 'ar' : 'fr';
+                    updateTutorTranslations();
+                }
+            });
+            
+            // Initialize translations
+            initTutorTranslations();
+        });
+
+        // Also initialize if DOM is already loaded
+        if (document.readyState !== 'loading') {
+            const languageToggle = document.getElementById('languageToggle');
+            if (languageToggle) {
+                languageToggle.addEventListener('click', toggleTutorLanguage);
+            }
             initTutorTranslations();
         }
     </script>
