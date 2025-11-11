@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S'inscrire comme professeur - Classement des Écoles</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .tutor-request-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .tutor-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .tutor-banner h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .tutor-banner p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .tutor-form-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group input::placeholder {
+            color: #999;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+        }
+
+        @media (max-width: 768px) {
+            .tutor-request-container {
+                margin: 20px;
+                padding: 10px;
+            }
+
+            .tutor-form-card {
+                padding: 25px 20px;
+            }
+
+            .tutor-banner h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="drapo_RIM.jpg" alt="Drapeau Mauritanie" class="mauritania-flag">
+                    <div class="logo-text">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h1>Classement des Écoles - Mauritanie</h1>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="tutor-request-container">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                Retour à l'accueil
+            </a>
+
+            <div class="tutor-banner">
+                <h1>
+                    <span>👨‍🏫</span>
+                    S'inscrire comme professeur
+                </h1>
+                <p>Remplissez le formulaire ci-dessous et nous vous contacterons sous 48h</p>
+            </div>
+
+            <div class="tutor-form-card">
+                <div id="tutorSuccessMessage" class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    ✅ Merci ! Votre inscription a été enregistrée. Nous vous contacterons sous 48h.
+                </div>
+
+                <div id="tutorErrorMessage" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="tutorErrorText">Une erreur s'est produite. Veuillez réessayer.</span>
+                </div>
+
+                <form id="tutorEnrollmentForm">
+                    <div class="form-group">
+                        <label for="tutorName">Nom du Professeur *</label>
+                        <input type="text" id="tutorName" name="tutorName" placeholder="Ex: Ahmed Ould Mohamed" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tutorPhone">Numéro de téléphone *</label>
+                        <input type="tel" id="tutorPhone" name="tutorPhone" placeholder="Ex: +222 12 34 56 78" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tutorSubject">Matière enseignée *</label>
+                        <select id="tutorSubject" name="tutorSubject" required>
+                            <option value="">-- Sélectionnez une matière --</option>
+                            <option value="Math">Math</option>
+                            <option value="Physique">Physique</option>
+                            <option value="Chimie">Chimie</option>
+                            <option value="Science Naturelle">Science Naturelle</option>
+                            <option value="Arabe">Arabe</option>
+                            <option value="Français">Français</option>
+                            <option value="Anglais">Anglais</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tutorLevel">Niveau scolaire *</label>
+                        <select id="tutorLevel" name="tutorLevel" required>
+                            <option value="">-- Sélectionnez un niveau --</option>
+                            <option value="Primaire">Primaire</option>
+                            <option value="Collège">Collège</option>
+                            <option value="BAC">BAC</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tutorCity">Ville *</label>
+                        <select id="tutorCity" name="tutorCity" required>
+                            <option value="">-- Sélectionnez une ville --</option>
+                            <option value="Nouakchott">Nouakchott</option>
+                            <option value="Nouadhibou">Nouadhibou</option>
+                            <option value="Rosso">Rosso</option>
+                            <option value="Atar">Atar</option>
+                            <option value="Kaédi">Kaédi</option>
+                            <option value="Kiffa">Kiffa</option>
+                            <option value="Zouerate">Zouerate</option>
+                            <option value="Néma">Néma</option>
+                            <option value="Aïoun">Aïoun</option>
+                            <option value="Sélibaby">Sélibaby</option>
+                            <option value="Aleg">Aleg</option>
+                            <option value="Tidjikja">Tidjikja</option>
+                            <option value="Akjoujt">Akjoujt</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="tutorSubmitBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        S'inscrire
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tutor Form Submission
+        const tutorForm = document.getElementById('tutorEnrollmentForm');
+        const tutorSubmitBtn = document.getElementById('tutorSubmitBtn');
+        const tutorSuccessMessage = document.getElementById('tutorSuccessMessage');
+        const tutorErrorMessage = document.getElementById('tutorErrorMessage');
+        const tutorErrorText = document.getElementById('tutorErrorText');
+
+        tutorForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide previous messages
+            tutorSuccessMessage.classList.remove('show');
+            tutorErrorMessage.classList.remove('show');
+
+            // Disable submit button
+            tutorSubmitBtn.disabled = true;
+            tutorSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Inscription en cours...';
+
+            // Get form data
+            const formData = {
+                teacher_name: document.getElementById('tutorName').value.trim(),
+                teacher_phone: document.getElementById('tutorPhone').value.trim(),
+                subject: document.getElementById('tutorSubject').value,
+                level: document.getElementById('tutorLevel').value,
+                city: document.getElementById('tutorCity').value,
+                type: 'tutor_enrollment'
+            };
+
+            // Validate required fields
+            if (!formData.teacher_name || !formData.teacher_phone || !formData.subject || 
+                !formData.level || !formData.city) {
+                showTutorError('Veuillez remplir tous les champs obligatoires.');
+                tutorSubmitBtn.disabled = false;
+                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tutor-enrollment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    tutorSuccessMessage.classList.add('show');
+                    tutorForm.reset();
+                    
+                    // Scroll to success message
+                    tutorSuccessMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    showTutorError(data.message || 'Une erreur s\'est produite lors de votre inscription.');
+                }
+            } catch (error) {
+                console.error('Error submitting tutor form:', error);
+                showTutorError('Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.');
+            } finally {
+                tutorSubmitBtn.disabled = false;
+                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
+            }
+        });
+
+        function showTutorError(message) {
+            tutorErrorText.textContent = message;
+            tutorErrorMessage.classList.add('show');
+            tutorErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
+
