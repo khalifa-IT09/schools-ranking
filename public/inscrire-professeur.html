@@ -418,7 +418,8 @@
         let currentTutorLang = 'fr';
 
         function initTutorTranslations() {
-            const savedLanguage = localStorage.getItem('schoolRankingLanguage') || localStorage.getItem('preferredLanguage') || 'fr';
+            // Check preferredLanguage first (used by main app), then schoolRankingLanguage as fallback
+            const savedLanguage = localStorage.getItem('preferredLanguage') || localStorage.getItem('schoolRankingLanguage') || 'fr';
             currentTutorLang = savedLanguage === 'ar' ? 'ar' : 'fr';
             updateTutorTranslations();
         }
@@ -480,33 +481,32 @@
             }
         });
 
-        // Listen for language toggle button click
-        document.addEventListener('DOMContentLoaded', function() {
+        // Initialize translations immediately
+        function setupTutorTranslations() {
+            // Initialize translations first
+            initTutorTranslations();
+            
+            // Setup language toggle button
             const languageToggle = document.getElementById('languageToggle');
             if (languageToggle) {
                 languageToggle.addEventListener('click', toggleTutorLanguage);
             }
             
-            // Listen for storage changes (when language changes on other pages)
+            // Listen for storage changes (when language changes on other pages/tabs)
             window.addEventListener('storage', function(e) {
-                if (e.key === 'schoolRankingLanguage' || e.key === 'preferredLanguage') {
+                if (e.key === 'preferredLanguage' || e.key === 'schoolRankingLanguage') {
                     const newLang = e.newValue || 'fr';
                     currentTutorLang = newLang === 'ar' ? 'ar' : 'fr';
                     updateTutorTranslations();
                 }
             });
-            
-            // Initialize translations
-            initTutorTranslations();
-        });
+        }
 
-        // Also initialize if DOM is already loaded
-        if (document.readyState !== 'loading') {
-            const languageToggle = document.getElementById('languageToggle');
-            if (languageToggle) {
-                languageToggle.addEventListener('click', toggleTutorLanguage);
-            }
-            initTutorTranslations();
+        // Run immediately if DOM is ready, otherwise wait for DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupTutorTranslations);
+        } else {
+            setupTutorTranslations();
         }
     </script>
 </body>
