@@ -38,47 +38,6 @@
             opacity: 0.95;
         }
 
-        .form-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            background: white;
-            padding: 10px;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-tab {
-            flex: 1;
-            padding: 15px 20px;
-            background: #f5f5f5;
-            border: 2px solid transparent;
-            border-radius: 10px;
-            cursor: pointer;
-            text-align: center;
-            font-weight: 600;
-            font-size: 1rem;
-            color: #666;
-            transition: all 0.3s ease;
-        }
-
-        .form-tab:hover {
-            background: #e8e8e8;
-        }
-
-        .form-tab.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: #667eea;
-        }
-
-        .form-window {
-            display: none;
-        }
-
-        .form-window.active {
-            display: block;
-        }
 
         .tutor-form-card {
             background: white;
@@ -206,16 +165,6 @@
             .tutor-banner h1 {
                 font-size: 2rem;
             }
-
-            .form-tabs {
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .form-tab {
-                padding: 12px 15px;
-                font-size: 0.9rem;
-            }
         }
     </style>
 </head>
@@ -248,201 +197,93 @@
                 <p>Remplissez le formulaire ci-dessous et nous vous contacterons sous 48h</p>
             </div>
 
-            <div class="form-tabs">
-                <button class="form-tab active" data-form="student">
-                    <i class="fas fa-user-graduate"></i>
-                    Étudiant - Demander un tuteur
-                </button>
-                <button class="form-tab" data-form="tutor">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                    Professeur - S'inscrire
-                </button>
-            </div>
-
-            <!-- Student Form Window -->
-            <div class="form-window active" id="studentFormWindow">
-                <div class="tutor-form-card">
-                    <div id="studentSuccessMessage" class="success-message">
-                        <i class="fas fa-check-circle"></i>
-                        ✅ Merci ! Votre demande a été enregistrée. Nous vous contacterons sous 48h.
-                    </div>
-
-                    <div id="studentErrorMessage" class="error-message">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span id="studentErrorText">Une erreur s'est produite. Veuillez réessayer.</span>
-                    </div>
-
-                    <form id="studentRequestForm">
-                        <div class="form-group">
-                            <label for="studentName">Nom de l'Etudiant *</label>
-                            <input type="text" id="studentName" name="studentName" placeholder="Ex: Mohamed Ahmed" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="studentPhone">Numéro de téléphone *</label>
-                            <input type="tel" id="studentPhone" name="studentPhone" placeholder="Ex: +222 12 34 56 78" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="studentSubject">Matière demandée *</label>
-                            <select id="studentSubject" name="studentSubject" required>
-                                <option value="">-- Sélectionnez une matière --</option>
-                                <option value="Math">Math</option>
-                                <option value="Physique">Physique</option>
-                                <option value="Chimie">Chimie</option>
-                                <option value="Science Naturelle">Science Naturelle</option>
-                                <option value="Arabe">Arabe</option>
-                                <option value="Français">Français</option>
-                                <option value="Anglais">Anglais</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="studentLevel">Niveau scolaire *</label>
-                            <select id="studentLevel" name="studentLevel" required>
-                                <option value="">-- Sélectionnez un niveau --</option>
-                                <option value="Primaire">Primaire</option>
-                                <option value="Collège">Collège</option>
-                                <option value="BAC">BAC</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="studentCity">Ville *</label>
-                            <select id="studentCity" name="studentCity" required>
-                                <option value="">-- Sélectionnez une ville --</option>
-                                <option value="Nouakchott">Nouakchott</option>
-                                <option value="Nouadhibou">Nouadhibou</option>
-                                <option value="Rosso">Rosso</option>
-                                <option value="Atar">Atar</option>
-                                <option value="Kaédi">Kaédi</option>
-                                <option value="Kiffa">Kiffa</option>
-                                <option value="Zouerate">Zouerate</option>
-                                <option value="Néma">Néma</option>
-                                <option value="Aïoun">Aïoun</option>
-                                <option value="Sélibaby">Sélibaby</option>
-                                <option value="Aleg">Aleg</option>
-                                <option value="Tidjikja">Tidjikja</option>
-                                <option value="Akjoujt">Akjoujt</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="studentSchedule">Horaire préféré *</label>
-                            <select id="studentSchedule" name="studentSchedule" required>
-                                <option value="">-- Sélectionnez un horaire --</option>
-                                <option value="Matin">Matin</option>
-                                <option value="Après-midi">Après-midi</option>
-                                <option value="Soir">Soir</option>
-                                <option value="Week-end">Week-end</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="submit-btn" id="studentSubmitBtn">
-                            <i class="fas fa-paper-plane"></i>
-                            Envoyer la demande
-                        </button>
-                    </form>
+            <div class="tutor-form-card">
+                <div id="studentSuccessMessage" class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    ✅ Merci ! Votre demande a été enregistrée. Nous vous contacterons sous 48h.
                 </div>
-            </div>
 
-            <!-- Tutor Form Window -->
-            <div class="form-window" id="tutorFormWindow">
-                <div class="tutor-form-card">
-                    <div id="tutorSuccessMessage" class="success-message">
-                        <i class="fas fa-check-circle"></i>
-                        ✅ Merci ! Votre inscription a été enregistrée. Nous vous contacterons sous 48h.
-                    </div>
-
-                    <div id="tutorErrorMessage" class="error-message">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span id="tutorErrorText">Une erreur s'est produite. Veuillez réessayer.</span>
-                    </div>
-
-                    <form id="tutorEnrollmentForm">
-                        <div class="form-group">
-                            <label for="tutorName">Nom du Professeur *</label>
-                            <input type="text" id="tutorName" name="tutorName" placeholder="Ex: Ahmed Ould Mohamed" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tutorPhone">Numéro de téléphone *</label>
-                            <input type="tel" id="tutorPhone" name="tutorPhone" placeholder="Ex: +222 12 34 56 78" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tutorSubject">Matière enseignée *</label>
-                            <select id="tutorSubject" name="tutorSubject" required>
-                                <option value="">-- Sélectionnez une matière --</option>
-                                <option value="Math">Math</option>
-                                <option value="Physique">Physique</option>
-                                <option value="Chimie">Chimie</option>
-                                <option value="Science Naturelle">Science Naturelle</option>
-                                <option value="Arabe">Arabe</option>
-                                <option value="Français">Français</option>
-                                <option value="Anglais">Anglais</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tutorLevel">Niveau scolaire *</label>
-                            <select id="tutorLevel" name="tutorLevel" required>
-                                <option value="">-- Sélectionnez un niveau --</option>
-                                <option value="Primaire">Primaire</option>
-                                <option value="Collège">Collège</option>
-                                <option value="BAC">BAC</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tutorCity">Ville *</label>
-                            <select id="tutorCity" name="tutorCity" required>
-                                <option value="">-- Sélectionnez une ville --</option>
-                                <option value="Nouakchott">Nouakchott</option>
-                                <option value="Nouadhibou">Nouadhibou</option>
-                                <option value="Rosso">Rosso</option>
-                                <option value="Atar">Atar</option>
-                                <option value="Kaédi">Kaédi</option>
-                                <option value="Kiffa">Kiffa</option>
-                                <option value="Zouerate">Zouerate</option>
-                                <option value="Néma">Néma</option>
-                                <option value="Aïoun">Aïoun</option>
-                                <option value="Sélibaby">Sélibaby</option>
-                                <option value="Aleg">Aleg</option>
-                                <option value="Tidjikja">Tidjikja</option>
-                                <option value="Akjoujt">Akjoujt</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="submit-btn" id="tutorSubmitBtn">
-                            <i class="fas fa-paper-plane"></i>
-                            S'inscrire
-                        </button>
-                    </form>
+                <div id="studentErrorMessage" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="studentErrorText">Une erreur s'est produite. Veuillez réessayer.</span>
                 </div>
+
+                <form id="studentRequestForm">
+                    <div class="form-group">
+                        <label for="studentName">Nom de l'Etudiant *</label>
+                        <input type="text" id="studentName" name="studentName" placeholder="Ex: Mohamed Ahmed" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentPhone">Numéro de téléphone *</label>
+                        <input type="tel" id="studentPhone" name="studentPhone" placeholder="Ex: +222 12 34 56 78" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentSubject">Matière demandée *</label>
+                        <select id="studentSubject" name="studentSubject" required>
+                            <option value="">-- Sélectionnez une matière --</option>
+                            <option value="Math">Math</option>
+                            <option value="Physique">Physique</option>
+                            <option value="Chimie">Chimie</option>
+                            <option value="Science Naturelle">Science Naturelle</option>
+                            <option value="Arabe">Arabe</option>
+                            <option value="Français">Français</option>
+                            <option value="Anglais">Anglais</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentLevel">Niveau scolaire *</label>
+                        <select id="studentLevel" name="studentLevel" required>
+                            <option value="">-- Sélectionnez un niveau --</option>
+                            <option value="Primaire">Primaire</option>
+                            <option value="Collège">Collège</option>
+                            <option value="BAC">BAC</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentCity">Ville *</label>
+                        <select id="studentCity" name="studentCity" required>
+                            <option value="">-- Sélectionnez une ville --</option>
+                            <option value="Nouakchott">Nouakchott</option>
+                            <option value="Nouadhibou">Nouadhibou</option>
+                            <option value="Rosso">Rosso</option>
+                            <option value="Atar">Atar</option>
+                            <option value="Kaédi">Kaédi</option>
+                            <option value="Kiffa">Kiffa</option>
+                            <option value="Zouerate">Zouerate</option>
+                            <option value="Néma">Néma</option>
+                            <option value="Aïoun">Aïoun</option>
+                            <option value="Sélibaby">Sélibaby</option>
+                            <option value="Aleg">Aleg</option>
+                            <option value="Tidjikja">Tidjikja</option>
+                            <option value="Akjoujt">Akjoujt</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="studentSchedule">Horaire préféré *</label>
+                        <select id="studentSchedule" name="studentSchedule" required>
+                            <option value="">-- Sélectionnez un horaire --</option>
+                            <option value="Matin">Matin</option>
+                            <option value="Après-midi">Après-midi</option>
+                            <option value="Soir">Soir</option>
+                            <option value="Week-end">Week-end</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="studentSubmitBtn">
+                        <i class="fas fa-paper-plane"></i>
+                        Envoyer la demande
+                    </button>
+                </form>
             </div>
         </div>
     </div>
 
     <script>
-        // Tab switching functionality
-        const formTabs = document.querySelectorAll('.form-tab');
-        const formWindows = document.querySelectorAll('.form-window');
-
-        formTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const targetForm = tab.getAttribute('data-form');
-                
-                // Update active tab
-                formTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                // Update active window
-                formWindows.forEach(w => w.classList.remove('active'));
-                document.getElementById(`${targetForm}FormWindow`).classList.add('active');
-            });
-        });
-
         // Student Form Submission
         const studentForm = document.getElementById('studentRequestForm');
         const studentSubmitBtn = document.getElementById('studentSubmitBtn');
@@ -514,78 +355,6 @@
             studentErrorText.textContent = message;
             studentErrorMessage.classList.add('show');
             studentErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-
-        // Tutor Form Submission
-        const tutorForm = document.getElementById('tutorEnrollmentForm');
-        const tutorSubmitBtn = document.getElementById('tutorSubmitBtn');
-        const tutorSuccessMessage = document.getElementById('tutorSuccessMessage');
-        const tutorErrorMessage = document.getElementById('tutorErrorMessage');
-        const tutorErrorText = document.getElementById('tutorErrorText');
-
-        tutorForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // Hide previous messages
-            tutorSuccessMessage.classList.remove('show');
-            tutorErrorMessage.classList.remove('show');
-
-            // Disable submit button
-            tutorSubmitBtn.disabled = true;
-            tutorSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Inscription en cours...';
-
-            // Get form data
-            const formData = {
-                teacher_name: document.getElementById('tutorName').value.trim(),
-                teacher_phone: document.getElementById('tutorPhone').value.trim(),
-                subject: document.getElementById('tutorSubject').value,
-                level: document.getElementById('tutorLevel').value,
-                city: document.getElementById('tutorCity').value,
-                type: 'tutor_enrollment'
-            };
-
-            // Validate required fields
-            if (!formData.teacher_name || !formData.teacher_phone || !formData.subject || 
-                !formData.level || !formData.city) {
-                showTutorError('Veuillez remplir tous les champs obligatoires.');
-                tutorSubmitBtn.disabled = false;
-                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/tutor-enrollment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    tutorSuccessMessage.classList.add('show');
-                    tutorForm.reset();
-                    
-                    // Scroll to success message
-                    tutorSuccessMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else {
-                    showTutorError(data.message || 'Une erreur s\'est produite lors de votre inscription.');
-                }
-            } catch (error) {
-                console.error('Error submitting tutor form:', error);
-                showTutorError('Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.');
-            } finally {
-                tutorSubmitBtn.disabled = false;
-                tutorSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> S\'inscrire';
-            }
-        });
-
-        function showTutorError(message) {
-            tutorErrorText.textContent = message;
-            tutorErrorMessage.classList.add('show');
-            tutorErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     </script>
 </body>
