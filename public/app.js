@@ -283,7 +283,7 @@ class SchoolRankingApp {
                 voting_next_reset: "إعادة التعيين التالية: الإثنين في 00:00",
                 
                 // Tutor/Student sections
-                tutor_find_title: "العثور على مدرس في المنزل",
+                tutor_find_title: "تبحث عن مدرس في المنزل",
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 48 ساعة",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وادفع 1000 أوقية عبر الرقم 36090932. سنتصل بك في غضون 12 ساعة.",
