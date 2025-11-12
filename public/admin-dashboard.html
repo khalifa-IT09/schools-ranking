@@ -132,7 +132,7 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        .refresh-btn, .logout-btn {
+        .refresh-btn, .logout-btn, .back-btn {
             padding: 10px 20px;
             border: none;
             border-radius: 8px;
@@ -151,7 +151,18 @@
             color: white;
         }
 
-        .refresh-btn:hover, .logout-btn:hover {
+        .back-btn {
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #0056b3;
+        }
+
+        .refresh-btn:hover, .logout-btn:hover, .back-btn:hover {
             transform: translateY(-2px);
         }
 
@@ -359,6 +370,9 @@
         </div>
 
         <div class="admin-controls">
+            <a href="/" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Retour à l'application
+            </a>
             <button class="refresh-btn" onclick="loadAnalytics()">
                 <i class="fas fa-sync-alt"></i> Actualiser les données
             </button>

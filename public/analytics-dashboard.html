@@ -194,11 +194,30 @@
             padding: 12px 25px;
             border-radius: 8px;
             margin-bottom: 20px;
+            margin-right: 10px;
             transition: background-color 0.3s ease;
         }
 
         .back-btn:hover {
             background: #0056b3;
+        }
+
+        .logout-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+            margin-left: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            background: #d32f2f;
         }
 
         .last-updated {
@@ -266,6 +285,10 @@
 
         <button class="refresh-btn" onclick="loadAnalytics()">
             <i class="fas fa-sync-alt"></i> Actualiser les données
+        </button>
+
+        <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Déconnexion
         </button>
 
         <div id="loading" class="loading">
@@ -688,6 +711,15 @@
                     <div class="country-visits">${school.vote_count} votes</div>
                 </div>
             `).join('');
+        }
+
+        function logout() {
+            // Clear any stored authentication
+            localStorage.removeItem('admin_authenticated');
+            sessionStorage.removeItem('adminLoggedIn');
+            
+            // Redirect to homepage
+            window.location.href = '/';
         }
 
         function displayRegionalVotingStats(regionalData) {
