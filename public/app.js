@@ -2258,10 +2258,24 @@ function showAbout() {
     }
 }
 
+function closeAboutModal() {
+    const modal = document.getElementById('aboutModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 function showHelp() {
     const modal = document.getElementById('helpModal');
     if (modal) {
         modal.style.display = 'block';
+    }
+}
+
+function closeHelpModal() {
+    const modal = document.getElementById('helpModal');
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
