@@ -88,19 +88,111 @@
             cursor: pointer;
         }
 
+        /* Custom Multi-Select Component */
+        .custom-multiselect {
+            position: relative;
+            width: 100%;
+        }
+
+        .custom-multiselect-trigger {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .custom-multiselect-trigger:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .custom-multiselect-trigger .selected-text {
+            color: #333;
+            flex: 1;
+            text-align: left;
+        }
+
+        .custom-multiselect-trigger .selected-text.placeholder {
+            color: #999;
+        }
+
+        .custom-multiselect-trigger .arrow {
+            color: #999;
+            transition: transform 0.3s ease;
+        }
+
+        .custom-multiselect.open .custom-multiselect-trigger .arrow {
+            transform: rotate(180deg);
+        }
+
+        .custom-multiselect-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            margin-top: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .custom-multiselect.open .custom-multiselect-dropdown {
+            display: block;
+        }
+
+        .custom-multiselect-option {
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .custom-multiselect-option:last-child {
+            border-bottom: none;
+        }
+
+        .custom-multiselect-option:hover {
+            background-color: #f5f5f5;
+        }
+
+        .custom-multiselect-option input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .custom-multiselect-option label {
+            cursor: pointer;
+            flex: 1;
+            margin: 0;
+            font-weight: normal;
+            color: #333;
+        }
+
+        .custom-multiselect-option.selected {
+            background-color: #f0f4ff;
+        }
+
+        /* Hide native select */
         .form-group select[multiple] {
-            min-height: 120px;
-            padding: 10px;
-        }
-
-        .form-group select[multiple] option {
-            padding: 8px;
-            margin: 2px 0;
-        }
-
-        .form-group select[multiple] option:checked {
-            background-color: #667eea;
-            color: white;
+            display: none;
         }
 
         .form-help {
@@ -278,7 +370,7 @@
 
                     <div class="form-group">
                         <label for="tutorSubject" data-translate="subject_taught">Matière enseignée * (max 2)</label>
-                        <select id="tutorSubject" name="tutorSubject" multiple size="5" required>
+                        <select id="tutorSubject" name="tutorSubject" multiple required>
                             <option value="Math">Math</option>
                             <option value="Physique">Physique</option>
                             <option value="Chimie">Chimie</option>
@@ -290,17 +382,85 @@
                             <option value="Histoire">Histoire</option>
                             <option value="Philosophie">Philosophie</option>
                         </select>
-                        <small class="form-help" data-translate="select_max_2_subjects">Sélectionnez jusqu'à 2 matières (maintenez Ctrl/Cmd pour sélectionner plusieurs)</small>
+                        <div class="custom-multiselect" id="customSubjectSelect">
+                            <div class="custom-multiselect-trigger">
+                                <span class="selected-text placeholder" data-translate="select_subject">-- Sélectionnez une matière --</span>
+                                <i class="fas fa-chevron-down arrow"></i>
+                            </div>
+                            <div class="custom-multiselect-dropdown">
+                                <div class="custom-multiselect-option" data-value="Math">
+                                    <input type="checkbox" id="subject-Math" value="Math">
+                                    <label for="subject-Math">Math</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Physique">
+                                    <input type="checkbox" id="subject-Physique" value="Physique">
+                                    <label for="subject-Physique">Physique</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Chimie">
+                                    <input type="checkbox" id="subject-Chimie" value="Chimie">
+                                    <label for="subject-Chimie">Chimie</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Science Naturelle">
+                                    <input type="checkbox" id="subject-Science Naturelle" value="Science Naturelle">
+                                    <label for="subject-Science Naturelle">Science Naturelle</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Arabe">
+                                    <input type="checkbox" id="subject-Arabe" value="Arabe">
+                                    <label for="subject-Arabe">Arabe</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Français">
+                                    <input type="checkbox" id="subject-Français" value="Français">
+                                    <label for="subject-Français">Français</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Anglais">
+                                    <input type="checkbox" id="subject-Anglais" value="Anglais">
+                                    <label for="subject-Anglais">Anglais</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Éducation religieuse">
+                                    <input type="checkbox" id="subject-Éducation religieuse" value="Éducation religieuse">
+                                    <label for="subject-Éducation religieuse">Éducation religieuse</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Histoire">
+                                    <input type="checkbox" id="subject-Histoire" value="Histoire">
+                                    <label for="subject-Histoire">Histoire</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Philosophie">
+                                    <input type="checkbox" id="subject-Philosophie" value="Philosophie">
+                                    <label for="subject-Philosophie">Philosophie</label>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-help" data-translate="select_max_2_subjects">Sélectionnez jusqu'à 2 matières</small>
                     </div>
 
                     <div class="form-group">
                         <label for="tutorLevel" data-translate="school_level">Niveau scolaire * (max 2)</label>
-                        <select id="tutorLevel" name="tutorLevel" multiple size="3" required>
+                        <select id="tutorLevel" name="tutorLevel" multiple required>
                             <option value="Primaire">Primaire</option>
                             <option value="Collège">Collège</option>
                             <option value="BAC">BAC</option>
                         </select>
-                        <small class="form-help" data-translate="select_max_2_levels">Sélectionnez jusqu'à 2 niveaux (maintenez Ctrl/Cmd pour sélectionner plusieurs)</small>
+                        <div class="custom-multiselect" id="customLevelSelect">
+                            <div class="custom-multiselect-trigger">
+                                <span class="selected-text placeholder" data-translate="select_level">-- Sélectionnez un niveau --</span>
+                                <i class="fas fa-chevron-down arrow"></i>
+                            </div>
+                            <div class="custom-multiselect-dropdown">
+                                <div class="custom-multiselect-option" data-value="Primaire">
+                                    <input type="checkbox" id="level-Primaire" value="Primaire">
+                                    <label for="level-Primaire">Primaire</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="Collège">
+                                    <input type="checkbox" id="level-Collège" value="Collège">
+                                    <label for="level-Collège">Collège</label>
+                                </div>
+                                <div class="custom-multiselect-option" data-value="BAC">
+                                    <input type="checkbox" id="level-BAC" value="BAC">
+                                    <label for="level-BAC">BAC</label>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-help" data-translate="select_max_2_levels">Sélectionnez jusqu'à 2 niveaux</small>
                     </div>
 
                     <div class="form-group">
@@ -453,30 +613,105 @@
             tutorErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // Limit subject selection to max 2
-        const subjectSelect = document.getElementById('tutorSubject');
-        if (subjectSelect) {
-            subjectSelect.addEventListener('change', function() {
-                if (this.selectedOptions.length > 2) {
-                    const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مادتين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 matières.';
-                    alert(errorText);
-                    // Remove the last selected option
-                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
+        // Custom Multi-Select Component Logic
+        function initCustomMultiSelect(selectId, customSelectId, maxSelections = 2) {
+            const nativeSelect = document.getElementById(selectId);
+            const customSelect = document.getElementById(customSelectId);
+            const trigger = customSelect.querySelector('.custom-multiselect-trigger');
+            const dropdown = customSelect.querySelector('.custom-multiselect-dropdown');
+            const options = dropdown.querySelectorAll('.custom-multiselect-option');
+            const selectedText = trigger.querySelector('.selected-text');
+
+            // Toggle dropdown
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                customSelect.classList.toggle('open');
+            });
+
+            // Handle checkbox clicks
+            options.forEach(option => {
+                const checkbox = option.querySelector('input[type="checkbox"]');
+                const value = option.getAttribute('data-value');
+
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        // Check if max selections reached
+                        const selectedCount = Array.from(options).filter(opt => opt.querySelector('input').checked).length;
+                        if (selectedCount > maxSelections) {
+                            this.checked = false;
+                            const errorText = maxSelections === 2 
+                                ? (currentTutorLang === 'ar' ? 'يرجى اختيار مادتين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 options.')
+                                : (currentTutorLang === 'ar' ? 'تم الوصول إلى الحد الأقصى.' : 'Limite maximale atteinte.');
+                            alert(errorText);
+                            return;
+                        }
+                        // Select in native select
+                        const nativeOption = nativeSelect.querySelector(`option[value="${value}"]`);
+                        if (nativeOption) nativeOption.selected = true;
+                        option.classList.add('selected');
+                    } else {
+                        // Deselect in native select
+                        const nativeOption = nativeSelect.querySelector(`option[value="${value}"]`);
+                        if (nativeOption) nativeOption.selected = false;
+                        option.classList.remove('selected');
+                    }
+                    updateSelectedText();
+                });
+
+                // Allow clicking the whole option
+                option.addEventListener('click', function(e) {
+                    if (e.target !== checkbox) {
+                        checkbox.click();
+                    }
+                });
+            });
+
+            // Update display text
+            function updateSelectedText() {
+                const selected = Array.from(options)
+                    .filter(opt => opt.querySelector('input').checked)
+                    .map(opt => opt.getAttribute('data-value'));
+                
+                if (selected.length === 0) {
+                    selectedText.textContent = selectedText.getAttribute('data-translate') 
+                        ? (currentTutorLang === 'ar' ? '-- اختر --' : '-- Sélectionnez --')
+                        : '-- Sélectionnez --';
+                    selectedText.classList.add('placeholder');
+                } else {
+                    if (selected.length === 1) {
+                        selectedText.textContent = selected[0];
+                    } else {
+                        selectedText.textContent = `${selected.length} éléments`;
+                    }
+                    selectedText.classList.remove('placeholder');
+                }
+            }
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!customSelect.contains(e.target)) {
+                    customSelect.classList.remove('open');
                 }
             });
+
+            // Initialize display
+            updateSelectedText();
         }
 
-        // Limit level selection to max 2
-        const levelSelect = document.getElementById('tutorLevel');
-        if (levelSelect) {
-            levelSelect.addEventListener('change', function() {
-                if (this.selectedOptions.length > 2) {
-                    const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مستويين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 niveaux.';
-                    alert(errorText);
-                    // Remove the last selected option
-                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
-                }
-            });
+        // Initialize custom multi-selects when DOM is ready
+        function initializeCustomSelects() {
+            if (document.getElementById('customSubjectSelect')) {
+                initCustomMultiSelect('tutorSubject', 'customSubjectSelect', 2);
+            }
+            if (document.getElementById('customLevelSelect')) {
+                initCustomMultiSelect('tutorLevel', 'customLevelSelect', 2);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeCustomSelects);
+        } else {
+            initializeCustomSelects();
         }
     </script>
     <script>
@@ -488,8 +723,8 @@
                 tutor_enroll_title: "S'inscrire comme professeur",
                 tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 24h.",
                 tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et votre nom apparaîtra automatiquement sur la liste.",
-                select_max_2_subjects: "Sélectionnez jusqu'à 2 matières (maintenez Ctrl/Cmd pour sélectionner plusieurs)",
-                select_max_2_levels: "Sélectionnez jusqu'à 2 niveaux (maintenez Ctrl/Cmd pour sélectionner plusieurs)",
+                select_max_2_subjects: "Sélectionnez jusqu'à 2 matières",
+                select_max_2_levels: "Sélectionnez jusqu'à 2 niveaux",
                 photo_optional: "Photo (optionnel)",
                 photo_help: "Si vous souhaitez que votre photo soit affichée sur votre profil",
                 back_home: "Retour à l'accueil",
@@ -520,8 +755,8 @@
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 24 ساعة.",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وسيظهر اسمك تلقائياً في القائمة.",
-                select_max_2_subjects: "اختر ما يصل إلى مادتين (اضغط Ctrl/Cmd لتحديد عدة خيارات)",
-                select_max_2_levels: "اختر ما يصل إلى مستويين (اضغط Ctrl/Cmd لتحديد عدة خيارات)",
+                select_max_2_subjects: "اختر ما يصل إلى مادتين",
+                select_max_2_levels: "اختر ما يصل إلى مستويين",
                 photo_optional: "صورة (اختياري)",
                 photo_help: "إذا كنت تريد عرض صورتك في ملفك الشخصي",
                 back_home: "العودة إلى الصفحة الرئيسية",
