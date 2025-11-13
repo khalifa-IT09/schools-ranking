@@ -2379,11 +2379,14 @@ class DatabaseManager {
         // Update total requests
         const newTotalRequests = (existingTeacher.total_requests || 0) + 1;
 
+        // Preserve existing photo_path if new one is not provided
+        const finalPhotoPath = photo_path || existingTeacher.photo_path || null;
+
         const updateQuery = `
           UPDATE teachers 
           SET subjects = ?, cities = ?, levels = ?, 
-              total_requests = ?, updated_at = CURRENT_TIMESTAMP
-              ${photo_path ? ', photo_path = ?' : ''}
+              total_requests = ?, updated_at = CURRENT_TIMESTAMP,
+              photo_path = ?
           WHERE teacher_name = ? AND teacher_phone = ?
         `;
 
@@ -2391,14 +2394,11 @@ class DatabaseManager {
           currentSubjects.join(','),
           currentCities.join(','),
           currentLevels.join(','),
-          newTotalRequests
+          newTotalRequests,
+          finalPhotoPath,
+          teacher_name,
+          teacher_phone
         ];
-        
-        if (photo_path) {
-          updateParams.push(photo_path);
-        }
-        
-        updateParams.push(teacher_name, teacher_phone);
 
         await this.run(updateQuery, updateParams);
 
