@@ -1697,8 +1697,12 @@ app.post('/api/tutor-enrollment', upload.single('photo'), async (req, res) => {
       type
     } = req.body;
 
+    // Handle multiple subjects and levels (arrays from FormData)
+    const subjects = Array.isArray(subject) ? subject : (subject ? [subject] : []);
+    const levels = Array.isArray(level) ? level : (level ? [level] : []);
+
     // Validate required fields for tutor enrollment
-    if (!teacher_name || !teacher_phone || !subject || !level || !city) {
+    if (!teacher_name || !teacher_phone || subjects.length === 0 || levels.length === 0 || !city) {
       // Delete uploaded file if validation fails
       if (req.file) {
         fs.unlinkSync(req.file.path);
@@ -1709,6 +1713,27 @@ app.post('/api/tutor-enrollment', upload.single('photo'), async (req, res) => {
       });
     }
 
+    // Validate max 2 subjects and levels
+    if (subjects.length > 2) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez sélectionner au maximum 2 matières.'
+      });
+    }
+
+    if (levels.length > 2) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez sélectionner au maximum 2 niveaux.'
+      });
+    }
+
     // Handle photo upload
     let photo_path = null;
     if (req.file) {
@@ -1716,14 +1741,19 @@ app.post('/api/tutor-enrollment', upload.single('photo'), async (req, res) => {
       photo_path = `/uploads/tutors/${req.file.filename}`;
     }
 
+    // Process each subject and level combination
+    // For multiple subjects/levels, we'll save them as comma-separated values
+    const subjectStr = subjects.join(',');
+    const levelStr = levels.join(',');
+
     // Save/update teacher in teachers database
     try {
       const result = await dbManager.saveOrUpdateTeacher({
         teacher_name,
         teacher_phone,
-        subject,
+        subject: subjectStr,
         city,
-        level,
+        level: levelStr,
         photo_path
       });
 

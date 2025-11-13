@@ -88,6 +88,21 @@
             cursor: pointer;
         }
 
+        .form-group select[multiple] {
+            min-height: 120px;
+            padding: 10px;
+        }
+
+        .form-group select[multiple] option {
+            padding: 8px;
+            margin: 2px 0;
+        }
+
+        .form-group select[multiple] option:checked {
+            background-color: #667eea;
+            color: white;
+        }
+
         .form-help {
             display: block;
             margin-top: 5px;
@@ -262,9 +277,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorSubject" data-translate="subject_taught">Matière enseignée *</label>
-                        <select id="tutorSubject" name="tutorSubject" required>
-                            <option value="" data-translate="select_subject">-- Sélectionnez une matière --</option>
+                        <label for="tutorSubject" data-translate="subject_taught">Matière enseignée * (max 2)</label>
+                        <select id="tutorSubject" name="tutorSubject" multiple size="5" required>
                             <option value="Math">Math</option>
                             <option value="Physique">Physique</option>
                             <option value="Chimie">Chimie</option>
@@ -276,16 +290,17 @@
                             <option value="Histoire">Histoire</option>
                             <option value="Philosophie">Philosophie</option>
                         </select>
+                        <small class="form-help" data-translate="select_max_2_subjects">Sélectionnez jusqu'à 2 matières (maintenez Ctrl/Cmd pour sélectionner plusieurs)</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="tutorLevel" data-translate="school_level">Niveau scolaire *</label>
-                        <select id="tutorLevel" name="tutorLevel" required>
-                            <option value="" data-translate="select_level">-- Sélectionnez un niveau --</option>
+                        <label for="tutorLevel" data-translate="school_level">Niveau scolaire * (max 2)</label>
+                        <select id="tutorLevel" name="tutorLevel" multiple size="3" required>
                             <option value="Primaire">Primaire</option>
                             <option value="Collège">Collège</option>
                             <option value="BAC">BAC</option>
                         </select>
+                        <small class="form-help" data-translate="select_max_2_levels">Sélectionnez jusqu'à 2 niveaux (maintenez Ctrl/Cmd pour sélectionner plusieurs)</small>
                     </div>
 
                     <div class="form-group">
@@ -346,14 +361,38 @@
             // Get form data
             const teacherName = document.getElementById('tutorName').value.trim();
             const teacherPhone = document.getElementById('tutorPhone').value.trim();
-            const subject = document.getElementById('tutorSubject').value;
-            const level = document.getElementById('tutorLevel').value;
+            const subjectSelect = document.getElementById('tutorSubject');
+            const levelSelect = document.getElementById('tutorLevel');
             const city = document.getElementById('tutorCity').value;
             const photoFile = document.getElementById('tutorPhoto').files[0];
 
+            // Get selected subjects (max 2)
+            const selectedSubjects = Array.from(subjectSelect.selectedOptions).map(option => option.value);
+            // Get selected levels (max 2)
+            const selectedLevels = Array.from(levelSelect.selectedOptions).map(option => option.value);
+
             // Validate required fields
-            if (!teacherName || !teacherPhone || !subject || !level || !city) {
+            if (!teacherName || !teacherPhone || selectedSubjects.length === 0 || selectedLevels.length === 0 || !city) {
                 const errorText = currentTutorLang === 'ar' ? 'يرجى ملء جميع الحقول الإلزامية.' : 'Veuillez remplir tous les champs obligatoires.';
+                showTutorError(errorText);
+                tutorSubmitBtn.disabled = false;
+                const enrollText = currentTutorLang === 'ar' ? tutorTranslations.ar.enroll : tutorTranslations.fr.enroll;
+                tutorSubmitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${enrollText}`;
+                return;
+            }
+
+            // Validate max 2 selections
+            if (selectedSubjects.length > 2) {
+                const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مادتين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 matières.';
+                showTutorError(errorText);
+                tutorSubmitBtn.disabled = false;
+                const enrollText = currentTutorLang === 'ar' ? tutorTranslations.ar.enroll : tutorTranslations.fr.enroll;
+                tutorSubmitBtn.innerHTML = `<i class="fas fa-paper-plane"></i> ${enrollText}`;
+                return;
+            }
+
+            if (selectedLevels.length > 2) {
+                const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مستويين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 niveaux.';
                 showTutorError(errorText);
                 tutorSubmitBtn.disabled = false;
                 const enrollText = currentTutorLang === 'ar' ? tutorTranslations.ar.enroll : tutorTranslations.fr.enroll;
@@ -365,8 +404,14 @@
             const formData = new FormData();
             formData.append('teacher_name', teacherName);
             formData.append('teacher_phone', teacherPhone);
-            formData.append('subject', subject);
-            formData.append('level', level);
+            // Append each subject separately
+            selectedSubjects.forEach(subject => {
+                formData.append('subject', subject);
+            });
+            // Append each level separately
+            selectedLevels.forEach(level => {
+                formData.append('level', level);
+            });
             formData.append('city', city);
             formData.append('type', 'tutor_enrollment');
             
@@ -407,6 +452,32 @@
             tutorErrorMessage.classList.add('show');
             tutorErrorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+
+        // Limit subject selection to max 2
+        const subjectSelect = document.getElementById('tutorSubject');
+        if (subjectSelect) {
+            subjectSelect.addEventListener('change', function() {
+                if (this.selectedOptions.length > 2) {
+                    const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مادتين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 matières.';
+                    alert(errorText);
+                    // Remove the last selected option
+                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
+                }
+            });
+        }
+
+        // Limit level selection to max 2
+        const levelSelect = document.getElementById('tutorLevel');
+        if (levelSelect) {
+            levelSelect.addEventListener('change', function() {
+                if (this.selectedOptions.length > 2) {
+                    const errorText = currentTutorLang === 'ar' ? 'يرجى اختيار مستويين كحد أقصى.' : 'Veuillez sélectionner au maximum 2 niveaux.';
+                    alert(errorText);
+                    // Remove the last selected option
+                    this.selectedOptions[this.selectedOptions.length - 1].selected = false;
+                }
+            });
+        }
     </script>
     <script>
         // Simple translation system for tutor pages
@@ -417,6 +488,8 @@
                 tutor_enroll_title: "S'inscrire comme professeur",
                 tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 24h.",
                 tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et votre nom apparaîtra automatiquement sur la liste.",
+                select_max_2_subjects: "Sélectionnez jusqu'à 2 matières (maintenez Ctrl/Cmd pour sélectionner plusieurs)",
+                select_max_2_levels: "Sélectionnez jusqu'à 2 niveaux (maintenez Ctrl/Cmd pour sélectionner plusieurs)",
                 photo_optional: "Photo (optionnel)",
                 photo_help: "Si vous souhaitez que votre photo soit affichée sur votre profil",
                 back_home: "Retour à l'accueil",
@@ -447,6 +520,8 @@
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 24 ساعة.",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وسيظهر اسمك تلقائياً في القائمة.",
+                select_max_2_subjects: "اختر ما يصل إلى مادتين (اضغط Ctrl/Cmd لتحديد عدة خيارات)",
+                select_max_2_levels: "اختر ما يصل إلى مستويين (اضغط Ctrl/Cmd لتحديد عدة خيارات)",
                 photo_optional: "صورة (اختياري)",
                 photo_help: "إذا كنت تريد عرض صورتك في ملفك الشخصي",
                 back_home: "العودة إلى الصفحة الرئيسية",
