@@ -1815,6 +1815,59 @@ app.delete('/api/teachers/:id', async (req, res) => {
   }
 });
 
+// Get public tutors (for students to browse) - PUBLIC ENDPOINT
+app.get('/api/tutors/public', async (req, res) => {
+  try {
+    const { city, subject, level, search } = req.query;
+    
+    const filters = {
+      status: 'active' // Only show active tutors
+    };
+    
+    if (city) filters.city = city;
+    if (subject) filters.subject = subject;
+    if (level) filters.level = level;
+    if (search) filters.search = search;
+
+    const result = await dbManager.getTeachers(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error fetching public tutors:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des professeurs'
+    });
+  }
+});
+
+// Get single tutor by ID (for profile page) - PUBLIC ENDPOINT
+app.get('/api/tutors/public/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const teacher = await dbManager.get('SELECT * FROM teachers WHERE id = ? AND status = ?', [parseInt(id), 'active']);
+    
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        error: 'Professeur non trouvé'
+      });
+    }
+    
+    res.json({
+      success: true,
+      teacher: teacher
+    });
+  } catch (error) {
+    console.error('❌ Error fetching tutor:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération du professeur'
+    });
+  }
+});
+
 // Analytics endpoint for admin
 app.get('/api/analytics', (req, res) => {
   try {

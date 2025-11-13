@@ -12,14 +12,14 @@
     <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/"/>
   </url>
   
-  <!-- Student Request Page -->
+  <!-- Browse Tutors Page -->
   <url>
-    <loc>https://rim-schools.com/trouver-professeur.html</loc>
+    <loc>https://rim-schools.com/trouvers-professeurs.html</loc>
     <lastmod>2025-01-27</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://rim-schools.com/trouver-professeur.html"/>
-    <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/trouver-professeur.html"/>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://rim-schools.com/trouvers-professeurs.html"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://rim-schools.com/trouvers-professeurs.html"/>
   </url>
   
   <!-- Tutor Enrollment Page -->

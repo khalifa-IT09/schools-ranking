@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professeurs Disponibles - Classement des Écoles - Mauritanie</title>
+    <meta name="description" content="Parcourez la liste des professeurs à domicile disponibles en Mauritanie. Trouvez le professeur idéal pour vos cours particuliers.">
+    <meta name="keywords" content="professeurs Mauritanie, cours particuliers Mauritanie, tuteurs Mauritanie, professeurs disponibles">
+    <link rel="canonical" href="https://rim-schools.com/trouvers-professeurs.html">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .tutors-container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .tutors-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .tutors-banner h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .tutors-banner p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .filters-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.3s ease;
+        }
+
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tutors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .tutor-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tutor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .tutor-card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .tutor-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .tutor-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+        }
+
+        .tutor-info {
+            margin-bottom: 15px;
+        }
+
+        .tutor-info-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        .tutor-info-item i {
+            color: #667eea;
+            width: 20px;
+        }
+
+        .tutor-info-item .badge {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin: 2px;
+        }
+
+        .tutor-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 15px;
+        }
+
+        .tutor-requests {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .view-profile-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .view-profile-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .no-tutors {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .no-tutors i {
+            font-size: 4rem;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+
+        .no-tutors h3 {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .no-tutors p {
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #667eea;
+        }
+
+        .loading i {
+            font-size: 3rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 500;
+            transition: color 0.3s ease, background-color 0.3s ease;
+            padding: 8px 15px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+            background-color: rgba(255, 255, 255, 1);
+        }
+
+        @media (max-width: 768px) {
+            .tutors-container {
+                margin: 20px;
+                padding: 10px;
+            }
+
+            .tutors-banner h1 {
+                font-size: 2rem;
+            }
+
+            .filters-section {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .tutors-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="drapo_RIM.jpg" alt="Drapeau Mauritanie" class="mauritania-flag">
+                    <div class="logo-text">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h1 data-translate="app_title">Classement des Écoles - Mauritanie</h1>
+                    </div>
+                </div>
+                <!-- Language Toggle -->
+                <div class="language-toggle">
+                    <button id="languageToggle" class="lang-btn" title="Changer la langue">
+                        <i class="fas fa-globe"></i>
+                        <span id="currentLang">FR</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="tutors-container">
+            <a href="/" class="back-link" data-translate="back_home">
+                <i class="fas fa-arrow-left"></i>
+                Retour à l'accueil
+            </a>
+
+            <div class="tutors-banner">
+                <h1>
+                    <span>👨‍🏫</span>
+                    <span data-translate="tutors_browse_title">Professeurs Disponibles</span>
+                </h1>
+                <p data-translate="tutors_browse_subtitle">Parcourez notre liste de professeurs à domicile et trouvez celui qui correspond à vos besoins</p>
+            </div>
+
+            <div class="filters-section">
+                <div class="filter-group">
+                    <label data-translate="filter_subject">Matière</label>
+                    <select id="subjectFilter">
+                        <option value="" data-translate="all_subjects">Toutes les matières</option>
+                        <option value="Math">Math</option>
+                        <option value="Physique">Physique</option>
+                        <option value="Chimie">Chimie</option>
+                        <option value="Science Naturelle">Science Naturelle</option>
+                        <option value="Arabe">Arabe</option>
+                        <option value="Français">Français</option>
+                        <option value="Anglais">Anglais</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label data-translate="filter_city">Ville</label>
+                    <select id="cityFilter">
+                        <option value="" data-translate="all_cities">Toutes les villes</option>
+                        <option value="Nouakchott">Nouakchott</option>
+                        <option value="Nouadhibou">Nouadhibou</option>
+                        <option value="Rosso">Rosso</option>
+                        <option value="Atar">Atar</option>
+                        <option value="Kaédi">Kaédi</option>
+                        <option value="Kiffa">Kiffa</option>
+                        <option value="Zouerate">Zouerate</option>
+                        <option value="Néma">Néma</option>
+                        <option value="Aïoun">Aïoun</option>
+                        <option value="Sélibaby">Sélibaby</option>
+                        <option value="Aleg">Aleg</option>
+                        <option value="Tidjikja">Tidjikja</option>
+                        <option value="Akjoujt">Akjoujt</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label data-translate="filter_level">Niveau</label>
+                    <select id="levelFilter">
+                        <option value="" data-translate="all_levels">Tous les niveaux</option>
+                        <option value="Primaire">Primaire</option>
+                        <option value="Collège">Collège</option>
+                        <option value="BAC">BAC</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label data-translate="search">Rechercher</label>
+                    <input type="text" id="searchInput" placeholder="Nom ou téléphone..." data-translate-placeholder="search_placeholder_tutor">
+                </div>
+            </div>
+
+            <div id="tutorsGrid" class="tutors-grid">
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Chargement des professeurs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLang = 'fr';
+        let allTutors = [];
+
+        const translations = {
+            fr: {
+                app_title: "Classement des Écoles - Mauritanie",
+                tutors_browse_title: "Professeurs Disponibles",
+                tutors_browse_subtitle: "Parcourez notre liste de professeurs à domicile et trouvez celui qui correspond à vos besoins",
+                back_home: "Retour à l'accueil",
+                filter_subject: "Matière",
+                filter_city: "Ville",
+                filter_level: "Niveau",
+                search: "Rechercher",
+                all_subjects: "Toutes les matières",
+                all_cities: "Toutes les villes",
+                all_levels: "Tous les niveaux",
+                search_placeholder_tutor: "Nom ou téléphone...",
+                view_profile: "Voir Profil",
+                no_tutors_found: "Aucun professeur trouvé",
+                no_tutors_message: "Essayez de modifier vos filtres de recherche",
+                requests_count: "demandes",
+                subjects: "Matières",
+                cities: "Villes",
+                levels: "Niveaux"
+            },
+            ar: {
+                app_title: "تصنيف المدارس - موريتانيا",
+                tutors_browse_title: "الأساتذة المتاحون",
+                tutors_browse_subtitle: "تصفح قائمة أساتذتنا في المنزل وابحث عن الشخص المناسب لاحتياجاتك",
+                back_home: "العودة إلى الصفحة الرئيسية",
+                filter_subject: "المادة",
+                filter_city: "المدينة",
+                filter_level: "المستوى",
+                search: "بحث",
+                all_subjects: "جميع المواد",
+                all_cities: "جميع المدن",
+                all_levels: "جميع المستويات",
+                search_placeholder_tutor: "الاسم أو الهاتف...",
+                view_profile: "عرض الملف الشخصي",
+                no_tutors_found: "لم يتم العثور على أساتذة",
+                no_tutors_message: "حاول تعديل فلاتر البحث الخاصة بك",
+                requests_count: "طلبات",
+                subjects: "المواد",
+                cities: "المدن",
+                levels: "المستويات"
+            }
+        };
+
+        function initLanguage() {
+            const savedLanguage = localStorage.getItem('preferredLanguage') || localStorage.getItem('schoolRankingLanguage') || 'fr';
+            currentLang = savedLanguage === 'ar' ? 'ar' : 'fr';
+            updateLanguage();
+        }
+
+        function updateLanguage() {
+            document.documentElement.setAttribute('lang', currentLang);
+            document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+            document.body.classList.toggle('rtl', currentLang === 'ar');
+            
+            const currentLangSpan = document.getElementById('currentLang');
+            if (currentLangSpan) {
+                currentLangSpan.textContent = currentLang.toUpperCase();
+            }
+            
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const translation = translations[currentLang][key];
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+
+            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-translate-placeholder');
+                const translation = translations[currentLang][key];
+                if (translation) {
+                    element.placeholder = translation;
+                }
+            });
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'fr' ? 'ar' : 'fr';
+            localStorage.setItem('schoolRankingLanguage', currentLang);
+            localStorage.setItem('preferredLanguage', currentLang);
+            updateLanguage();
+            loadTutors();
+        }
+
+        async function loadTutors() {
+            const subject = document.getElementById('subjectFilter').value;
+            const city = document.getElementById('cityFilter').value;
+            const level = document.getElementById('levelFilter').value;
+            const search = document.getElementById('searchInput').value;
+
+            const tutorsGrid = document.getElementById('tutorsGrid');
+            tutorsGrid.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Chargement des professeurs...</p></div>';
+
+            try {
+                const params = new URLSearchParams();
+                if (subject) params.append('subject', subject);
+                if (city) params.append('city', city);
+                if (level) params.append('level', level);
+                if (search) params.append('search', search);
+
+                const response = await fetch(`/api/tutors/public?${params.toString()}`);
+                const data = await response.json();
+
+                if (data.success && data.teachers && data.teachers.length > 0) {
+                    allTutors = data.teachers;
+                    renderTutors(data.teachers);
+                } else {
+                    tutorsGrid.innerHTML = `
+                        <div class="no-tutors">
+                            <i class="fas fa-user-slash"></i>
+                            <h3>${translations[currentLang].no_tutors_found}</h3>
+                            <p>${translations[currentLang].no_tutors_message}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading tutors:', error);
+                tutorsGrid.innerHTML = `
+                    <div class="no-tutors">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Erreur de chargement</h3>
+                        <p>Une erreur s'est produite. Veuillez réessayer.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTutors(tutors) {
+            const tutorsGrid = document.getElementById('tutorsGrid');
+            tutorsGrid.innerHTML = '';
+
+            tutors.forEach(tutor => {
+                const subjects = tutor.subjects ? tutor.subjects.split(',').map(s => s.trim()) : [];
+                const cities = tutor.cities ? tutor.cities.split(',').map(c => c.trim()) : [];
+                const levels = tutor.levels ? tutor.levels.split(',').map(l => l.trim()) : [];
+
+                const firstLetter = tutor.teacher_name ? tutor.teacher_name.charAt(0).toUpperCase() : '?';
+                const subjectsDisplay = subjects.slice(0, 3).join(', ') + (subjects.length > 3 ? ` +${subjects.length - 3}` : '');
+                const citiesDisplay = cities.slice(0, 2).join(', ') + (cities.length > 2 ? ` +${cities.length - 2}` : '');
+
+                const card = document.createElement('div');
+                card.className = 'tutor-card';
+                card.innerHTML = `
+                    <div class="tutor-card-header">
+                        <div class="tutor-avatar">${firstLetter}</div>
+                        <h3 class="tutor-name">${tutor.teacher_name || 'N/A'}</h3>
+                    </div>
+                    <div class="tutor-info">
+                        <div class="tutor-info-item">
+                            <i class="fas fa-book"></i>
+                            <span><strong>${translations[currentLang].subjects}:</strong> ${subjectsDisplay || 'N/A'}</span>
+                        </div>
+                        <div class="tutor-info-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span><strong>${translations[currentLang].cities}:</strong> ${citiesDisplay || 'N/A'}</span>
+                        </div>
+                        <div class="tutor-info-item">
+                            <i class="fas fa-graduation-cap"></i>
+                            <span><strong>${translations[currentLang].levels}:</strong> ${levels.join(', ') || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <div class="tutor-stats">
+                        <span class="tutor-requests">${tutor.total_requests || 0} ${translations[currentLang].requests_count}</span>
+                        <a href="/professeur.html?id=${tutor.id}" class="view-profile-btn">
+                            ${translations[currentLang].view_profile}
+                        </a>
+                    </div>
+                `;
+                tutorsGrid.appendChild(card);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('subjectFilter').addEventListener('change', loadTutors);
+        document.getElementById('cityFilter').addEventListener('change', loadTutors);
+        document.getElementById('levelFilter').addEventListener('change', loadTutors);
+        document.getElementById('searchInput').addEventListener('input', loadTutors);
+
+        const languageToggle = document.getElementById('languageToggle');
+        if (languageToggle) {
+            languageToggle.addEventListener('click', toggleLanguage);
+        }
+
+        // Initialize
+        initLanguage();
+        loadTutors();
+
+        // Listen for storage changes
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'preferredLanguage' || e.key === 'schoolRankingLanguage') {
+                const newLang = e.newValue || 'fr';
+                currentLang = newLang === 'ar' ? 'ar' : 'fr';
+                updateLanguage();
+                loadTutors();
+            }
+        });
+    </script>
+</body>
+</html>
+

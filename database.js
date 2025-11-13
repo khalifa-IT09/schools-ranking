@@ -2416,6 +2416,11 @@ class DatabaseManager {
         params.push(`%${filters.subject}%`);
       }
 
+      if (filters.level) {
+        query += ' AND levels LIKE ?';
+        params.push(`%${filters.level}%`);
+      }
+
       if (filters.search) {
         query += ' AND (teacher_name LIKE ? OR teacher_phone LIKE ?)';
         const searchTerm = `%${filters.search}%`;
