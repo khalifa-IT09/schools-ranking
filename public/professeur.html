@@ -12,7 +12,7 @@
     <style>
         .profile-container {
             max-width: 900px;
-            margin: 40px auto;
+            margin: 20px auto;
             padding: 20px;
         }
 
@@ -438,26 +438,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <img src="drapo_RIM.jpg" alt="Drapeau Mauritanie" class="mauritania-flag">
-                    <div class="logo-text">
-                        <i class="fas fa-graduation-cap"></i>
-                        <h1 data-translate="app_title">Classement des Écoles - Mauritanie</h1>
-                    </div>
-                </div>
-                <!-- Language Toggle -->
-                <div class="language-toggle">
-                    <button id="languageToggle" class="lang-btn" title="Changer la langue">
-                        <i class="fas fa-globe"></i>
-                        <span id="currentLang">FR</span>
-                    </button>
-                </div>
-            </div>
-        </header>
-
         <div class="profile-container">
             <a href="/trouvers-professeurs.html" class="back-link" data-translate="back_to_list">
                 <i class="fas fa-arrow-left"></i>
@@ -518,11 +498,6 @@
             document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
             document.body.classList.toggle('rtl', currentLang === 'ar');
             
-            const currentLangSpan = document.getElementById('currentLang');
-            if (currentLangSpan) {
-                currentLangSpan.textContent = currentLang.toUpperCase();
-            }
-            
             document.querySelectorAll('[data-translate]').forEach(element => {
                 const key = element.getAttribute('data-translate');
                 const translation = translations[currentLang][key];
@@ -530,14 +505,6 @@
                     element.textContent = translation;
                 }
             });
-        }
-
-        function toggleLanguage() {
-            currentLang = currentLang === 'fr' ? 'ar' : 'fr';
-            localStorage.setItem('schoolRankingLanguage', currentLang);
-            localStorage.setItem('preferredLanguage', currentLang);
-            updateLanguage();
-            loadProfile();
         }
 
         function extractTutorIdFromUrl() {
@@ -698,12 +665,6 @@
             console.log('Profile rendered successfully');
             // Force a reflow to ensure rendering
             profileContent.offsetHeight;
-        }
-
-        // Event listeners
-        const languageToggle = document.getElementById('languageToggle');
-        if (languageToggle) {
-            languageToggle.addEventListener('click', toggleLanguage);
         }
 
         // Initialize when DOM is ready
