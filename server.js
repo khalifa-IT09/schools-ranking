@@ -45,7 +45,8 @@ app.use((req, res, next) => {
 
 // Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
 // Must be defined BEFORE static middleware to take precedence
-app.get('/professeur/*', (req, res) => {
+// Use regex to match any path after /professeur/
+app.get(/^\/professeur\/.+/, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'professeur.html'));
 });
 
