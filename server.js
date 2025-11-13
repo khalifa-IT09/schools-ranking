@@ -1989,7 +1989,8 @@ app.get('/admin/teachers', (req, res) => {
 });
 
 // Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
-app.get('/professeur/:slug-:id', (req, res) => {
+// Use wildcard to capture everything after /professeur/ since Express params don't work with hyphens
+app.get('/professeur/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'professeur.html'));
 });
 
