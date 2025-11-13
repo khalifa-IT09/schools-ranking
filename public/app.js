@@ -149,7 +149,7 @@ class SchoolRankingApp {
                 voting_next_reset: "Prochain reset: Lundi à 00:00",
                 
                 // Tutor/Student sections
-                tutor_find_title: "Trouver un professeur à domicile",
+                tutor_find_title: "Professeurs Disponibles",
                 tutor_enroll_title: "S'inscrire comme professeur",
                 tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 48h",
                 tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et payez 1000 MRU via le numéro 36090932. Nous vous contacterons sous 12 heures.",
@@ -283,7 +283,7 @@ class SchoolRankingApp {
                 voting_next_reset: "إعادة التعيين التالية: الإثنين في 00:00",
                 
                 // Tutor/Student sections
-                tutor_find_title: "تبحث عن مدرس في المنزل",
+                tutor_find_title: "الأساتذة المتاحون",
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 48 ساعة",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وادفع 1000 أوقية عبر الرقم 36090932. سنتصل بك في غضون 12 ساعة.",
