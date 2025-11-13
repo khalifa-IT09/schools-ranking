@@ -647,30 +647,24 @@
                 </div>
 
                 <div class="profile-card">
-                    ${subjects.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-book"></i> ${translations[currentLang].subjects}</h2>
                         <div class="badge-list">
-                            ${subjects.map(subject => `<span class="badge">${subject}</span>`).join('')}
+                            ${subjects.length > 0 ? subjects.map(subject => `<span class="badge">${subject}</span>`).join('') : '<span class="badge" style="opacity: 0.6;">Aucune matière</span>'}
                         </div>
                     </div>
-                    ` : ''}
-                    ${cities.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-map-marker-alt"></i> ${translations[currentLang].cities}</h2>
                         <div class="badge-list">
-                            ${cities.map(city => `<span class="badge">${city}</span>`).join('')}
+                            ${cities.length > 0 ? cities.map(city => `<span class="badge">${city}</span>`).join('') : '<span class="badge" style="opacity: 0.6;">Aucune ville</span>'}
                         </div>
                     </div>
-                    ` : ''}
-                    ${levels.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-graduation-cap"></i> ${translations[currentLang].levels}</h2>
                         <div class="badge-list">
-                            ${levels.map(level => `<span class="badge">${level}</span>`).join('')}
+                            ${levels.length > 0 ? levels.map(level => `<span class="badge">${level}</span>`).join('') : '<span class="badge" style="opacity: 0.6;">Aucun niveau</span>'}
                         </div>
                     </div>
-                    ` : ''}
                 </div>
 
                 <div class="profile-card">
