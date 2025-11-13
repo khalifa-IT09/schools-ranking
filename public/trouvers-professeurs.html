@@ -123,6 +123,14 @@
             color: white;
             font-size: 1.8rem;
             font-weight: bold;
+            overflow: hidden;
+        }
+
+        .tutor-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
         }
 
         .tutor-name {
@@ -522,6 +530,10 @@
                 const levels = tutor.levels ? tutor.levels.split(',').map(l => l.trim()) : [];
 
                 const firstLetter = tutor.teacher_name ? tutor.teacher_name.charAt(0).toUpperCase() : '?';
+                const photoPath = tutor.photo_path || '';
+                const avatarContent = photoPath 
+                    ? `<img src="${photoPath}" alt="${tutor.teacher_name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+                    : firstLetter;
                 const subjectsDisplay = subjects.slice(0, 3).join(', ') + (subjects.length > 3 ? ` +${subjects.length - 3}` : '');
                 const citiesDisplay = cities.slice(0, 2).join(', ') + (cities.length > 2 ? ` +${cities.length - 2}` : '');
                 
@@ -533,7 +545,7 @@
                 card.className = 'tutor-card';
                 card.innerHTML = `
                     <div class="tutor-card-header">
-                        <div class="tutor-avatar">${firstLetter}</div>
+                        <div class="tutor-avatar">${avatarContent}</div>
                         <h3 class="tutor-name">${tutor.teacher_name || 'N/A'}</h3>
                     </div>
                     <div class="tutor-info">

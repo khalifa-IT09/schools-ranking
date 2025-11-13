@@ -49,6 +49,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             font-size: 3.5rem;
             font-weight: bold;
             margin: 0 auto 20px;
@@ -58,6 +59,13 @@
             z-index: 1;
             color: #667eea;
             text-shadow: none;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
         }
 
         .profile-header h1 {
@@ -606,12 +614,16 @@
             const cities = tutor.cities ? tutor.cities.split(',').map(c => c.trim()).filter(c => c) : [];
             const levels = tutor.levels ? tutor.levels.split(',').map(l => l.trim()).filter(l => l) : [];
             const firstLetter = tutor.teacher_name ? tutor.teacher_name.charAt(0).toUpperCase() : '?';
+            const photoPath = tutor.photo_path || '';
+            const avatarContent = photoPath 
+                ? `<img src="${photoPath}" alt="${tutor.teacher_name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+                : firstLetter;
 
-            console.log('Subjects:', subjects, 'Cities:', cities, 'Levels:', levels);
+            console.log('Subjects:', subjects, 'Cities:', cities, 'Levels:', levels, 'Photo:', photoPath);
 
             profileContent.innerHTML = `
                 <div class="profile-header">
-                    <div class="profile-avatar">${firstLetter}</div>
+                    <div class="profile-avatar">${avatarContent}</div>
                     <h1>${tutor.teacher_name || 'N/A'}</h1>
                     <p class="subtitle">Professeur à domicile</p>
                 </div>

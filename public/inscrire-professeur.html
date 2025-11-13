@@ -83,6 +83,19 @@
             color: #999;
         }
 
+        .form-group input[type="file"] {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .form-help {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+        }
+
         .submit-btn {
             width: 100%;
             padding: 15px;
@@ -292,6 +305,12 @@
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label for="tutorPhoto" data-translate="photo_optional">Photo (optionnel)</label>
+                        <input type="file" id="tutorPhoto" name="photo" accept="image/*">
+                        <small class="form-help" data-translate="photo_help">Si vous souhaitez que votre photo soit affichée sur votre profil</small>
+                    </div>
+
                     <button type="submit" class="submit-btn" id="tutorSubmitBtn">
                         <i class="fas fa-paper-plane"></i>
                         <span data-translate="enroll">S'inscrire</span>
@@ -322,18 +341,15 @@
             tutorSubmitBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${enrollmentText}`;
 
             // Get form data
-            const formData = {
-                teacher_name: document.getElementById('tutorName').value.trim(),
-                teacher_phone: document.getElementById('tutorPhone').value.trim(),
-                subject: document.getElementById('tutorSubject').value,
-                level: document.getElementById('tutorLevel').value,
-                city: document.getElementById('tutorCity').value,
-                type: 'tutor_enrollment'
-            };
+            const teacherName = document.getElementById('tutorName').value.trim();
+            const teacherPhone = document.getElementById('tutorPhone').value.trim();
+            const subject = document.getElementById('tutorSubject').value;
+            const level = document.getElementById('tutorLevel').value;
+            const city = document.getElementById('tutorCity').value;
+            const photoFile = document.getElementById('tutorPhoto').files[0];
 
             // Validate required fields
-            if (!formData.teacher_name || !formData.teacher_phone || !formData.subject || 
-                !formData.level || !formData.city) {
+            if (!teacherName || !teacherPhone || !subject || !level || !city) {
                 const errorText = currentTutorLang === 'ar' ? 'يرجى ملء جميع الحقول الإلزامية.' : 'Veuillez remplir tous les champs obligatoires.';
                 showTutorError(errorText);
                 tutorSubmitBtn.disabled = false;
@@ -342,13 +358,24 @@
                 return;
             }
 
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('teacher_name', teacherName);
+            formData.append('teacher_phone', teacherPhone);
+            formData.append('subject', subject);
+            formData.append('level', level);
+            formData.append('city', city);
+            formData.append('type', 'tutor_enrollment');
+            
+            // Add photo if selected
+            if (photoFile) {
+                formData.append('photo', photoFile);
+            }
+
             try {
                 const response = await fetch('/api/tutor-enrollment', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
+                    body: formData
                 });
 
                 const data = await response.json();
@@ -387,6 +414,8 @@
                 tutor_enroll_title: "S'inscrire comme professeur",
                 tutor_find_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 24h.",
                 tutor_enroll_subtitle: "Remplissez le formulaire ci-dessous et nous vous contacterons sous 24h.",
+                photo_optional: "Photo (optionnel)",
+                photo_help: "Si vous souhaitez que votre photo soit affichée sur votre profil",
                 back_home: "Retour à l'accueil",
                 student_name: "Nom de l'Etudiant *",
                 student_phone: "Numéro de téléphone *",
@@ -415,6 +444,8 @@
                 tutor_enroll_title: "التسجيل كأستاذ",
                 tutor_find_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 24 ساعة.",
                 tutor_enroll_subtitle: "املأ النموذج أدناه وسنتصل بك في غضون 24 ساعة.",
+                photo_optional: "صورة (اختياري)",
+                photo_help: "إذا كنت تريد عرض صورتك في ملفك الشخصي",
                 back_home: "العودة إلى الصفحة الرئيسية",
                 student_name: "اسم الطالب *",
                 student_phone: "رقم الهاتف *",

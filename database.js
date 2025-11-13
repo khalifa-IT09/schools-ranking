@@ -455,6 +455,7 @@ class DatabaseManager {
             subjects TEXT,
             cities TEXT,
             levels TEXT,
+            photo_path TEXT,
             total_requests INTEGER DEFAULT 0,
             status TEXT DEFAULT 'active',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -583,6 +584,9 @@ class DatabaseManager {
         // Ensure unique constraint exists to prevent duplicate votes
         return this.ensureUniqueVoteConstraint();
       }).then(() => {
+        // Migrate teachers table to add photo_path column
+        return this.migrateTeachersTable();
+      }).then(() => {
         console.log('✅ Database migration completed');
       }).catch((migrationError) => {
         console.warn('⚠️ Migration will run on-demand:', migrationError.message);
@@ -708,6 +712,48 @@ class DatabaseManager {
     } catch (error) {
       console.error('❌ Error during tutor_requests migration:', error);
       throw error;
+    }
+  }
+
+  // Migrate teachers table to add photo_path column
+  async migrateTeachersTable() {
+    try {
+      if (!this.db && !this.pool) {
+        throw new Error('Database not initialized');
+      }
+
+      const tableExists = await this.tableExists('teachers');
+      if (!tableExists) {
+        console.log('ℹ️ teachers table does not exist yet, will be created with new schema');
+        return;
+      }
+
+      const columns = await this.getTableInfo('teachers');
+      const columnNames = columns.map(col => col.name.toLowerCase());
+
+      // Add photo_path column if missing
+      if (!columnNames.includes('photo_path')) {
+        try {
+          if (this.dbType === 'postgresql') {
+            await this.run('ALTER TABLE teachers ADD COLUMN IF NOT EXISTS photo_path TEXT;');
+          } else {
+            await this.run('ALTER TABLE teachers ADD COLUMN photo_path TEXT;');
+          }
+          console.log('✅ photo_path column added to teachers table');
+        } catch (err) {
+          if (err.message && (err.message.includes('duplicate column') || err.message.includes('already exists'))) {
+            console.log('ℹ️ photo_path column already exists');
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        console.log('ℹ️ photo_path column already exists in teachers table');
+      }
+
+      console.log('✅ teachers table migration completed');
+    } catch (error) {
+      console.error('❌ Error during teachers table migration:', error);
     }
   }
 
@@ -2297,7 +2343,8 @@ class DatabaseManager {
         teacher_phone,
         subject,
         city,
-        level
+        level,
+        photo_path
       } = teacherData;
 
       // First, check if teacher exists
@@ -2335,21 +2382,25 @@ class DatabaseManager {
         const updateQuery = `
           UPDATE teachers 
           SET subjects = ?, cities = ?, levels = ?, 
-              total_requests = ?, updated_at = CURRENT_TIMESTAMP 
+              total_requests = ?, updated_at = CURRENT_TIMESTAMP
+              ${photo_path ? ', photo_path = ?' : ''}
           WHERE teacher_name = ? AND teacher_phone = ?
         `;
 
-        await this.run(
-          updateQuery,
-          [
-            currentSubjects.join(','),
-            currentCities.join(','),
-            currentLevels.join(','),
-            newTotalRequests,
-            teacher_name,
-            teacher_phone
-          ]
-        );
+        const updateParams = [
+          currentSubjects.join(','),
+          currentCities.join(','),
+          currentLevels.join(','),
+          newTotalRequests
+        ];
+        
+        if (photo_path) {
+          updateParams.push(photo_path);
+        }
+        
+        updateParams.push(teacher_name, teacher_phone);
+
+        await this.run(updateQuery, updateParams);
 
         return {
           success: true,
@@ -2362,13 +2413,13 @@ class DatabaseManager {
         const returningClause = this.dbType === 'postgresql' ? ' RETURNING id' : '';
         const insertQuery = `
           INSERT INTO teachers (
-            teacher_name, teacher_phone, subjects, cities, levels, total_requests
-          ) VALUES (?, ?, ?, ?, ?, 1)${returningClause}
+            teacher_name, teacher_phone, subjects, cities, levels, photo_path, total_requests
+          ) VALUES (?, ?, ?, ?, ?, ?, 1)${returningClause}
         `;
 
         const result = await this.run(
           insertQuery,
-          [teacher_name, teacher_phone, subject || '', city || '', level || '']
+          [teacher_name, teacher_phone, subject || '', city || '', level || '', photo_path || '']
         );
 
         // Get the inserted ID

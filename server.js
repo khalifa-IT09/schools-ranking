@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
 const csv = require('csv-parser');
+const multer = require('multer');
 const analytics = require('./analytics');
 const dbManager = require('./database');
 require('dotenv').config();
@@ -41,6 +42,39 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
   analytics.trackVisit(req);
   next();
+});
+
+// Configure multer for file uploads (tutor photos)
+const uploadsDir = path.join(__dirname, 'public', 'uploads', 'tutors');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename: timestamp-random-originalname
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `tutor-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers image sont autorisés'), false);
+    }
+  }
 });
 
 // Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
@@ -1652,7 +1686,7 @@ app.post('/api/tutor-request', async (req, res) => {
 });
 
 // Tutor enrollment endpoint (for tutors wanting to enroll)
-app.post('/api/tutor-enrollment', async (req, res) => {
+app.post('/api/tutor-enrollment', upload.single('photo'), async (req, res) => {
   try {
     const {
       teacher_name,
@@ -1665,10 +1699,21 @@ app.post('/api/tutor-enrollment', async (req, res) => {
 
     // Validate required fields for tutor enrollment
     if (!teacher_name || !teacher_phone || !subject || !level || !city) {
+      // Delete uploaded file if validation fails
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({
         success: false,
         message: 'Tous les champs obligatoires doivent être remplis.'
       });
+    }
+
+    // Handle photo upload
+    let photo_path = null;
+    if (req.file) {
+      // Store relative path: /uploads/tutors/filename
+      photo_path = `/uploads/tutors/${req.file.filename}`;
     }
 
     // Save/update teacher in teachers database
@@ -1678,7 +1723,8 @@ app.post('/api/tutor-enrollment', async (req, res) => {
         teacher_phone,
         subject,
         city,
-        level
+        level,
+        photo_path
       });
 
       if (result && result.success) {
