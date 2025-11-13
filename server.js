@@ -1951,6 +1951,110 @@ app.get('/api/tutors/public/:id', async (req, res) => {
   }
 });
 
+// Photo recovery endpoint - lists orphaned photos and teachers without photos
+app.get('/api/recover-photos', async (req, res) => {
+  try {
+    const uploadsDir = path.join(__dirname, 'public', 'uploads', 'tutors');
+    
+    if (!fs.existsSync(uploadsDir)) {
+      return res.json({
+        success: true,
+        photos: [],
+        teachersWithoutPhotos: [],
+        message: 'Uploads directory does not exist'
+      });
+    }
+
+    // Get all photo files
+    const photoFiles = fs.readdirSync(uploadsDir)
+      .filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
+      .map(file => ({
+        filename: file,
+        path: `/uploads/tutors/${file}`,
+        created: fs.statSync(path.join(uploadsDir, file)).birthtime || fs.statSync(path.join(uploadsDir, file)).mtime
+      }));
+
+    // Get all teachers
+    const teachers = await dbManager.getTeachers({});
+    const teachersWithPhotos = teachers
+      .filter(t => t.photo_path)
+      .map(t => t.photo_path.replace('/uploads/tutors/', ''));
+
+    // Find orphaned photos (not linked to any teacher)
+    const orphanedPhotos = photoFiles.filter(photo => 
+      !teachersWithPhotos.includes(photo.filename)
+    );
+
+    // Find teachers without photos
+    const teachersWithoutPhotos = teachers
+      .filter(t => !t.photo_path || t.photo_path === '')
+      .map(t => ({
+        id: t.id,
+        name: t.teacher_name,
+        phone: t.teacher_phone,
+        created_at: t.created_at
+      }));
+
+    res.json({
+      success: true,
+      totalPhotos: photoFiles.length,
+      orphanedPhotos: orphanedPhotos,
+      teachersWithoutPhotos: teachersWithoutPhotos,
+      message: `Found ${orphanedPhotos.length} orphaned photos and ${teachersWithoutPhotos.length} teachers without photos`
+    });
+  } catch (error) {
+    console.error('Error in photo recovery endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to recover photos'
+    });
+  }
+});
+
+// Update teacher photo_path (for manual recovery)
+app.post('/api/recover-photo/:teacherId', async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const { photo_path } = req.body;
+
+    if (!photo_path) {
+      return res.status(400).json({
+        success: false,
+        message: 'photo_path is required'
+      });
+    }
+
+    // Verify photo file exists
+    const photoFile = photo_path.replace('/uploads/tutors/', '');
+    const uploadsDir = path.join(__dirname, 'public', 'uploads', 'tutors');
+    const fullPath = path.join(uploadsDir, photoFile);
+
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Photo file not found'
+      });
+    }
+
+    // Update teacher photo_path
+    await dbManager.run(
+      'UPDATE teachers SET photo_path = ? WHERE id = ?',
+      [photo_path, parseInt(teacherId)]
+    );
+
+    res.json({
+      success: true,
+      message: 'Photo recovered successfully'
+    });
+  } catch (error) {
+    console.error('Error recovering photo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to recover photo'
+    });
+  }
+});
+
 // Analytics endpoint for admin
 app.get('/api/analytics', (req, res) => {
   try {
