@@ -1988,6 +1988,11 @@ app.get('/admin/teachers', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-teachers.html'));
 });
 
+// Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
+app.get('/professeur/:slug-:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'professeur.html'));
+});
+
 // Serve votes management admin page
 app.get('/admin/voters', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-voters.html'));

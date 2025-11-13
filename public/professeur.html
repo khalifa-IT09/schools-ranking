@@ -375,9 +375,25 @@
             loadProfile();
         }
 
+        function extractTutorIdFromUrl() {
+            // Extract ID from URL path: /professeur/[name-slug]-[id]
+            const path = window.location.pathname;
+            const match = path.match(/\/professeur\/[^-]+-(\d+)$/);
+            if (match && match[1]) {
+                return parseInt(match[1]);
+            }
+            return null;
+        }
+
         async function loadProfile() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tutorId = urlParams.get('id');
+            // Try to get ID from URL path first (new format: /professeur/[name]-[id])
+            let tutorId = extractTutorIdFromUrl();
+            
+            // Fallback to query string for backward compatibility
+            if (!tutorId) {
+                const urlParams = new URLSearchParams(window.location.search);
+                tutorId = urlParams.get('id') ? parseInt(urlParams.get('id')) : null;
+            }
 
             if (!tutorId) {
                 document.getElementById('profileContent').innerHTML = `

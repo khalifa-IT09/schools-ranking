@@ -500,6 +500,18 @@
             }
         }
 
+        function generateSlug(name) {
+            if (!name) return '';
+            return name
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove accents
+                .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+                .replace(/\s+/g, '-') // Replace spaces with hyphens
+                .replace(/-+/g, '-') // Replace multiple hyphens with single
+                .trim();
+        }
+
         function renderTutors(tutors) {
             const tutorsGrid = document.getElementById('tutorsGrid');
             tutorsGrid.innerHTML = '';
@@ -512,6 +524,10 @@
                 const firstLetter = tutor.teacher_name ? tutor.teacher_name.charAt(0).toUpperCase() : '?';
                 const subjectsDisplay = subjects.slice(0, 3).join(', ') + (subjects.length > 3 ? ` +${subjects.length - 3}` : '');
                 const citiesDisplay = cities.slice(0, 2).join(', ') + (cities.length > 2 ? ` +${cities.length - 2}` : '');
+                
+                // Generate slug-based URL
+                const nameSlug = generateSlug(tutor.teacher_name);
+                const profileUrl = `/professeur/${nameSlug}-${tutor.id}`;
 
                 const card = document.createElement('div');
                 card.className = 'tutor-card';
@@ -536,7 +552,7 @@
                     </div>
                     <div class="tutor-stats">
                         <span class="tutor-requests">${tutor.total_requests || 0} ${translations[currentLang].requests_count}</span>
-                        <a href="/professeur.html?id=${tutor.id}" class="view-profile-btn">
+                        <a href="${profileUrl}" class="view-profile-btn">
                             ${translations[currentLang].view_profile}
                         </a>
                     </div>
