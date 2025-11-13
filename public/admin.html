@@ -203,11 +203,8 @@
         
         <div id="analytics-content" style="display: none;">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <h3><i class="fas fa-users"></i> Utilisateurs Uniques</h3>
-                    <div class="stat-value" id="unique-users">0</div>
-                    <p>Visiteurs uniques</p>
-                </div>
+                <!-- Unique Users card hidden from UI but still tracked and logged -->
+                <!-- Admin can view uniqueUsers in Render Logs or browser console -->
                 
                 <div class="stat-card">
                     <h3><i class="fas fa-eye"></i> Pages Vues</h3>
@@ -295,8 +292,11 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('analytics-content').style.display = 'block';
             
+            // Note: uniqueUsers data is still tracked and logged, but hidden from UI
+            // Admin can view it in Render Logs or browser console
+            console.log('Analytics - Unique Users:', analyticsData.uniqueUsers || 0);
+            
             // Update basic stats
-            document.getElementById('unique-users').textContent = analyticsData.uniqueUsers || 0;
             document.getElementById('page-views').textContent = analyticsData.pageViews || 0;
             document.getElementById('countries-count').textContent = Object.keys(analyticsData.countries || {}).length;
             document.getElementById('last-updated').textContent = new Date(analyticsData.lastUpdated).toLocaleString('fr-FR');

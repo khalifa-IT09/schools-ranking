@@ -588,17 +588,14 @@
 
         function displayOverviewStats(overview) {
             console.log('Displaying overview stats:', overview);
+            // Note: uniqueUsers data is still tracked and logged, but hidden from UI
+            // Admin can view it in Render Logs
             const container = document.getElementById('overview-stats');
             container.innerHTML = `
                 <div class="stat-card">
                     <h3>Visites Totales</h3>
                     <div class="stat-value">${overview.totalVisits.toLocaleString()}</div>
                     <div class="stat-label">Depuis le ${new Date(overview.startDate).toLocaleDateString()}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Utilisateurs Uniques</h3>
-                    <div class="stat-value">${overview.uniqueUsers.toLocaleString()}</div>
-                    <div class="stat-label">Utilisateurs distincts</div>
                 </div>
                 <div class="stat-card">
                     <h3>Visites par Utilisateur</h3>
