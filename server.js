@@ -43,6 +43,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
+// Must be defined BEFORE static middleware to take precedence
+app.get('/professeur/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'professeur.html'));
+});
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -1986,12 +1992,6 @@ app.get('/admin/tutor-requests', (req, res) => {
 // Serve teachers management admin page
 app.get('/admin/teachers', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-teachers.html'));
-});
-
-// Serve tutor profile page with slug-based URL: /professeur/[name]-[id]
-// Use wildcard to capture everything after /professeur/ since Express params don't work with hyphens
-app.get('/professeur/*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'professeur.html'));
 });
 
 // Serve votes management admin page
