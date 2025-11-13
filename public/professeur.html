@@ -461,7 +461,7 @@
                 Retour à la liste
             </a>
 
-            <div id="profileContent">
+            <div id="profileContent" style="min-height: 400px;">
                 <div class="loading">
                     <i class="fas fa-spinner"></i>
                     <p>Chargement du profil...</p>
@@ -550,17 +550,34 @@
         }
 
         async function loadProfile() {
+            const profileContent = document.getElementById('profileContent');
+            if (!profileContent) {
+                console.error('profileContent element not found');
+                return;
+            }
+
+            // Show loading state
+            profileContent.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>${translations[currentLang].profile_loading}</p>
+                </div>
+            `;
+
             // Try to get ID from URL path first (new format: /professeur/[name]-[id])
             let tutorId = extractTutorIdFromUrl();
+            console.log('Extracted tutor ID from URL:', tutorId);
             
             // Fallback to query string for backward compatibility
             if (!tutorId) {
                 const urlParams = new URLSearchParams(window.location.search);
                 tutorId = urlParams.get('id') ? parseInt(urlParams.get('id')) : null;
+                console.log('Extracted tutor ID from query string:', tutorId);
             }
 
             if (!tutorId) {
-                document.getElementById('profileContent').innerHTML = `
+                console.error('No tutor ID found in URL');
+                profileContent.innerHTML = `
                     <div class="error-message">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h3>${translations[currentLang].profile_error}</h3>
@@ -676,9 +693,17 @@
             languageToggle.addEventListener('click', toggleLanguage);
         }
 
-        // Initialize
-        initLanguage();
-        loadProfile();
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initLanguage();
+                loadProfile();
+            });
+        } else {
+            // DOM is already ready
+            initLanguage();
+            loadProfile();
+        }
 
         // Listen for storage changes
         window.addEventListener('storage', function(e) {
