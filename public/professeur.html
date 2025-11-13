@@ -625,12 +625,20 @@
         }
 
         function renderProfile(tutor) {
-            const subjects = tutor.subjects ? tutor.subjects.split(',').map(s => s.trim()) : [];
-            const cities = tutor.cities ? tutor.cities.split(',').map(c => c.trim()) : [];
-            const levels = tutor.levels ? tutor.levels.split(',').map(l => l.trim()) : [];
+            console.log('Rendering profile for:', tutor);
+            const profileContent = document.getElementById('profileContent');
+            if (!profileContent) {
+                console.error('profileContent element not found in renderProfile');
+                return;
+            }
+
+            const subjects = tutor.subjects ? tutor.subjects.split(',').map(s => s.trim()).filter(s => s) : [];
+            const cities = tutor.cities ? tutor.cities.split(',').map(c => c.trim()).filter(c => c) : [];
+            const levels = tutor.levels ? tutor.levels.split(',').map(l => l.trim()).filter(l => l) : [];
             const firstLetter = tutor.teacher_name ? tutor.teacher_name.charAt(0).toUpperCase() : '?';
 
-            const profileContent = document.getElementById('profileContent');
+            console.log('Subjects:', subjects, 'Cities:', cities, 'Levels:', levels);
+
             profileContent.innerHTML = `
                 <div class="profile-header">
                     <div class="profile-avatar">${firstLetter}</div>
@@ -639,26 +647,30 @@
                 </div>
 
                 <div class="profile-card">
+                    ${subjects.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-book"></i> ${translations[currentLang].subjects}</h2>
                         <div class="badge-list">
                             ${subjects.map(subject => `<span class="badge">${subject}</span>`).join('')}
                         </div>
                     </div>
-
+                    ` : ''}
+                    ${cities.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-map-marker-alt"></i> ${translations[currentLang].cities}</h2>
                         <div class="badge-list">
                             ${cities.map(city => `<span class="badge">${city}</span>`).join('')}
                         </div>
                     </div>
-
+                    ` : ''}
+                    ${levels.length > 0 ? `
                     <div class="profile-section">
                         <h2><i class="fas fa-graduation-cap"></i> ${translations[currentLang].levels}</h2>
                         <div class="badge-list">
                             ${levels.map(level => `<span class="badge">${level}</span>`).join('')}
                         </div>
                     </div>
+                    ` : ''}
                 </div>
 
                 <div class="profile-card">
@@ -685,6 +697,10 @@
                     </div>
                 </div>
             `;
+            
+            console.log('Profile rendered successfully');
+            // Force a reflow to ensure rendering
+            profileContent.offsetHeight;
         }
 
         // Event listeners
