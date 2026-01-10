@@ -153,10 +153,6 @@
                 <i class="fas fa-university"></i>
                 <span data-translate="nav_secondary">Lycées (Baccalauréat)</span>
             </button>
-            <button class="nav-tab" data-level="voting" id="votingTab">
-                <img src="new_Logo_vote.png" alt="Vote" class="vote-logo-icon">
-                <span data-translate="nav_voting">Voter pour votre école préférée</span>
-            </button>
         </nav>
 
         <!-- Controls -->
@@ -226,83 +222,7 @@
             </div>
         </div>
 
-        <!-- Weekend Winner Announcement Banner -->
-        <div class="winner-announcement" id="winnerAnnouncement" style="display: none;">
-            <div class="winner-announcement-content">
-                <div class="winner-trophy">
-                    <i class="fas fa-trophy"></i>
-                </div>
-                <div class="winner-text">
-                    <h3 data-translate="winner_title">🏆 École Gagnante de la Semaine</h3>
-                    <p class="winner-name" id="winnerName"></p>
-                    <p class="winner-message" data-translate="winner_message">Félicitations à toute la communauté!</p>
-                    <button class="btn-view-archive" id="btnViewArchive" data-translate="view_history">Voir l'historique</button>
-                </div>
-                <button class="winner-close" onclick="closeWinnerAnnouncement()">&times;</button>
-            </div>
-        </div>
 
-        <!-- Voting Interface -->
-        <div class="voting-container" id="votingContainer" style="display: none;">
-            <div class="voting-header">
-                <div class="voting-header-content">
-                    <img src="new_Logo_vote.png" alt="Vote" class="vote-logo-header">
-                    <h2 data-translate="voting_title">Voter pour votre école préférée</h2>
-                </div>
-                <p class="voting-subtitle" data-translate="voting_subtitle">Choisissez une région pour voir les écoles éligibles au vote</p>
-            </div>
-            
-            <!-- Vote Counter and View Results Button -->
-            <div class="voting-actions">
-                <div class="voting-counter-container" id="votingCounter" style="display: none;">
-                    <!-- Vote counter will be populated here (hidden but still functional) -->
-                </div>
-                <button class="btn-view-results" id="btnViewResults" data-translate="view_results">
-                    <i class="fas fa-chart-bar"></i>
-                    <span data-translate="view_results">Voir les résultats</span>
-                </button>
-            </div>
-
-            <!-- Top 10 Leaderboard Section -->
-            <div class="top10-leaderboard-section" id="top10LeaderboardSection">
-                <div class="top10-header">
-                    <h3>
-                        <i class="fas fa-trophy"></i>
-                        <span data-translate="top10_weekly_title">🏆 Top 10 des Écoles de la Semaine</span>
-                    </h3>
-                    <button class="btn-refresh-leaderboard" id="btnRefreshLeaderboard" title="Actualiser">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-                <div class="top10-container" id="top10Container">
-                    <div class="top10-loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span data-translate="loading_top10">Chargement du classement...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Region Selection for Voting -->
-            <div class="voting-controls">
-                <div class="region-selection">
-                    <label for="votingRegionFilter" data-translate="voting_select_region">Sélectionnez une région:</label>
-                    <select id="votingRegionFilter" class="voting-select">
-                        <option value="" data-translate="voting_select_region_placeholder">-- Choisir une région --</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Voting Results -->
-            <div class="voting-schools-container" id="votingSchoolsContainer">
-                <div class="voting-message" id="votingMessage">
-                    <i class="fas fa-info-circle"></i>
-                    <span data-translate="voting_message">Veuillez sélectionner une région pour commencer à voter</span>
-                </div>
-                <div class="voting-schools-grid" id="votingSchoolsGrid">
-                    <!-- Voting schools will be populated here -->
-                </div>
-            </div>
-        </div>
 
 
         <!-- Pagination -->
@@ -336,37 +256,6 @@
         </div>
     </div>
 
-    <!-- Live Results Modal -->
-    <div class="modal" id="resultsModal" style="display: none;">
-        <div class="modal-content results-modal-content">
-            <div class="modal-header">
-                <h3 data-translate="results_modal_title">🏆 Top 10 des Écoles de la Semaine</h3>
-                <button class="close" onclick="closeResultsModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="resultsModalBody">
-                <div class="motivational-message">
-                    <i class="fas fa-fire"></i>
-                    <p data-translate="keep_voting_message">Continuez à voter, ce n'est pas encore fini!</p>
-                </div>
-                <div class="leaderboard-container" id="leaderboardContainer">
-                    <!-- Leaderboard will be populated here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Winner History Modal -->
-    <div class="modal" id="winnerHistoryModal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 data-translate="winner_history_title">Historique des Gagnants</h3>
-                <button class="close" onclick="closeWinnerHistoryModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="winnerHistoryBody">
-                <!-- Winner history will be populated here -->
-            </div>
-        </div>
-    </div>
 
     <!-- About Modal -->
     <div id="aboutModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8);">
